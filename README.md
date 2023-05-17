@@ -17,6 +17,8 @@ Cross-Platform module which provides a set of features to get info on and contro
 |  getAllowedModes  |
 |    changeMode     |
 
+## Update Info
+
 These features include a watchdog, running in a separate Thread, which will allow you to keep monitors 
 information updated and define hooks and its callbacks to be notified when monitors are plugged/unplugged or 
 their properties change. 
@@ -29,7 +31,8 @@ their properties change.
 |        updateInterval        |
 
 Notice this is a module-level information, completely independent (though related to and used by) window objects.
-Also notice that the information provided by `getMonitors()` method will be static unless the watchdog is enabled.
+Also notice that the information provided by `getMonitors()` method will be static unless the watchdog is enabled,
+or invoked with `forceUpdate=True`.
 
 Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
 or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. If you need monitors info updated 
@@ -45,11 +48,13 @@ By default, the monitors info will be checked (and updated) every 0.3 seconds. A
 but take into account higher values will take longer to detect and notify changes; whilst lower values will 
 consume more CPU.
 
-It is also possible to define callbacks to be invoked in case the number of connected monitors or their
-properties change. The information passed to the callbacks is:
+## Get notifications on changes
 
-   - Names of the monitors which have changed (as a list of strings), as returned by getDisplay() method
-   - All monitors info, as returned by getMonitors() function.
+When enabling the watchdog using `enableUpdate()`, it is possible to define callbacks to be invoked in case the 
+number of connected monitors or their properties change. The information passed to the callbacks is:
+
+   - Names of the monitors which have changed (as a list of strings)
+   - All monitors info, as returned by getMonitors()
 
 To access monitors properties, use monitor name as dictionary key
 
