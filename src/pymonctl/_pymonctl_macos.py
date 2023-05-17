@@ -22,9 +22,9 @@ def __getAllMonitors(name: str = ""):
         desc = screen.deviceDescription()
         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
         try:
-            scrName = screen.localizedName() + "_" + str(displayId)  # In older macOS, screen doesn't have localizedName() method
+            scrName = screen.localizedName()  # In older macOS, screen doesn't have localizedName() method
         except:
-            scrName = "Display" + "_" + str(displayId)
+            scrName = "Display"
 
         if not name or (name and scrName == name):
             yield [screen, desc, displayId, scrName]
@@ -61,8 +61,8 @@ def _getAllScreens():
         freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display))
         depth = Quartz.CGDisplayBitsPerPixel(display)
 
-        result[scrName + "_" + str(display)] = {
-            'id': display,
+        result[scrName] = {
+            'id': display + "_" + str(displayId),
             'is_primary': is_primary,
             'pos': Structs.Point(x, y),
             'size': Structs.Size(w, h),
@@ -149,8 +149,9 @@ def _findMonitorName(x: int, y: int) -> str:
             desc = screen.deviceDescription()
             displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
             try:
-                name = screen.localizedName() + "_" + str(displayId)  # In older macOS, screen doesn't have localizedName() method
+                name = screen.localizedName() + "_" + str(displayId)
             except:
+                # In older macOS, screen doesn't have localizedName() method
                 name = "Display" + "_" + str(displayId)
     return name
 
