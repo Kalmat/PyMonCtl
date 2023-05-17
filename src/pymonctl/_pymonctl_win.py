@@ -52,8 +52,6 @@ def _getAllScreens() -> dict[str, Structs.ScreenValue]:
                     break
 
             if monitorInfo:
-                print(monitorInfo)
-                print()
                 name = dev.DeviceName
                 x, y, r, b = monitorInfo["Monitor"]
                 wx, wy, wr, wb = monitorInfo["Work"]
