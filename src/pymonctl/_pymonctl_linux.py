@@ -72,7 +72,7 @@ def __getAllMonitors():
             yield [display, root, monitor, display.get_atom_name(monitor.name)]
 
 
-def __getMonitorsNames() -> List[str]:
+def __getMonitorsNames():
     for rootData in __getRoots():
         display, screen, root = rootData
         for monitor in root.xrandr_get_monitors().monitors:

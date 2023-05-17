@@ -370,7 +370,7 @@ def changeMode(width: int, height: int, frequency: float, name: str = ""):
     _changeMode(Structs.DisplayMode(width, height, frequency), name)
 
 
-def _changeScale(scale: int, name: str = ""):
+def _changeScale(scale: float, name: str = ""):
     _changeScale(scale, name)
 
 

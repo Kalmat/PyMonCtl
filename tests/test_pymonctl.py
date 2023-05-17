@@ -30,8 +30,8 @@ if win is not None:
     print("CURRENT MONITOR:", dpy)
     print("MONITOR SIZE:", pmc.getMonitorSize(dpy))
     print("WORKAREA:", pmc.getWorkArea(dpy))
-    print("POSITION:", pmc.getPosition())
-    print("AREA:", pmc.getRect())
+    print("POSITION:", pmc.getPosition(dpy))
+    print("AREA:", pmc.getRect(dpy))
     print("FIND FROM POINT", pmc.findMonitorName(win.center.x, win.center.y))
     print()
 

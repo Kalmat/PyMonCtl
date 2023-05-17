@@ -196,21 +196,25 @@ def _changeMode(mode: Structs.DisplayMode, name: str = ""):
 
     if mode in modes:
         devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-        devmode.DeviceName = name
         devmode.PelsWidth = mode.width
         devmode.PelsHeight = mode.height
         devmode.DisplayFrequency = mode.frequency
         devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY
-        win32api.ChangeDisplaySettings(devmode, 0)
+        if name:
+            win32api.ChangeDisplaySettingsEx(name, devmode, 0)
+        else:
+            win32api.ChangeDisplaySettings(devmode, 0)
 
 
-def _changeScale(scale: int, name: str = ""):
+def _changeScale(scale: float, name: str = ""):
 
     devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-    devmode.DeviceName = name
     devmode.Scale = scale
     devmode.Fields = win32con.DM_SCALE
-    win32api.ChangeDisplaySettings(devmode, 0)
+    if name:
+        win32api.ChangeDisplaySettingsEx(name, devmode, 0)
+    else:
+        win32api.ChangeDisplaySettings(devmode, 0)
 
 
 def _changeOrientation(orientation: int, name: str = ""):
