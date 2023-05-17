@@ -2,23 +2,44 @@
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
-These features include a watchdog sub-class, running in a separate Thread, will allow you to keep monitors information updated 
-and define hooks and its callbacks to be notified when monitors are plugged/unplugged or their properties change. 
+| Monitor features: |
+|:-----------------:|
+|    getMonitors    |
+| getMonitorsCount  |
+|  getMonitorSize   |
+|    getWorkArea    |
+|    getPosition    |
+|      getRect      |
+|  findMonitorInfo  |
+|  findMonitorName  |
+|    getMousePos    |
+|  getCurrentMode   |
+|  getAllowedModes  |
+|    changeMode     |
+
+These features include a watchdog, running in a separate Thread, which will allow you to keep monitors 
+information updated and define hooks and its callbacks to be notified when monitors are plugged/unplugged or 
+their properties change. 
+
+| watchdog sub-module methods: |
+|:----------------------------:|
+|         enableUpdate         |
+|        disableUpdate         |
+|       isUpdateEnabled        |
+|        updateInterval        |
 
 Notice this is a module-level information, completely independent (though related to and used by) window objects.
-Also notice that the information provided by this module will be static unless the watchdog is enabled  
-(except for getMonitorsCount(), which is retrieved every time the function is invoked)
+Also notice that the information provided by `getMonitors()` method will be static unless the watchdog is enabled.
 
 Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
-or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. And specially if you rely on
-getDisplay() method to somehow control window objects. If you need monitors info updated at a given moment, but not 
-continuously updated, just invoke getMonitors(True/False) at your convenience.
+or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. If you need monitors info updated 
+at a given moment, but not continuously updated, just invoke getMonitors(True/False) at your convenience.
 
 If enabled, it will activate a separate thread which will periodically update the list of monitors and
 their properties (see getMonitors() function).
 
 If disabled, the information on the monitors connected to the system will be static as it was when
-PyMonCtl module was initially loaded (changes produced afterwards will not be detected nor updated).
+PyMonCtl module was initially loaded (changes produced afterwards will not be returned by `getMonitors()`).
 
 By default, the monitors info will be checked (and updated) every 0.3 seconds. Adjust this value to your needs, 
 but take into account higher values will take longer to detect and notify changes; whilst lower values will 
@@ -38,27 +59,9 @@ To access monitors properties, use monitor name as dictionary key
     monitorPropsChange: callback to invoke if a monitor changes its properties (e.g. position or resolution)
                         Passes the list of monitors that produced the event and the info on all monitors (see getMonitors())
 
-
-| watchdog sub-module methods: |
-|:----------------------------:|
-|         enableUpdate         |
-|        disableUpdate         |
-|       isUpdateEnabled        |
-|        updateInterval        |
-|         getMonitors          |
-|       findMonitorInfo        |
-|       findMonitorName        |
-|       getMonitorsCount       |
-|        getMonitorSize        |
-|         getWorkArea          |
-|         getPosition          |
-|           getRect            |
-|         getMousePos          |
-
-
 Example:
 
-    import pymonctl
+    import pymonctl as pmc
     import time
 
     def countChanged(names, screensInfo):
@@ -71,7 +74,7 @@ Example:
         for name in names:
             print("MONITORS INFO:", screensInfo[name])
 
-    pymonctl.enableUpdate(monitorCountChanged=countChanged, monitorPropsChanged=propsChanged)
+    pmc.enableUpdate(monitorCountChanged=countChanged, monitorPropsChanged=propsChanged)
     print("Plug/Unplug monitors, or change monitor properties while running")
     print("Press Ctl-C to Quit")
     while True:
@@ -79,7 +82,7 @@ Example:
             time.sleep(1)
         except KeyboardInterrupt:
             break
-    pymonctl.disableUpdate()
+    pmc.disableUpdate()
 
 
 ## INSTALL <a name="install"></a>
@@ -113,14 +116,12 @@ If you want to use this code or contribute, you can either:
 * Create a fork of the [repository](https://github.com/Kalmat/PyMonCtl), or 
 * [Download the repository](https://github.com/Kalmat/PyMonCtl/archive/refs/heads/master.zip), uncompress, and open it on your IDE of choice (e.g. PyCharm)
 
-Be sure you install all dependencies described on "docs/requirements.txt" by using pip
+Be sure you install all dependencies described on `docs/requirements.txt` by using pip
+    
+    python3 -m pip install -r requirements.txt
 
 ## TEST <a name="test"></a>
 
-To test this module on your own system, cd to "tests" folder and run:
+To test this module on your own system, cd to `tests` folder and run:
 
-    pytest -vv test_pymonctl.py
-
-or, in case you get an import error, try this:
-
-    python3 -m pytest -vv test_pymonctl.py
+    python3 test_pymonctl.py

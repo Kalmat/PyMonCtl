@@ -2,4 +2,6 @@ General:
 - Include more functions to control monitors
     - Resolution
     - Scale
+    - Orientation
+    - Position
     - others (?)
