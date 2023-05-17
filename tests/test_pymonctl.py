@@ -28,7 +28,7 @@ win = pwc.getActiveWindow()
 if win is not None:
     dpy = win.getDisplay()
     print("CURRENT MONITOR:", dpy)
-    print("MONITOR SIZE:", pmc.getMonitorSize(dpy))
+    print("MONITOR SIZE:", pmc.getSize(dpy))
     print("WORKAREA:", pmc.getWorkArea(dpy))
     print("POSITION:", pmc.getPosition(dpy))
     print("AREA:", pmc.getRect(dpy))

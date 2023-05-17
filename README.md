@@ -6,7 +6,7 @@ Cross-Platform module which provides a set of features to get info on and contro
 |:-----------------:|
 |    getMonitors    |
 | getMonitorsCount  |
-|  getMonitorSize   |
+|      getSize      |
 |    getWorkArea    |
 |    getPosition    |
 |      getRect      |
