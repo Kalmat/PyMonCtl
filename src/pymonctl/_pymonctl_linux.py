@@ -16,7 +16,7 @@ import Xlib.X
 import Xlib.ext.randr
 
 from pymonctl._xlibcontainer import Props, defaultRootWindow, getProperty, getPropertyValue
-from pymonctl import Structs, pointInBox
+from pymonctl import Structs, _pointInBox
 
 
 def __getDisplays() -> List[Xlib.display.Display]:
@@ -194,7 +194,7 @@ def _findMonitorName(x: int, y: int) -> str:
         monitor = mon[2]
         monName = mon[3]
         sx, sy, sw, sh = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
-        if pointInBox(x, y, sx, sy, sw, sh):
+        if _pointInBox(x, y, sx, sy, sw, sh):
             name = monName
             break
     return name

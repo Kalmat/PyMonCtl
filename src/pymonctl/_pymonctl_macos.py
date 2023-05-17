@@ -13,7 +13,7 @@ from typing import Optional, List
 import AppKit
 import Quartz
 
-from pymonctl import Structs, pointInBox
+from pymonctl import Structs, _pointInBox
 
 
 def __getAllMonitors(name: str = ""):
@@ -145,7 +145,7 @@ def _findMonitorName(x: int, y: int) -> str:
     screens = AppKit.NSScreen.screens()
     for screen in screens:
         frame = screen.frame()
-        if pointInBox(x, y, int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)):
+        if _pointInBox(x, y, int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)):
             desc = screen.deviceDescription()
             displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
             try:
@@ -223,7 +223,7 @@ def _getMousePos(unflipValues: bool = False) -> Structs.Point:
         for screen in screens:
             frame = screen.frame()
             sx, sy, sw, sh = int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)
-            if pointInBox(x, y, sx, sy, sw, sh):
+            if _pointInBox(x, y, sx, sy, sw, sh):
                 y = (-1 if y < 0 else 1) * int(sh) - abs(y)
                 break
     return Structs.Point(x, y)

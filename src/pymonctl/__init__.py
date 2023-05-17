@@ -10,17 +10,17 @@ from typing import List, Tuple, TypedDict, Optional, NamedTuple
 
 __all__ = [
     "enableUpdate", "disableUpdate", "isUpdateEnabled", "updateInterval",
-    "getMonitors", "_getMonitorsCount", "findMonitorName", "findMonitorInfo",
-    "getMonitorSize", "_getWorkArea", "_getMousePos", "pointInBox",
-    "Structs", "_getCurrentMode", "_getAllowedModes", "_changeMode",
+    "getMonitors", "getMonitorsCount", "findMonitorName", "findMonitorInfo",
+    "getSize", "getWorkArea", "getMousePos", "Structs",
+    "getCurrentMode", "getAllowedModes", "changeMode",
 ]
 # Mac only
 __version__ = "0.0.2"
 
 
 def version(numberOnly: bool = True):
-    """Returns the current version of MonitorCtl module, in the form ''x.x.xx'' as string"""
-    return ("" if numberOnly else "MonitorCtl-")+__version__
+    """Returns the current version of PyMonCtl module, in the form ''x.x.xx'' as string"""
+    return ("" if numberOnly else "PyMonCtl-")+__version__
 
 
 class Structs:
@@ -65,7 +65,7 @@ class Structs:
         frequency: float
 
 
-def pointInBox(x: int, y: int, left: int, top: int, width: int, height: int):
+def _pointInBox(x: int, y: int, left: int, top: int, width: int, height: int):
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
     return left < x < left + width and top < y < top + height
@@ -259,7 +259,7 @@ def getWorkArea(name: str = ""):
     return _getWorkArea(name)
 
 
-def getMonitorSize(name: str = ""):
+def getSize(name: str = ""):
     """
     Get the width and height, in pixels, of the given monitor, or main monitor if no monitor name provided
 
@@ -267,7 +267,6 @@ def getMonitorSize(name: str = ""):
     :return: Size struct or None
     """
     return _getScreenSize(name)
-resolution = getMonitorSize  # resolution is an alias for getMonitorSize
 
 
 def getPosition(name: str = "") -> Optional[Structs.Point]:
@@ -278,7 +277,6 @@ def getPosition(name: str = "") -> Optional[Structs.Point]:
     :return: Point struct or None
     """
     return _getPosition(name)
-position = getPosition  # position is an alias for getPosition
 
 
 def getRect(name: str = "") -> Optional[Structs.Rect]:
@@ -303,7 +301,7 @@ def findMonitorInfo(x: int, y: int) -> dict[str, Structs.ScreenValue]:
     for monitor in screens.keys():
         pos = screens[monitor]["pos"]
         size = screens[monitor]["size"]
-        if pointInBox(x, y, pos.x, pos.y, size.width, size.height):
+        if _pointInBox(x, y, pos.x, pos.y, size.width, size.height):
             info[monitor] = screens[monitor]
             break
     return info
