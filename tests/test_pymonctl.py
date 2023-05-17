@@ -50,9 +50,10 @@ if win is not None:
 
     targetMode = currMode
     if currMode is not None:
-        for mode in modes[modeIndex - 1::-1]:
-            if mode.width != currMode and mode.height != currMode.height:
-                targetMode = mode
+        for i, mode in enumerate(modes):
+            if mode == currMode:
+                # choose a random allowed, different from current screen mode
+                targetMode = modes[(i + 3) if (i + 3) < len(modes) else ((i - 3) if (i - 3) >= 0 else 0)]
                 break
 
     pmc.enableUpdate(monitorPropsChanged=propsChanged)
@@ -61,10 +62,10 @@ if win is not None:
     i = 0
     while True:
         if i == 5 and targetMode is not None:
-            print("CHANGE MODE TO:", targetMode)
+            print("CHANGE MODE TO:", dpy, targetMode)
             pmc.changeMode(targetMode.width, targetMode.height, targetMode.frequency, dpy)
         if i == 10 and currMode is not None:
-            print("RESTORING MODE TO:", currMode)
+            print("RESTORING MODE TO:", dpy, currMode)
             pmc.changeMode(currMode.width, currMode.height, currMode.frequency, dpy)
         if i == 15:
             break
@@ -72,3 +73,6 @@ if win is not None:
         time.sleep(1)
     pmc.disableUpdate()
     print("UPDATE DETECTION ENABLED:", pmc.isUpdateEnabled())
+else:
+    print("NO ACTIVE WINDOW?!?!?!")
+

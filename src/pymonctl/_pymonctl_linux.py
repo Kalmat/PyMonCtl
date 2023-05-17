@@ -18,7 +18,6 @@ import Xlib.ext.randr
 from pymonctl._xlibcontainer import Props, defaultRootWindow, getProperty, getPropertyValue
 from pymonctl import Structs, _pointInBox
 
-
 def __getDisplays() -> List[Xlib.display.Display]:
     displays: List[Xlib.display.Display] = []
     try:
@@ -85,43 +84,41 @@ def _getAllScreens():
     # https://github.com/alexer/python-xlib/blob/master/examples/xrandr.py
     result: dict[str, Structs.ScreenValue] = {}
 
-    for crtc in __getAllCrtcs():
-        display, screen, root, res, output, outputInfo, crtcNumber, crtcInfo = crtc
+    crtcs = __getAllCrtcs()
+    for monitor in __getAllMonitors():
+        display, root, monitor, monitorName = monitor
+        for crtc in crtcs:
+            display, screen, root, res, output, outputInfo, crtc, crtcInfo = crtc
 
-        if crtcInfo.mode:
-            name = outputInfo.name
-            dId = output
-            x, y, w, h = crtcInfo.x, crtcInfo.y, crtcInfo.width, crtcInfo.height
-            wa: List[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA.value, display=display), display=display)
-            wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (crtcInfo.width - wa[2] - wa[0]), y + h - (crtcInfo.height - wa[3] - wa[1])
-            try:
-                dpiX, dpiY = round(crtcInfo.width * 25.4 / outputInfo.mm_width), round(crtcInfo.height * 25.4 / outputInfo.mm_height)
-            except:
-                try:
-                    dpiX, dpiY = round(w * 25.4 / screen.width_in_mms), round(h * 25.4 / screen.height_in_mms)
-                except:
-                    dpiX = dpiY = 0
-            scaleX, scaleY = round(dpiX / 96 * 100), round(dpiY / 96 * 100)
-            rot = int(math.log(crtcInfo.rotation, 2))
-            freq = 0.0
-            for mode in res.modes:
-                if crtcInfo.mode == mode.id:
-                    freq = mode.dot_clock / ((mode.h_total * mode.v_total) or 1)
-                    break
-            depth = screen.root_depth
+            if outputInfo.name == monitorName and outputInfo.crtc == crtc:
+                is_primary = monitor.primary == 1
+                x, y, w, h = crtcInfo.x, crtcInfo.y, crtcInfo.width, crtcInfo.height
+                # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
+                wa: List[int] = defaultRootWindow.getWorkArea()
+                wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
+                dpiX, dpiY = round((w * 25.4) / outputInfo.mm_width), round((h * 25.4) / outputInfo.mm_height)
+                scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
+                rot = int(math.log(crtcInfo.rotation, 2))
+                freq = 0.0
+                for mode in res.modes:
+                    if crtcInfo.mode == mode.id:
+                        freq = round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
+                        break
+                depth = screen.root_depth
 
-            result[name] = {
-                'id': dId,
-                'is_primary': (x, y) == (0, 0),
-                'pos': Structs.Point(x, y),
-                'size': Structs.Size(w, h),
-                'workarea': Structs.Rect(wx, wy, wr, wb),
-                'scale': (scaleX, scaleY),
-                'dpi': (dpiX, dpiY),
-                'orientation': rot,
-                'frequency': freq,
-                'colordepth': depth
-            }
+                result[outputInfo.name] = {
+                    'id': output,
+                    'is_primary': is_primary,
+                    'pos': Structs.Point(x, y),
+                    'size': Structs.Size(w, h),
+                    'workarea': Structs.Rect(wx, wy, wr, wb),
+                    'scale': (scaleX, scaleY),
+                    'dpi': (dpiX, dpiY),
+                    'orientation': rot,
+                    'frequency': freq,
+                    'colordepth': depth
+                }
+                break
     return result
 
 
@@ -230,7 +227,7 @@ def _getCurrentMode(name: str = "") -> Optional[Structs.DisplayMode]:
     if mode and allModes:
         for m in allModes:
             if mode == m.id:
-                outMode = Structs.DisplayMode(m.width, m.height, m.dot_clock / ((m.h_total * m.v_total) or 1))
+                outMode = Structs.DisplayMode(m.width, m.height, round(m.dot_clock / ((m.h_total * m.v_total) or 1), 2))
                 break
     return outMode
 
@@ -251,9 +248,28 @@ def __getAllowedModesID(name: str = "") -> List[Tuple[int, Structs.DisplayMode]]
         allModes = res.modes
 
     for mode in allModes:
-        modes.append((mode.id, Structs.DisplayMode(mode.width, mode.height, mode.dot_clock / ((mode.h_total * mode.v_total) or 1))))
+        modes.append((mode.id, Structs.DisplayMode(mode.width, mode.height, round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2))))
     return modes
 
+
+def __getModeID(modeIn: Structs.DisplayMode, name: str = ""):
+
+    allModes = []
+
+    if name:
+        for crtc in __getAllCrtcs(name):
+            res = crtc[3]
+            allModes = res.modes
+            break
+    else:
+        root = defaultRootWindow.root
+        res = root.xrandr_get_screen_resources()
+        allModes = res.modes
+
+    for mode in allModes:
+        freq = round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
+        if modeIn.width == mode.width and modeIn.height == mode.height and modeIn.frequency == freq:
+            return mode.id
 
 def _getAllowedModes(name: str = "") -> List[Structs.DisplayMode]:
 
@@ -273,7 +289,7 @@ def _getAllowedModes(name: str = "") -> List[Structs.DisplayMode]:
         allModes = res.modes
 
     for mode in allModes:
-        modes.append(Structs.DisplayMode(mode.width, mode.height, mode.dot_clock / ((mode.h_total * mode.v_total) or 1)))
+        modes.append(Structs.DisplayMode(mode.width, mode.height, round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)))
     return modes
 
 
@@ -334,10 +350,9 @@ def _changeMode(mode: Structs.DisplayMode, name: str = ""):
     # Xlib.ext.randr.change_output_property()
     allModes = _getAllowedModes(name)
     if mode in allModes:
-        cmd = " -s %sx%s -r %s" % (mode.width, mode.height, round(mode.frequency))
+        cmd = " --mode %sx%s -r %s" % (mode.width, mode.height, round(mode.frequency, 2))
         if name and name in __getMonitorsNames():
             cmd = (" --output %s" % name) + cmd
-            # cmd = (" --screen %s" % 0) + cmd
         cmd = "xrandr" + cmd
         ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "")
 
