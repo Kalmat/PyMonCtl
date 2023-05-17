@@ -1,0 +1,7 @@
+/.idea/
+/build/
+/src/PyMonCtl.egg-info/
+/tests/multi_monitor_coords.py
+/make_wheel.bat
+/pip_make.bat
+/pip_upload.bat
