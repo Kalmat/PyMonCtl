@@ -25,7 +25,7 @@ def __getAllMonitors(name: str = ""):
     for monitor in win32api.EnumDisplayMonitors():
         hMon = monitor[0].handle
         monitorInfo = win32api.GetMonitorInfo(hMon)
-        if not name or (name and monitorInfo["Device"] == name):
+        if not name or (name and monitorInfo.get("Device", "") == name):
             yield [hMon, monitorInfo]
 
 
@@ -48,14 +48,14 @@ def _getAllScreens() -> dict[str, Structs.ScreenValue]:
             for mon in monitors:
                 monitor = mon[0].handle
                 monitorInfo = win32api.GetMonitorInfo(monitor)
-                if monitorInfo["Device"] == dev.DeviceName:
+                if monitorInfo.get("Device", "") == dev.DeviceName:
                     break
 
             if monitorInfo:
                 name = dev.DeviceName
-                x, y, r, b = monitorInfo["Monitor"]
-                wx, wy, wr, wb = monitorInfo["Work"]
-                is_primary = monitorInfo["Flags"] == 1
+                x, y, r, b = monitorInfo.get("Monitor", (0, 0, 0, 0))
+                wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, 0, 0))
+                is_primary = monitorInfo.get("Flags", 0) == win32con.MONITORINFOF_PRIMARY
                 pScale = ctypes.c_uint()
                 ctypes.windll.shcore.GetScaleFactorForMonitor(monitor, ctypes.byref(pScale))
                 scale = pScale.value
@@ -69,7 +69,6 @@ def _getAllScreens() -> dict[str, Structs.ScreenValue]:
 
                 result[name] = {
                     "id": win32api.MonitorFromPoint((x, y)),
-                    # "is_primary": monitor_info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY == 1,
                     "is_primary": is_primary,
                     "pos": Structs.Point(x, y),
                     "size": Structs.Size(abs(r - x), abs(b - y)),
@@ -93,7 +92,7 @@ def _getScreenSize(name: str = "") -> Optional[Structs.Size]:
     if name:
         for mon in __getAllMonitors(name):
             monitorInfo = mon[1]
-            x, y, r, b = monitorInfo["Monitor"]
+            x, y, r, b = monitorInfo.get("Monitor", (0, 0, 0, 0))
             size = Structs.Size(abs(r - x), abs(b - y))
             break
     else:
@@ -106,7 +105,7 @@ def _getWorkArea(name: str = "") -> Optional[Structs.Rect]:
     if name:
         for mon in __getAllMonitors(name):
             monitorInfo = mon[1]
-            wx, wy, wr, wb = monitorInfo["Work"]
+            wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, 0, 0))
             # # values seem to be affected by the scale factor of the primary display
             # x, y, r, b = monitorInfo["Monitor"]
             # settings = win32api.EnumDisplaySettings(name, win32con.ENUM_CURRENT_SETTINGS)
@@ -115,7 +114,7 @@ def _getWorkArea(name: str = "") -> Optional[Structs.Rect]:
             break
     else:
         monitorInfo = win32api.GetMonitorInfo(win32api.MonitorFromPoint((0, 0)))
-        wx, wy, wr, wb = monitorInfo["Work"]
+        wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, 0, 0))
         workarea = Structs.Rect(wx, wy, wr, wb)
     return workarea
 
@@ -125,7 +124,7 @@ def _getPosition(name: str = "") -> Optional[Structs.Point]:
     if name:
         for mon in __getAllMonitors(name):
             monitorInfo = mon[1]
-            x, y, r, b = monitorInfo["Monitor"]
+            x, y, r, b = monitorInfo.get("Monitor", (0, 0, 0, 0))
             pos = Structs.Point(x, y)
             break
     else:
@@ -138,7 +137,7 @@ def _getRect(name: str = "") -> Optional[Structs.Rect]:
     if name:
         for mon in __getAllMonitors(name):
             monitorInfo = mon[1]
-            x, y, r, b = monitorInfo["Monitor"]
+            x, y, r, b = monitorInfo.get("Monitor", (0, 0, 0, 0))
             rect = Structs.Rect(x, y, r, b)
             break
     else:
@@ -151,7 +150,7 @@ def _findMonitorName(x: int, y: int) -> str:
     monitor = win32api.MonitorFromPoint((x, y))
     if monitor:
         monitorInfo = win32api.GetMonitorInfo(monitor)
-        name = monitorInfo["Device"]
+        name = monitorInfo.get("Device", "")
     return name
 
 
@@ -191,6 +190,7 @@ def _getAllowedModes(name: str = "") -> List[Structs.DisplayMode]:
 
 
 def _changeMode(mode: Structs.DisplayMode, name: str = ""):
+    # http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
 
     modes = _getAllowedModes(name)
 

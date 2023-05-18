@@ -18,6 +18,17 @@ import Xlib.ext.randr
 from pymonctl._xlibcontainer import Props, defaultRootWindow, getProperty, getPropertyValue
 from pymonctl import Structs, _pointInBox
 
+
+# https://github.com/python-xlib/python-xlib/blob/master/examples/xrandr.py
+if not defaultRootWindow.display.has_extension('RANDR'):
+    sys.stderr.write('{}: server does not have the RANDR extension\n'.format(sys.argv[0]))
+    ext = defaultRootWindow.display.query_extension('RANDR')
+    print(ext)
+    sys.stderr.write("\n".join(defaultRootWindow.display.list_extensions()))
+    if ext is None:
+        sys.exit(1)
+
+
 def __getDisplays() -> List[Xlib.display.Display]:
     displays: List[Xlib.display.Display] = []
     try:
@@ -49,12 +60,12 @@ def __getAllOutputs(name: str = ""):
         for output in res.outputs:
             outputInfo = display.xrandr_get_output_info(output, res.config_timestamp)
             if not name or (name and name == outputInfo.name):
-                yield [display, screen, root, res, outputInfo]
+                yield [display, screen, root, res, output, outputInfo]
 
 
 def __getAllCrtcs(name: str = ""):
-    for rootData in __getAllOutputs():
-        display, screen, root, res, outputInfo = rootData
+    for outputData in __getAllOutputs():
+        display, screen, root, res, output, outputInfo = outputData
         res = root.xrandr_get_screen_resources()
         for output in res.outputs:
             outputInfo = display.xrandr_get_output_info(output, res.config_timestamp)
@@ -84,19 +95,21 @@ def _getAllScreens():
     # https://github.com/alexer/python-xlib/blob/master/examples/xrandr.py
     result: dict[str, Structs.ScreenValue] = {}
 
-    crtcs = __getAllCrtcs()
-    for monitor in __getAllMonitors():
-        display, root, monitor, monitorName = monitor
-        for crtc in crtcs:
-            display, screen, root, res, output, outputInfo, crtc, crtcInfo = crtc
+    outputs = __getAllOutputs()
+    for monitorData in __getAllMonitors():
+        display, root, monitor, monitorName = monitorData
 
-            if outputInfo.name == monitorName and outputInfo.crtc == crtc:
+        for outputData in outputs:
+            display, screen, root, res, output, outputInfo = outputData
+
+            if outputInfo.name == monitorName and outputInfo.crtc:
+                crtcInfo = display.xrandr_get_crtc_info(outputInfo.crtc, res.config_timestamp)
                 is_primary = monitor.primary == 1
-                x, y, w, h = crtcInfo.x, crtcInfo.y, crtcInfo.width, crtcInfo.height
+                x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
                 # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
                 wa: List[int] = defaultRootWindow.getWorkArea()
                 wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
-                dpiX, dpiY = round((w * 25.4) / outputInfo.mm_width), round((h * 25.4) / outputInfo.mm_height)
+                dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
                 scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
                 rot = int(math.log(crtcInfo.rotation, 2))
                 freq = 0.0
@@ -270,6 +283,7 @@ def __getModeID(modeIn: Structs.DisplayMode, name: str = ""):
         freq = round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
         if modeIn.width == mode.width and modeIn.height == mode.height and modeIn.frequency == freq:
             return mode.id
+
 
 def _getAllowedModes(name: str = "") -> List[Structs.DisplayMode]:
 

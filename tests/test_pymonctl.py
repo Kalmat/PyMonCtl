@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import sys
 import time
 
 import pymonctl as pmc  # type: ignore[import]
@@ -52,7 +53,7 @@ if win is not None:
     if currMode is not None:
         for i, mode in enumerate(modes):
             if mode == currMode:
-                # choose a random allowed, different from current screen mode
+                # Choosing a random allowed, different from current screen mode
                 targetMode = modes[(i + 3) if (i + 3) < len(modes) else ((i - 3) if (i - 3) >= 0 else 0)]
                 break
 
@@ -74,5 +75,4 @@ if win is not None:
     pmc.disableUpdate()
     print("UPDATE DETECTION ENABLED:", pmc.isUpdateEnabled())
 else:
-    print("NO ACTIVE WINDOW?!?!?!")
-
+    print("NO ACTIVE WINDOW?!?!?!" + (" GUESS WE ARE IN WAYLAND..." if sys.platform == "linux" else ""))

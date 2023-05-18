@@ -15,7 +15,7 @@ __all__ = [
     "getCurrentMode", "getAllowedModes", "changeMode",
 ]
 # Mac only
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 
 def version(numberOnly: bool = True):
