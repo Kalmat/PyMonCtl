@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import threading
 
 assert sys.platform == "linux"
 
 import math
 import os
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 
 import Xlib.display
 import Xlib.X
@@ -71,7 +72,7 @@ def __getAllCrtcs(name: str = ""):
             outputInfo = display.xrandr_get_output_info(output, res.config_timestamp)
             if not name or (name and name == outputInfo.name):
                 for crtc in outputInfo.crtcs:
-                    crtcInfo = defaultRootWindow.display.xrandr_get_crtc_info(crtc, res.config_timestamp)
+                    crtcInfo = display.xrandr_get_crtc_info(crtc, res.config_timestamp)
                     yield [display, screen, root, res, output, outputInfo, crtc, crtcInfo]
 
 
@@ -89,7 +90,7 @@ def __getMonitorsNames():
             yield display.get_atom_name(monitor.name)
 
 
-def _getAllScreens():
+def _getAllScreens() -> dict[str, Structs.ScreenValue]:
     # https://stackoverflow.com/questions/8705814/get-display-count-and-resolution-for-each-display-in-python-without-xrandr
     # https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html#Obtaining_Information_about_the_Display_Image_Formats_or_Screens
     # https://github.com/alexer/python-xlib/blob/master/examples/xrandr.py
@@ -107,7 +108,7 @@ def _getAllScreens():
                 is_primary = monitor.primary == 1
                 x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
                 # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
-                wa: List[int] = defaultRootWindow.getWorkArea()
+                wa: List[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA.value, display=display), display=display)
                 wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
                 dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
                 scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
@@ -147,8 +148,7 @@ def _getScreenSize(name: str = "") -> Optional[Structs.Size]:
     res: Optional[Structs.Size] = None
     if name:
         for mon in __getAllMonitors():
-            monitor = mon[2]
-            monName = mon[3]
+            display, root, monitor, monName = mon
             if monName == name:
                 size: Tuple[int, int] = monitor.width_in_pixels, monitor.height_in_pixels
                 res = Structs.Size(*size)
@@ -165,9 +165,9 @@ def _getWorkArea(name: str = "") -> Optional[Structs.Rect]:
         for mon in __getAllMonitors():
             display, root, monitor, monName = mon
             if monName == name:
-                x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
+                # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
                 wa: List[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA.value, display=display), display=display)
-                wx, wy, wr, wb = x + wa[0], y + wa[1], x + w - (w - wa[2] - wa[0]), y + h - (h - wa[3] - wa[1])
+                wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
                 res = Structs.Rect(wx, wy, wr, wb)
                 break
     else:
@@ -179,8 +179,7 @@ def _getWorkArea(name: str = "") -> Optional[Structs.Rect]:
 def _getPosition(name: str = "") -> Optional[Structs.Point]:
     pos: Optional[Structs.Point] = None
     for mon in __getAllMonitors():
-        monitor = mon[2]
-        monName = mon[3]
+        display, root, monitor, monName = mon
         if (not name and monitor.primary == 1) or (name and monName == name):
             pos = Structs.Point(monitor.x, monitor.y)
             break
@@ -190,8 +189,7 @@ def _getPosition(name: str = "") -> Optional[Structs.Point]:
 def _getRect(name: str = "") -> Optional[Structs.Rect]:
     rect: Optional[Structs.Rect] = None
     for mon in __getAllMonitors():
-        monitor = mon[2]
-        monName = mon[3]
+        display, root, monitor, monName = mon
         if (not name and monitor.primary == 1) or (name and monName == name):
             rect = Structs.Rect(monitor.x, monitor.y, monitor.x + monitor.width_in_pixels, monitor.y + monitor.height_in_pixels)
             break
@@ -201,11 +199,10 @@ def _getRect(name: str = "") -> Optional[Structs.Rect]:
 def _findMonitorName(x: int, y: int) -> str:
     name: str = ""
     for mon in __getAllMonitors():
-        monitor = mon[2]
-        monName = mon[3]
+        display, root, monitor, monName = mon
         sx, sy, sw, sh = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
         if _pointInBox(x, y, sx, sy, sw, sh):
-            name = monName
+            name = str(monName)
             break
     return name
 
@@ -225,8 +222,7 @@ def _getCurrentMode(name: str = "") -> Optional[Structs.DisplayMode]:
                 allModes = res.modes
                 break
     else:
-        root = defaultRootWindow.root
-        res = root.xrandr_get_screen_resources()
+        res = defaultRootWindow.root.xrandr_get_screen_resources()
         for output in res.outputs:
             outputInfo = defaultRootWindow.display.xrandr_get_output_info(output, res.config_timestamp)
             for crtc in outputInfo.crtcs:
@@ -283,6 +279,7 @@ def __getModeID(modeIn: Structs.DisplayMode, name: str = ""):
         freq = round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
         if modeIn.width == mode.width and modeIn.height == mode.height and modeIn.frequency == freq:
             return mode.id
+    return None
 
 
 def _getAllowedModes(name: str = "") -> List[Structs.DisplayMode]:
@@ -307,56 +304,6 @@ def _getAllowedModes(name: str = "") -> List[Structs.DisplayMode]:
     return modes
 
 
-# def _eventLoop(kill: threading.Event, interval: float):
-#
-#     pp = pprint.PrettyPrinter(indent=4)
-#
-#     defaultRootWindow.root.xrandr_select_input(
-#         Xlib.ext.randr.RRScreenChangeNotifyMask
-#         | Xlib.ext.randr.RRCrtcChangeNotifyMask
-#         | Xlib.ext.randr.RROutputChangeNotifyMask
-#         | Xlib.ext.randr.RROutputPropertyNotifyMask
-#     )
-#
-#     while not kill.is_set():
-#
-#         count = defaultRootWindow.display.pending_events()
-#         while count > 0 and not kill.is_set():
-#
-#             e = defaultRootWindow.display.next_event()
-#
-#             if e.__class__.__name__ == Xlib.ext.randr.ScreenChangeNotify.__name__:
-#                 print('Screen change')
-#                 print(pp.pprint(e._data))
-#
-#             # check if we're getting one of the RandR event types with subcodes
-#             elif e.type == defaultRootWindow.display.extension_event.CrtcChangeNotify[0]:
-#                 # yes, check the subcodes
-#
-#                 # CRTC information has changed
-#                 if (e.type, e.sub_code) == defaultRootWindow.display.extension_event.CrtcChangeNotify:
-#                     print('CRTC change')
-#                     # e = randr.CrtcChangeNotify(display=display.display, binarydata = e._binary)
-#                     print(pp.pprint(e._data))
-#
-#                 # Output information has changed
-#                 elif (e.type, e.sub_code) == defaultRootWindow.display.extension_event.OutputChangeNotify:
-#                     print('Output change')
-#                     # e = randr.OutputChangeNotify(display=display.display, binarydata = e._binary)
-#                     print(pp.pprint(e._data))
-#
-#                 # Output property information has changed
-#                 elif (e.type, e.sub_code) == defaultRootWindow.display.extension_event.OutputPropertyNotify:
-#                     print('Output property change')
-#                     # e = randr.OutputPropertyNotify(display=display.display, binarydata = e._binary)
-#                     print(pp.pprint(e._data))
-#                 else:
-#                     print("Unrecognised subcode", e.sub_code)
-#
-#             count -= 1
-#         kill.wait(interval)
-
-
 def _changeMode(mode: Structs.DisplayMode, name: str = ""):
     # https://stackoverflow.com/questions/12706631/x11-change-resolution-and-make-window-fullscreen
     # Xlib.ext.randr.set_screen_size(defaultRootWindow.root, mode.width, mode.height, 0, 0)
@@ -368,22 +315,108 @@ def _changeMode(mode: Structs.DisplayMode, name: str = ""):
         if name and name in __getMonitorsNames():
             cmd = (" --output %s" % name) + cmd
         cmd = "xrandr" + cmd
-        ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "")
+        try:
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+        except:
+            pass
 
 
-def _changeScale(scale: int, name: str = ""):
-    pass
+def _changeScale(scale: Union[float, Tuple[float, float]], name: str = ""):
+    # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
+    if isinstance(scale, tuple):
+        scaleX, scaleY = scale
+    else:
+        scaleX = scaleY = scale
+    cmd = " --scale %sx%s --filter nearest" % (scaleX, scaleY)
+    if name and name in __getMonitorsNames():
+        cmd = (" --output %s" % name) + cmd
+    cmd = "xrandr" + cmd
+    try:
+        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+    except:
+        pass
 
 
 def _changeOrientation(orientation: int, name: str = ""):
-    pass
+    if orientation == 1:
+        direction = "right"
+    elif orientation == 2:
+        direction = "inverted"
+    elif orientation == 3:
+        direction = "left"
+    else:
+        direction = "normal"
+    cmd = " -o %s" % direction
+    if name and name in __getMonitorsNames():
+        cmd = (" --output %s" % name) + cmd
+    cmd = "xrandr" + cmd
+    try:
+        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+    except:
+        pass
 
 
 def _changePosition(newX: int, newY: int, name: str = ""):
-    pass
+    # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
+    cmd = " --pos %sx%s" % (newX, newY)
+    if name and name in __getMonitorsNames():
+        cmd = (" --output %s" % name) + cmd
+    cmd = "xrandr" + cmd
+    try:
+        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+    except:
+        pass
 
 
-def _getMousePos() -> Structs.Point:
+def _eventLoop(kill: threading.Event, interval: float):
+
+    defaultRootWindow.root.xrandr_select_input(
+        Xlib.ext.randr.RRScreenChangeNotifyMask
+        | Xlib.ext.randr.RRCrtcChangeNotifyMask
+        | Xlib.ext.randr.RROutputChangeNotifyMask
+        | Xlib.ext.randr.RROutputPropertyNotifyMask
+    )
+
+    while not kill.is_set():
+
+        count = defaultRootWindow.display.pending_events()
+        while count > 0 and not kill.is_set():
+
+            e = defaultRootWindow.display.next_event()
+
+            if e.__class__.__name__ == Xlib.ext.randr.ScreenChangeNotify.__name__:
+                print('Screen change')
+                print(e._data)
+
+            # check if we're getting one of the RandR event types with subcodes
+            elif e.type == defaultRootWindow.display.extension_event.CrtcChangeNotify[0]:
+                # yes, check the subcodes
+
+                # CRTC information has changed
+                if (e.type, e.sub_code) == defaultRootWindow.display.extension_event.CrtcChangeNotify:
+                    print('CRTC change')
+                    # e = randr.CrtcChangeNotify(display=display.display, binarydata = e._binary)
+                    print(e._data)
+
+                # Output information has changed
+                elif (e.type, e.sub_code) == defaultRootWindow.display.extension_event.OutputChangeNotify:
+                    print('Output change')
+                    # e = randr.OutputChangeNotify(display=display.display, binarydata = e._binary)
+                    print(e._data)
+
+                # Output property information has changed
+                elif (e.type, e.sub_code) == defaultRootWindow.display.extension_event.OutputPropertyNotify:
+                    print('Output property change')
+                    # e = randr.OutputPropertyNotify(display=display.display, binarydata = e._binary)
+                    print(e._data)
+                else:
+                    print("Unrecognised subcode", e.sub_code)
+
+            count -= 1
+        kill.wait(interval)
+
+
+def _getMousePos(name: str = "") -> Structs.Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
 

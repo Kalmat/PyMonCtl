@@ -5,7 +5,8 @@ from __future__ import annotations
 import sys
 import threading
 from collections.abc import Callable
-from typing import List, Tuple, TypedDict, Optional, NamedTuple
+from typing import List, Tuple, Optional, NamedTuple
+from typing_extensions import TypedDict
 
 
 __all__ = [
@@ -14,8 +15,8 @@ __all__ = [
     "getSize", "getWorkArea", "getMousePos", "Structs",
     "getCurrentMode", "getAllowedModes", "changeMode",
 ]
-# Mac only
-__version__ = "0.0.6"
+
+__version__ = "0.0.7"
 
 
 def version(numberOnly: bool = True):
@@ -36,8 +37,6 @@ class Structs:
         top: int
         right: int
         bottom: int
-
-    BoundingBox = Rect  # BoundingBox is an alias for Rect class (just for retro-compatibility)
 
     class Point(NamedTuple):
         x: int
@@ -68,7 +67,7 @@ class Structs:
 def _pointInBox(x: int, y: int, left: int, top: int, width: int, height: int):
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
-    return left < x < left + width and top < y < top + height
+    return left <= x <= left + width and top <= y <= top + height
 
 
 class _UpdateScreens(threading.Thread):
@@ -87,16 +86,18 @@ class _UpdateScreens(threading.Thread):
 
     def run(self):
 
+        # _eventLoop(self._kill, self._interval)
+
         while not self._kill.is_set():
 
             screens = getMonitors(forceUpdate=True)
             currentScreens = list(self._screens.keys())
 
             if self._monitorCountChanged is not None:
-                count = _getMonitorsCount()
-                if self._count != count:
-                    self._count = count
-                    newScreens = list(screens.keys())
+                newScreens = list(screens.keys())
+                countNewScreens = len(newScreens)
+                if self._count != countNewScreens:
+                    self._count = countNewScreens
                     names = [s for s in newScreens if s not in currentScreens] + [s for s in currentScreens if s not in newScreens]
                     self._monitorCountChanged(names, screens)
 
@@ -115,7 +116,7 @@ class _UpdateScreens(threading.Thread):
     def updateInterval(self, interval: float):
         self._interval = interval
 
-    def getScreens(self):
+    def getScreens(self) -> dict[str, Structs.ScreenValue]:
         return self._screens
 
     def kill(self):
@@ -153,7 +154,6 @@ def enableUpdate(interval: float = 0.3,
                      Lower values will consume more CPU
     :param monitorCountChanged: callback to be invoked in case the number of monitor connected changes
     :param monitorPropsChanged: callback to be invoked in case the properties of connected monitors change
-
     """
     global _updateScreens
     if _updateScreens is None:
@@ -248,10 +248,10 @@ def getMonitors(forceUpdate: bool = False) -> dict[str, Structs.ScreenValue]:
     return _screens
 
 
-def getWorkArea(name: str = ""):
+def getWorkArea(name: str = "") -> Optional[Structs.Rect]:
     """
     Get coordinates (left, top, right, bottom), in pixels, of the working (usable by windows) area
-    of the given screen, or main screen if no screen name provided
+    of the given screen (or primary if empty)
 
     :param name: name of the monitor as returned by getMonitors() and getDisplay() methods.
     :return: Rect struct or None
@@ -259,9 +259,9 @@ def getWorkArea(name: str = ""):
     return _getWorkArea(name)
 
 
-def getSize(name: str = ""):
+def getSize(name: str = "") -> Optional[Structs.Size]:
     """
-    Get the width and height, in pixels, of the given monitor, or main monitor if no monitor name provided
+    Get the width and height, in pixels, of the given monitor (or primary if empty)
 
     :param name: name of the monitor as returned by getMonitors() and getDisplay() methods.
     :return: Size struct or None
@@ -271,7 +271,7 @@ def getSize(name: str = ""):
 
 def getPosition(name: str = "") -> Optional[Structs.Point]:
     """
-    Get position (x, y) of the given monitor, or main monitor if no monitor name provided
+    Get position (x, y) of the given monitor (or primary if empty)
 
     :param name: name of the monitor as returned by getMonitors() and getDisplay() methods.
     :return: Point struct or None
@@ -281,7 +281,7 @@ def getPosition(name: str = "") -> Optional[Structs.Point]:
 
 def getRect(name: str = "") -> Optional[Structs.Rect]:
     """
-    Get rect (x, y) of the given monitor, or main monitor if no monitor name provided
+    Get rect (x, y) of the given monitor (or primary if empty)
 
     :param name: name of the monitor as returned by getMonitors() and getDisplay() methods.
     :return: Point struct or None
@@ -325,7 +325,7 @@ def getMonitorsCount() -> int:
     return int(_getMonitorsCount())
 
 
-def getMousePos():
+def getMousePos() -> Structs.Point:
     """
     Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
 
@@ -383,19 +383,19 @@ def _changePosition(newX: int, newY: int, name: str = ""):
 if sys.platform == "darwin":
     from ._pymonctl_macos import (_getAllScreens, _getWorkArea, _getMonitorsCount, _getScreenSize, _getMousePos,
                                   _getCurrentMode, _getAllowedModes, _changeMode, _changeScale, _changeOrientation,
-                                  _changePosition, _getPosition, _getRect, _findMonitorName
+                                  _changePosition, _getPosition, _getRect, _findMonitorName, _eventLoop
                                   )
 
 elif sys.platform == "win32":
     from ._pymonctl_win import (_getAllScreens, _getWorkArea, _getMonitorsCount, _getScreenSize, _getMousePos,
                                 _getCurrentMode, _getAllowedModes, _changeMode, _changeScale, _changeOrientation,
-                                _changePosition, _getPosition, _getRect, _findMonitorName
+                                _changePosition, _getPosition, _getRect, _findMonitorName, _eventLoop
                                 )
 
 elif sys.platform == "linux":
     from ._pymonctl_linux import (_getAllScreens, _getWorkArea, _getMonitorsCount, _getScreenSize, _getMousePos,
                                   _getCurrentMode, _getAllowedModes, _changeMode, _changeScale, _changeOrientation,
-                                  _changePosition, _getPosition, _getRect, _findMonitorName
+                                  _changePosition, _getPosition, _getRect, _findMonitorName, _eventLoop
                                   )
 
 else:

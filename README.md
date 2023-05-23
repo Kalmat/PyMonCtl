@@ -1,4 +1,5 @@
 # PyMonCtl
+[![Type Checking](https://github.com/Kalmat/PyMonCtl/actions/workflows/type-checking.yml/badge.svg)](https://github.com/Kalmat/PyMonCtl/actions/workflows/type-checking.yml)
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
@@ -17,18 +18,18 @@ Cross-Platform module which provides a set of features to get info on and contro
 |  getAllowedModes  |
 |    changeMode     |
 
-## Update Info
+## Keep Monitors info updated
 
 These features include a watchdog, running in a separate Thread, which will allow you to keep monitors 
 information updated and define hooks and its callbacks to be notified when monitors are plugged/unplugged or 
 their properties change. 
 
-| watchdog sub-module methods: |
-|:----------------------------:|
-|         enableUpdate         |
-|        disableUpdate         |
-|       isUpdateEnabled        |
-|        updateInterval        |
+| watchdog methods:  |
+|:------------------:|
+|    enableUpdate    |
+|   disableUpdate    |
+|  isUpdateEnabled   |
+|   updateInterval   |
 
 Notice this is a module-level information, completely independent (though related to and used by) window objects.
 Also notice that the information provided by `getMonitors()` method will be static unless the watchdog is enabled,
@@ -48,7 +49,7 @@ By default, the monitors info will be checked (and updated) every 0.3 seconds. A
 but take into account higher values will take longer to detect and notify changes; whilst lower values will 
 consume more CPU.
 
-## Get notifications on changes
+## Get notifications on Monitors changes
 
 When enabling the watchdog using `enableUpdate()`, it is possible to define callbacks to be invoked in case the 
 number of connected monitors or their properties change. The information passed to the callbacks is:

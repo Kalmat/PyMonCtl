@@ -5,8 +5,8 @@ from __future__ import annotations
 import sys
 import time
 
-import pymonctl as pmc  # type: ignore[import]
-import pywinctl as pwc  # type: ignore[import]
+import pymonctl as pmc
+import pywinctl as pwc
 
 
 def countChanged(names, screensInfo):

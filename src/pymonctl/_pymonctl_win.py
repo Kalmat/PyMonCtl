@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import sys
+import threading
+
+import win32evtlog
 
 assert sys.platform == "win32"
 
@@ -146,11 +149,10 @@ def _getRect(name: str = "") -> Optional[Structs.Rect]:
 
 
 def _findMonitorName(x: int, y: int) -> str:
-    name = ""
+    # Watch this: started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
     monitor = win32api.MonitorFromPoint((x, y))
-    if monitor:
-        monitorInfo = win32api.GetMonitorInfo(monitor)
-        name = monitorInfo.get("Device", "")
+    monitorInfo = win32api.GetMonitorInfo(monitor)
+    name = str(monitorInfo.get("Device", ""))
     return name
 
 
@@ -207,7 +209,6 @@ def _changeMode(mode: Structs.DisplayMode, name: str = ""):
 
 
 def _changeScale(scale: float, name: str = ""):
-
     devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
     devmode.Scale = scale
     devmode.Fields = win32con.DM_SCALE
@@ -218,11 +219,46 @@ def _changeScale(scale: float, name: str = ""):
 
 
 def _changeOrientation(orientation: int, name: str = ""):
-    pass
+    devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+    # win32con.DMDO_DEFAULT = 0, win32con.DMDO_90 = 1, win32con.DMDO_180 = 2, win32con.DMDO_270 = 3
+    devmode.DisplayOrientation = orientation
+    devmode.Fields = win32con.DM_ORIENTATION
+    if name:
+        win32api.ChangeDisplaySettingsEx(name, devmode, 0)
+    else:
+        win32api.ChangeDisplaySettings(devmode, 0)
 
 
 def _changePosition(newX: int, newY: int, name: str = ""):
-    pass
+    devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+    devmode.Position_x = newX
+    devmode.Position_y = newY
+    devmode.Fields = win32con.DM_POSITION
+    if name:
+        win32api.ChangeDisplaySettingsEx(name, devmode, 0)
+    else:
+        win32api.ChangeDisplaySettings(devmode, 0)
+
+
+def _eventLoop(kill: threading.Event, interval: float):
+    # # https://stackoverflow.com/questions/11219213/read-specific-windows-event-log-event
+    server = 'localhost'  # name of the target computer to get event logs
+    log_type = 'System'
+    handle = win32evtlog.OpenEventLog(server, log_type)
+    flags = win32evtlog.EVENTLOG_BACKWARDS_READ | win32evtlog.EVENTLOG_SEQUENTIAL_READ
+    # total = win32evtlog.GetNumberOfEventLogRecords(hand)
+
+    while not kill.is_set():
+        events = win32evtlog.ReadEventLog(handle, flags, 0)
+        # events_list = [event for event in events if event.EventID == "27035"]
+        # events_list = [event for event in events if event.EventType in (2, 4)]
+        for event in events:
+            # how to hook / filter display changes events ONLY (Microsoft.Win32.DisplaySettingsChanged)?
+            print(event.EventID, event.SourceName, event.EventCategory, event.EventType, event.StringInserts)
+
+        kill.wait(interval)
+
+    win32evtlog.CloseEventLog(handle)
 
 
 def _getMousePos() -> Structs.Point:
