@@ -1,1 +1,1 @@
-0.1, 2023/05/12 -- Forked from PyGetWindow
+0.0.8, 2023/05/12 -- Pre-release tested OK in Linux/X11 (not Wayland) and win32 (macOS pending)
