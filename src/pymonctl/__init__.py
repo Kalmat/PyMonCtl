@@ -16,7 +16,7 @@ __all__ = [
     "getCurrentMode", "getAllowedModes", "changeMode",
 ]
 
-__version__ = "0.0.7"
+__version__ = "0.0.8"
 
 
 def version(numberOnly: bool = True):
