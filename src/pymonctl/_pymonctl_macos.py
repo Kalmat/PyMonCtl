@@ -248,7 +248,18 @@ def _changeScale(scale: int, name: str = ""):
     #     kCGDisplayResolution = 1;
     #     kCGDisplayVerticalResolution = 72;
     # }]
-    pass
+    displayId = __getDisplayId(name)
+    if displayId:
+        screens = AppKit.NSScreen.screens()
+        for screen in screens:
+            desc = screen.deviceDescription()
+            if desc["NSScreenNumber"] == displayId:
+                allModes = _getAllowedModes(name)
+                for mode in allModes:
+                    # or kCGDisplayHorizontalResolution, kCGDisplayVerticalResolution?
+                    if len(mode) >= 1 and mode[0]["kCGDisplayResolution"] == (scale / 100):
+                        Quartz.CGDisplaySetDisplayMode(displayId, mode, None)
+                        return
 
 
 def _changeOrientation(orientation: int, name: str = ""):
