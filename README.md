@@ -1,5 +1,7 @@
 # PyMonCtl
 [![Type Checking](https://github.com/Kalmat/PyMonCtl/actions/workflows/type-checking.yml/badge.svg)](https://github.com/Kalmat/PyMonCtl/actions/workflows/type-checking.yml)
+[![PyPI version](https://badge.fury.io/py/PyMonCtl.svg)](https://badge.fury.io/py/PyMonCtl)
+
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
