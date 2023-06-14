@@ -100,6 +100,7 @@ def _getPrimary() -> Monitor:
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
+
     monitors = _win32getAllMonitorsDict()
     for monName in monitors.keys():
         if monName not in arrangement.keys():
@@ -116,42 +117,10 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     if not primaryPresent:
         return
 
-    targetArrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]] = {}
-    i = len(arrangement)
-    while len(arrangement) > len(targetArrangement) and i >= 0:
+    for monName in arrangement.keys():
+        _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName, False)
 
-        for monName in arrangement.keys():
-
-            relPos = arrangement[monName]["relativePos"]
-            relMon = arrangement[monName]["relativeTo"]
-
-            if monName not in targetArrangement.keys() and \
-                    (relMon in targetArrangement.keys() or relPos == PRIMARY):
-                monInfo = monitors[monName]["monitor"]
-                x, y, r, b = monInfo.get("Monitor", (-1, -1, 0, 0))
-                w = abs(r - x)
-                h = abs(b - y)
-                arrangement[monName]["position"] = Point(x, y)
-                arrangement[monName]["size"] = Size(w, h)
-                targetArrangement[monName] = arrangement[monName]
-                x, y, _ = _getRelativePosition(arrangement[str(monName)], targetArrangement[str(relMon)] if relMon else None)
-                targetArrangement[monName]["position"] = Point(x, y)
-                break
-        i -= 1
-
-    for monName in targetArrangement.keys():
-        devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-        x, y = cast(Point, targetArrangement[monName]["position"])
-        if x == 0 and y == 0:
-            flags = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-        else:
-            flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-        devmode.Position_x = x
-        devmode.Position_y = y
-        devmode.Fields = win32con.DM_POSITION
-        win32api.ChangeDisplaySettingsEx(monName, devmode, flags)
-
-    # Not using setPosition() because we need to first request all changes, then execute this with NULL params
+    # commit actions to first request all changes, then execute this with NULL params
     win32api.ChangeDisplaySettingsEx()
 
 
@@ -200,35 +169,7 @@ class Monitor(BaseMonitor):
         return None
 
     def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
-        # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
-        # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
-        if relativePos == PRIMARY:
-            self.setPrimary()
-
-        else:
-            monitors = _win32getAllMonitorsDict()
-            if self.name in monitors.keys() and relativeTo in monitors.keys():
-                targetMonInfo = monitors[self.name]["monitor"]
-                x, y, r, b = targetMonInfo.get("Monitor", (-1, -1, 0, 0))
-                w = abs(r - x)
-                h = abs(b - y)
-                targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                             "position": Point(x, y), "size": Size(w, h)}
-
-                relMonInfo = monitors[relativeTo]["monitor"]
-                x, y, r, b = relMonInfo.get("Monitor", (-1, -1, 0, 0))
-                w = abs(r - x)
-                h = abs(b - y)
-                relMon = {"position": Point(x, y), "size": Size(w, h)}
-                x, y, _ = _getRelativePosition(targetMon, relMon)
-
-                devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-                devmode.Position_x = x
-                devmode.Position_y = y
-                flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-                devmode.Fields = win32con.DM_POSITION
-                win32api.ChangeDisplaySettingsEx(self.name, devmode, flags)
-                win32api.ChangeDisplaySettingsEx()
+        _setPosition(relativePos, relativeTo, self.name)
 
     @property
     def box(self) -> Optional[Box]:
@@ -398,38 +339,7 @@ class Monitor(BaseMonitor):
 
     def setPrimary(self):
         if not self.isPrimary:
-            monitors = _win32getAllMonitorsDict()
-            if len(monitors.keys()) > 1:
-                xOffset = 0
-                yOffset = 0
-                for monName in monitors.keys():
-                    monInfo = monitors[monName]["monitor"]
-                    if monName == self.name:
-                        xOffset = monInfo["Monitor"][0]
-                        yOffset = monInfo["Monitor"][1]
-                        if monInfo.get("Flags", 0) == win32con.MONITORINFOF_PRIMARY:
-                            return
-                        else:
-                            devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-                            devmode.Fields = win32con.DM_POSITION
-                            devmode.Position_x = 0
-                            devmode.Position_y = 0
-                            flags = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-                            win32api.ChangeDisplaySettingsEx(self.name, devmode, flags)
-                            break
-
-                flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-                for monName in monitors.keys():
-                    monInfo = monitors[monName]["monitor"]
-                    if monName != self.name:
-                        x = monInfo["Monitor"][0] - xOffset
-                        y = monInfo["Monitor"][1] - yOffset
-                        devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-                        devmode.Fields = win32con.DM_POSITION
-                        devmode.Position_x = x
-                        devmode.Position_y = y
-                        win32api.ChangeDisplaySettingsEx(monName, devmode, flags)
-                win32api.ChangeDisplaySettingsEx()
+            _setPrimary(self.name)
 
     def turnOn(self):
         # https://stackoverflow.com/questions/16402672/control-screen-with-python
@@ -527,6 +437,76 @@ class Monitor(BaseMonitor):
     @property
     def isAttached(self) -> Optional[bool]:
         return self.name in getAllMonitorsDict().keys()
+
+
+def _setPrimary(name: str, commit: bool = True):
+
+    monitors = _win32getAllMonitorsDict()
+    if len(monitors.keys()) > 1:
+        xOffset = 0
+        yOffset = 0
+        for monName in monitors.keys():
+            monInfo = monitors[monName]["monitor"]
+            if monName == name:
+                xOffset = monInfo["Monitor"][0]
+                yOffset = monInfo["Monitor"][1]
+                if monInfo.get("Flags", 0) == win32con.MONITORINFOF_PRIMARY:
+                    return
+                else:
+                    devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+                    devmode.Fields = win32con.DM_POSITION
+                    devmode.Position_x = 0
+                    devmode.Position_y = 0
+                    flags = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
+                    win32api.ChangeDisplaySettingsEx(name, devmode, flags)
+                    break
+
+        flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
+        for monName in monitors.keys():
+            monInfo = monitors[monName]["monitor"]
+            if monName != name:
+                x = monInfo["Monitor"][0] - xOffset
+                y = monInfo["Monitor"][1] - yOffset
+                devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+                devmode.Fields = win32con.DM_POSITION
+                devmode.Position_x = x
+                devmode.Position_y = y
+                win32api.ChangeDisplaySettingsEx(monName, devmode, flags)
+        if commit:
+            win32api.ChangeDisplaySettingsEx()
+
+
+def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: Optional[str], commit: bool = True):
+    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
+    # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
+    if relativePos == PRIMARY:
+        _setPrimary(name, commit)
+
+    else:
+        monitors = _win32getAllMonitorsDict()
+        if name in monitors.keys() and relativeTo in monitors.keys():
+            targetMonInfo = monitors[name]["monitor"]
+            x, y, r, b = targetMonInfo.get("Monitor", (-1, -1, 0, 0))
+            w = abs(r - x)
+            h = abs(b - y)
+            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                         "position": Point(x, y), "size": Size(w, h)}
+
+            relMonInfo = monitors[relativeTo]["monitor"]
+            x, y, r, b = relMonInfo.get("Monitor", (-1, -1, 0, 0))
+            w = abs(r - x)
+            h = abs(b - y)
+            relMon = {"position": Point(x, y), "size": Size(w, h)}
+            x, y, _ = _getRelativePosition(targetMon, relMon)
+
+            devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+            devmode.Position_x = x
+            devmode.Position_y = y
+            flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
+            devmode.Fields = win32con.DM_POSITION
+            win32api.ChangeDisplaySettingsEx(name, devmode, flags)
+    if commit:
+        win32api.ChangeDisplaySettingsEx()
 
 
 def _win32getAllMonitorsDict():

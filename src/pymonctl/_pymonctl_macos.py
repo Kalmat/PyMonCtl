@@ -211,7 +211,7 @@ class Monitor(BaseMonitor):
         res = Point(int(origin.x), int(origin.y))
         return res
 
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: str):
+    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
         _setPosition(cast(Position, relativePos), relativeTo, self.name)
 
     @property
