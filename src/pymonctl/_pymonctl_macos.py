@@ -478,7 +478,7 @@ class Monitor(BaseMonitor):
         return self.name in _NSgetAllMonitorsDict().keys()
 
 
-def _setPosition(relativePos: Union[int, Position], relativeTo: str, name: str):
+def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str):
     monitors = _NSgetAllMonitorsDict()
     if name in monitors.keys() and relativeTo in monitors.keys():
 

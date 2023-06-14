@@ -476,7 +476,7 @@ def _setPrimary(name: str, commit: bool = True):
             win32api.ChangeDisplaySettingsEx()
 
 
-def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: Optional[str], commit: bool = True):
+def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str, commit: bool = True):
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
     if relativePos == PRIMARY:
