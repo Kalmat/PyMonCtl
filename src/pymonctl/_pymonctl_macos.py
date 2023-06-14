@@ -48,7 +48,7 @@ def _getScale(screen):
             resHeight = Quartz.CGDisplayModeGetHeight(mode)
             scale = (pxWidth / resWidth, pxHeight / resHeight)
         else:
-            value = int(screen.backingScaleFactor() * 100)
+            value = float(screen.backingScaleFactor() * 100)
             scale = (value, value)
     return scale
 
@@ -211,8 +211,8 @@ class Monitor(BaseMonitor):
         res = Point(int(origin.x), int(origin.y))
         return res
 
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: str):
-        _setPosition(relativePos, relativeTo, self.name)
+    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
+        _setPosition(cast(Position, relativePos), relativeTo, self.name)
 
     @property
     def box(self) -> Optional[Box]:
@@ -228,8 +228,9 @@ class Monitor(BaseMonitor):
         return res
 
     @property
-    def scale(self):
-        return _getScale(self.screen)
+    def scale(self) -> Tuple[float, float]:
+        scale = _getScale(self.screen)
+        return scale
 
     @scale.setter
     def scale(self, scale: float):
@@ -355,7 +356,7 @@ class Monitor(BaseMonitor):
         pass
 
     @property
-    def mode(self) -> DisplayMode:
+    def mode(self) -> Optional[DisplayMode]:
         mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
         w = Quartz.CGDisplayModeGetWidth(mode)
         h = Quartz.CGDisplayModeGetHeight(mode)

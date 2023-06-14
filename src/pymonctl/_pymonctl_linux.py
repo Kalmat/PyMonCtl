@@ -209,7 +209,7 @@ class Monitor(BaseMonitor):
 
     def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
-        _setPosition(relativePos, relativeTo, self.name)
+        _setPosition(cast(Position, relativePos), relativeTo, self.name)
 
     @property
     def box(self) -> Optional[Box]:
@@ -390,7 +390,7 @@ class Monitor(BaseMonitor):
                 pass
 
     @property
-    def mode(self) -> DisplayMode:
+    def mode(self) -> Optional[DisplayMode]:
         value = None
         cmd = "xrandr -q | grep %s -A 50 | grep '* \\|*+'" % self.name
         err, ret = subprocess.getstatusoutput(cmd)

@@ -247,7 +247,7 @@ class Monitor(BaseMonitor):
         return None
 
     @property
-    def scale(self) -> float:
+    def scale(self) -> Tuple[float, float]:
         pScale = ctypes.c_uint()
         ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
         return pScale.value
@@ -307,7 +307,7 @@ class Monitor(BaseMonitor):
             ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
                                                      ctypes.byref(maxBright))
             _win32destroyPhysicalMonitors(hDevices)
-            normBrightness = (currBright.value / ((maxBright.value + minBright.value) or 1)) * 100
+            normBrightness = int((currBright.value / ((maxBright.value + minBright.value) or 1))) * 100
             return normBrightness
         return None
 
@@ -335,7 +335,7 @@ class Monitor(BaseMonitor):
             ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
                                                    ctypes.byref(maxCont))
             _win32destroyPhysicalMonitors(hDevices)
-            normContrast = (currCont.value / ((maxCont.value + minCont.value) or 1)) * 100
+            normContrast = int((currCont.value / ((maxCont.value + minCont.value) or 1))) * 100
             return normContrast
         return None
 
@@ -354,7 +354,7 @@ class Monitor(BaseMonitor):
             ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
 
     @property
-    def mode(self) -> DisplayMode:
+    def mode(self) -> Optional[DisplayMode]:
         winSettings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         return DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency)
 

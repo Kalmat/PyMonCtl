@@ -164,7 +164,7 @@ if len(monitorsPluggged) > 1:
     print()
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
-    arrangement: dict[str, dict[str, Union[str, Position, Point, int]]] = {
+    arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]] = {
         str(mon2.name): {"relativePos": PRIMARY, "relativeTo": ""},
         str(mon1.name): {"relativePos": LEFT_BOTTOM, "relativeTo": mon2.name}
     }

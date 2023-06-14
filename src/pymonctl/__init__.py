@@ -259,7 +259,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def scale(self) -> float:
+    def scale(self) -> Tuple[float, float]:
         """
         Get scale for the monitor
 
@@ -384,7 +384,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def mode(self) -> DisplayMode:
+    def mode(self) -> Optional[DisplayMode]:
         """
         Get the current monitor mode (width, height, refresh-rate) for the monitor
 
