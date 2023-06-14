@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Union, Dict
 
 import pymonctl as pmc
 from pymonctl.structs import *
@@ -163,7 +164,7 @@ if len(monitorsPluggged) > 1:
     print()
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
-    arrangement = {
+    arrangement:  dict[str, dict[str, Union[str, Position, int]]] = {
         mon2.name: {"relativePos": PRIMARY, "relativeTo": None},
         mon1.name: {"relativePos": LEFT_BOTTOM, "relativeTo": mon2.name}
     }

@@ -89,7 +89,7 @@ def _getAllMonitorsDict(forceUpdate: bool = True) -> dict[str, ScreenValue]:
             'system_name': name,
             'handle': displayId,
             'is_primary': is_primary,
-            'pos': Point(x, y),
+            'position': Point(x, y),
             'size': Size(w, h),
             'workarea': Rect(wx, wy, wr, wb),
             'scale': scale,

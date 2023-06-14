@@ -6,7 +6,7 @@ import sys
 import threading
 from abc import abstractmethod, ABC
 from collections.abc import Callable
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 from .structs import *
 
@@ -20,12 +20,12 @@ __all__ = [
 __version__ = "0.0.9"
 
 
-def version(numberOnly: bool = True):
+def version(numberOnly: bool = True) -> str:
     """Returns the current version of PyMonCtl module, in the form ''x.x.xx'' as string"""
     return ("" if numberOnly else "PyMonCtl-")+__version__
 
 
-def _pointInBox(x: int, y: int, left: int, top: int, width: int, height: int):
+def _pointInBox(x: int, y: int, left: int, top: int, width: int, height: int) -> bool:
     """Returns ``True`` if the ``(x, y)`` point is within the box described
     by ``(left, top, width, height)``."""
     return left <= x <= left + width and top <= y <= top + height
@@ -181,7 +181,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def size(self) -> Size:
+    def size(self) -> Optional[Size]:
         """
         Get the dimensions of the monitor as a size struct (width, height)
 
@@ -194,7 +194,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def workarea(self) -> Rect:
+    def workarea(self) -> Optional[Rect]:
         """
         Get dimensions of the "usable by applications" area (screen size minus docks, taskbars and so on), as
         a rect struct (x, y, right, bottom)
@@ -207,7 +207,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def position(self) -> Point:
+    def position(self) -> Optional[Point]:
         """
         Get monitor position coordinates as a point struct (x, y)
 
@@ -235,7 +235,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def box(self) -> Rect:
+    def box(self) -> Optional[Box]:
         """
         Get monitor dimensions as a box struct (x, y, width, height)
 
@@ -247,7 +247,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def rect(self) -> Rect:
+    def rect(self) -> Optional[Rect]:
         """
         Get monitor dimensions as a rect struct (x, y, right, bottom)
 
@@ -291,7 +291,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def orientation(self) -> Orientation:
+    def orientation(self) -> Optional[Union[int, Orientation]]:
         """
         Get current orientation for the monitor identified by name (or primary if empty)
 
@@ -321,7 +321,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def frequency(self) -> float:
+    def frequency(self) -> Optional[float]:
         """
         Get current refresh rate of monitor.
 
@@ -332,7 +332,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def colordepth(self) -> int:
+    def colordepth(self) -> Optional[int]:
         """
         Get the colordepth (bits per pixel to describe color) value for the monitor
 
@@ -494,7 +494,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def isOn(self) -> bool:
+    def isOn(self) -> Optional[bool]:
         """
         Check if monitor is on
 
@@ -524,7 +524,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def isAttached(self) -> bool:
+    def isAttached(self) -> Optional[bool]:
         """
         Check if monitor is attached (not necessarily ON) to system
 

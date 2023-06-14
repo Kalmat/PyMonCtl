@@ -60,7 +60,7 @@ def _XgetRoots():
 _roots = _XgetRoots()
 
 
-def _getAllMonitors():
+def _getAllMonitors() -> list[Monitor]:
     monitors = []
     for outputData in _XgetAllOutputs():
         display, screen, root, res, output, outputInfo = outputData
@@ -103,7 +103,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
                     "system_name": outputInfo.name,
                     'handle': output,
                     'is_primary': is_primary,
-                    'pos': Point(x, y),
+                    'position': Point(x, y),
                     'size': Size(w, h),
                     'workarea': Rect(wx, wy, wr, wb),
                     'scale': (scaleX, scaleY),
@@ -154,29 +154,8 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     if not primaryPresent:
         return
 
-    targetArrangement: dict[str, dict[str, Union[str, int, Point, Size]]] = {}
-    i = len(arrangement)
-    while len(arrangement) > len(targetArrangement) and i >= 0:
-
-        for monName in arrangement.keys():
-
-            relPos = arrangement[monName]["relativePos"]
-            relMon = arrangement[monName]["relativeTo"]
-
-            if monName not in targetArrangement.keys() and \
-                    (relMon in targetArrangement.keys() or relPos == PRIMARY):
-                monInfo = monitors[monName]["monitor"]
-                arrangement[monName]["pos"] = Point(monInfo.x, monInfo.y)
-                arrangement[monName]["size"] = Size(monInfo.width_in_pixels, monInfo.height_in_pixels)
-                targetArrangement[monName] = arrangement[monName]
-                x, y, _ = _getRelativePosition(arrangement[monName], targetArrangement[relMon] if relMon else None)
-                targetArrangement[monName]["pos"] = Point(x, y)
-                break
-        i -= 1
-
-    for monName in targetArrangement.keys():
-        x, y = targetArrangement[monName]["pos"]
-        _setPosition(x, y, monName)
+    for monName in arrangement.keys():
+        _setPosition(arrangement[monName]["relativePos"], arrangement[monName]["relativeTo"], monName)
 
 
 def _getMousePos() -> Point:
@@ -323,17 +302,15 @@ class Monitor(BaseMonitor):
             #     pass
 
     @property
-    def frequency(self) -> float:
-        freq = 0.0
+    def frequency(self) -> Optional[float]:
         outputs = _XgetAllOutputs(self.name)
         for outputData in outputs:
             display, screen, root, res, output, outputInfo = outputData
             crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
             for mode in res.modes:
                 if crtcInfo.mode == mode.id:
-                    freq = round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
-                    return freq
-        return freq
+                    return round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
+        return None
     refreshRate = frequency
 
     @property

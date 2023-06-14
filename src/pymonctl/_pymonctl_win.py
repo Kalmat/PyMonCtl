@@ -10,7 +10,7 @@ import threading
 import ctypes
 import ctypes.wintypes
 import pywintypes
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Tuple, cast
 import win32api
 import win32con
 import win32evtlog
@@ -116,7 +116,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     if not primaryPresent:
         return
 
-    targetArrangement: dict[str, dict[str, Union[str, int, Point, Size]]] = {}
+    targetArrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]] = {}
     i = len(arrangement)
     while len(arrangement) > len(targetArrangement) and i >= 0:
 
@@ -134,14 +134,14 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
                 arrangement[monName]["position"] = Point(x, y)
                 arrangement[monName]["size"] = Size(w, h)
                 targetArrangement[monName] = arrangement[monName]
-                x, y, _ = _getRelativePosition(arrangement[monName], targetArrangement[relMon] if relMon else None)
+                x, y, _ = _getRelativePosition(arrangement[str(monName)], targetArrangement[str(relMon)] if relMon else None)
                 targetArrangement[monName]["position"] = Point(x, y)
                 break
         i -= 1
 
     for monName in targetArrangement.keys():
         devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-        x, y = targetArrangement[monName]["position"]
+        x, y = cast(Point, targetArrangement[monName]["position"])
         if x == 0 and y == 0:
             flags = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
         else:
@@ -231,6 +231,14 @@ class Monitor(BaseMonitor):
                 win32api.ChangeDisplaySettingsEx()
 
     @property
+    def box(self) -> Optional[Box]:
+        monitorInfo = win32api.GetMonitorInfo(self.handle)
+        if monitorInfo:
+            x, y, r, b = monitorInfo.get("Monitor", (-1, -1, 0, 0))
+            return Box(x, y, abs(r - x), abs(b - y))
+        return None
+
+    @property
     def rect(self) -> Optional[Rect]:
         monitorInfo = win32api.GetMonitorInfo(self.handle)
         if monitorInfo:
@@ -275,17 +283,19 @@ class Monitor(BaseMonitor):
             win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
     @property
-    def frequency(self) -> float:
+    def frequency(self) -> Optional[float]:
         settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         if settings:
             return settings.DisplayFrequency
+        return None
     refreshRate = frequency
 
     @property
-    def colordepth(self) -> int:
+    def colordepth(self) -> Optional[int]:
         settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         if settings:
             return settings.BitsPerPel
+        return None
 
     @property
     def brightness(self) -> Optional[float]:
@@ -466,7 +476,7 @@ class Monitor(BaseMonitor):
                                         win32con.SMTO_ABORTIFHUNG, 100)
 
     @property
-    def isOn(self) -> bool:
+    def isOn(self) -> Optional[bool]:
         ret = None
         if _win32hasVCPSupport(self.handle) and _win32hasVCPPowerSupport(self.handle):
             hDevices = _win32getPhysicalMonitorsHandles(self.handle)
@@ -486,13 +496,13 @@ class Monitor(BaseMonitor):
             is_working = ctypes.c_uint()
             res = ctypes.windll.kernel32.GetDevicePowerState(self.handle, ctypes.byref(is_working))
             if res:
-                ret = is_working.value
+                ret = bool(is_working.value == 1)
         return ret
 
     def attach(self):
         dev = win32api.EnumDisplayDevices(self.name, 0, 0)
         settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
-        width, height = self.size
+        width, height = self.size or 0, 0
         if width == 0 or height == 0:
             width = settings.PelsWidth
             height = settings.PelsHeight
@@ -515,7 +525,7 @@ class Monitor(BaseMonitor):
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY if permanent else 0)
 
     @property
-    def isAttached(self) -> bool:
+    def isAttached(self) -> Optional[bool]:
         return self.name in getAllMonitorsDict().keys()
 
 
@@ -610,15 +620,15 @@ def _eventLoop(kill: threading.Event, interval: float):
         def __init__(self):
             hinst = win32api.GetModuleHandle(None)
             wndclass = win32gui.WNDCLASS()
-            wndclass.hInstance = hinst
-            wndclass.lpszClassName = "NotificationLoopWindowClass"
+            wndclass.hInstance = hinst  # type: ignore[misc]
+            wndclass.lpszClassName = "NotificationLoopWindowClass"  # type: ignore[misc]
             CMPFUNC = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_uint, ctypes.c_uint, ctypes.c_void_p)
             wndproc_pointer = CMPFUNC(self.MyWndProc)
-            wndclass.lpfnWndProc = {win32con.WM_POWERBROADCAST: wndproc_pointer}
+            wndclass.lpfnWndProc = {win32con.WM_POWERBROADCAST: wndproc_pointer}  # type: ignore[misc]
 
             myWindowClass = win32gui.RegisterClass(wndclass)
             hwnd = win32gui.CreateWindowEx(win32con.WS_EX_LEFT,
-                                           myWindowClass,
+                                           myWindowClass,  # type: ignore[misc, arg-type]
                                            "NotificationLoopMsgWindow",
                                            0,
                                            0,
