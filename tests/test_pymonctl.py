@@ -67,7 +67,7 @@ for monitor in pmc.getAllMonitors():
     targetMode = monitor.mode
     modes = monitor.allModes
     for mode in modes:
-        if mode.width != monitor.mode.width:
+        if monitor.mode and mode.width != monitor.mode.width:
             targetMode = mode
             break
     monitor.mode = targetMode

@@ -11,7 +11,7 @@ import time
 
 assert sys.platform == "darwin"
 
-from typing import Optional, List, Union, cast
+from typing import Optional, List, Union, cast, Tuple
 
 import AppKit
 import Quartz
@@ -211,7 +211,7 @@ class Monitor(BaseMonitor):
         res = Point(int(origin.x), int(origin.y))
         return res
 
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position], relativeTo: str):
         _setPosition(cast(Position, relativePos), relativeTo, self.name)
 
     @property

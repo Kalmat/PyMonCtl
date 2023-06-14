@@ -250,7 +250,7 @@ class Monitor(BaseMonitor):
     def scale(self) -> Tuple[float, float]:
         pScale = ctypes.c_uint()
         ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
-        return pScale.value
+        return float(pScale.value), float(pScale.value)
 
     @scale.setter
     def scale(self, scale: float):
