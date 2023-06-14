@@ -45,8 +45,7 @@ setup(
             "mypy>=0.990",
             "typing_extensions>=4.4.0",
             "types-pywin32>=305.0.0.3",
-            "types-python-xlib>=0.32",
-            "pywinctl>=0.0.43"
+            "types-python-xlib>=0.32"
         ]
     },
     keywords="screen display monitor control geometry size position frequency scale orientation "

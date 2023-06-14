@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import sys
 import time
 
 import pymonctl as pmc
-import pywinctl as pwc
+from pymonctl.structs import *
 
 
 def countChanged(names, screensInfo):
@@ -19,60 +18,172 @@ def propsChanged(names, screensInfo):
         print("MONITORS PROPS CHANGED:", name, screensInfo[name])
 
 
-print("ALL MONITORS:")
-monitors = pmc.getMonitors()
-for monitor in monitors:
-    print(monitor, monitors[monitor])
+print("MONITORS COUNT:", pmc.getMonitorsCount())
+print("PRIMARY MONITOR:", pmc.getPrimary().name)
+print()
+monDict = pmc.getAllMonitorsDict()
+for mon in monDict:
+    print(monDict[mon])
 print()
 
-win = pwc.getActiveWindow()
-if win is not None:
-    dpy = win.getDisplay()
-    print("CURRENT MONITOR:", dpy)
-    print("MONITOR SIZE:", pmc.getSize(dpy))
-    print("WORKAREA:", pmc.getWorkArea(dpy))
-    print("POSITION:", pmc.getPosition(dpy))
-    print("AREA:", pmc.getRect(dpy))
-    print("FIND FROM POINT", pmc.findMonitorName(win.center.x, win.center.y))
+monitorsPluggged = []
+for monitor in pmc.getAllMonitors():
+    monitorsPluggged.append(monitor)
+    print("NAME", monitor.name)
+    print("HANDLE/ID:", monitor.handle)
+    print("IS PRIMARY:", monitor.isPrimary)
+    print("SIZE:", monitor.size)
+    print("POSITION:", monitor.position)
+    print("FREQUENCY:", monitor.frequency)
+    print("ORIENTATION:", monitor.orientation)
+    print("SCALE", monitor.scale)
+    print("DPI:", monitor.dpi)
+    print("COLOR DEPTH:", monitor.colordepth)
+    print("BRIGHTNESS:", monitor.brightness)
+    print("CONTRAST:", monitor.contrast)
+    print("CURRENT MODE:", monitor.mode)
+    print("DEFAULT MODE:", monitor.defaultMode)
     print()
 
-    currMode = pmc.getCurrentMode(dpy)
-    print("CURRENT MODE:", currMode)
-    print()
 
-    print("ALLOWED MODES:")
-    modes = pmc.getAllowedModes(dpy)
-    modeIndex = len(modes)
-    for i, mode in enumerate(modes):
-        print(mode)
-        if mode == currMode:
-            modeIndex = i
-    print()
+    def pluggedCB(names, info):
+        print("MONITOR (UN)PLUGGED!!!")
+        print(names)
+        print(info)
+        print()
 
-    targetMode = currMode
-    if currMode is not None:
-        for i, mode in enumerate(modes):
-            if mode == currMode:
-                # Choosing a random allowed, different from current screen mode
-                targetMode = modes[(i + 3) if (i + 3) < len(modes) else ((i - 3) if (i - 3) >= 0 else 0)]
-                break
 
-    pmc.enableUpdate(monitorPropsChanged=propsChanged)
-    print("UPDATE DETECTION ENABLED:", pmc.isUpdateEnabled())
-    print("DETECTING CHANGES. PLEASE WAIT...")
-    i = 0
-    while True:
-        if i == 5 and targetMode is not None:
-            print("CHANGE MODE TO:", dpy, targetMode)
-            pmc.changeMode(targetMode.width, targetMode.height, targetMode.frequency, dpy)
-        if i == 10 and currMode is not None:
-            print("RESTORING MODE TO:", dpy, currMode)
-            pmc.changeMode(currMode.width, currMode.height, currMode.frequency, dpy)
-        if i == 15:
+    def changedCB(names, info):
+        print("MONITOR CHANGED!!!")
+        print(names)
+        print(info)
+        print()
+
+
+    pmc.enableUpdate(monitorCountChanged=pluggedCB, monitorPropsChanged=changedCB)
+    print("CHANGE MODE")
+    currMode = monitor.mode
+    targetMode = monitor.mode
+    modes = monitor.allModes
+    for mode in modes:
+        if mode.width != monitor.mode.width:
+            targetMode = mode
             break
-        i += 1
-        time.sleep(1)
+    monitor.mode = targetMode
+    time.sleep(3)
+    print("SET DEFAULT MODE")
+    monitor.setDefaultMode()
+    time.sleep(3)
+    print("RESTORE MODE")
+    monitor.mode = currMode
+    print()
+
+    print("CHANGE BRIGHTNESS")
+    currBright = monitor.brightness
+    monitor.brightness = 50
+    time.sleep(2)
+    print("RESTORE BRIGHTNESS")
+    monitor.brightness = currBright
+    print()
+
+    print("CHANGE CONTRAST")
+    currContrast = monitor.contrast
+    monitor.contrast = 50
+    time.sleep(2)
+    print("RESTORE CONTRAST")
+    monitor.contrast = currContrast
+    print()
+
+    print("CHANGE ORIENTATION")
+    monitor.orientation = INVERTED
+    time.sleep(5)
+    print("RESTORE ORIENTATION")
+    monitor.orientation = NORMAL
+    time.sleep(3)
+    print()
+
+    print("IS ON?:", monitor.isOn)
+    print("TURN OFF")
+    monitor.turnOff()
+    time.sleep(5)
+    print("IS ON?:", monitor.isOn)
+    print("TURN ON")
+    monitor.turnOn()
+    time.sleep(5)
+    print("IS ON?:", monitor.isOn)
+    time.sleep(3)
+    print("STANDBY")
+    monitor.suspend()
+    time.sleep(3)
+    print("IS ON?:", monitor.isOn)
+    print("WAKEUP")
+    monitor.turnOn()
+    time.sleep(2)
+    print("IS ON?:", monitor.isOn)
+    print()
+
+    print("IS ATTACHED?:", monitor.isAttached)
+    print("DETACH")
+    monitor.detach()
+    time.sleep(5)
+    print("IS ATTACHED?:", monitor.isAttached)
+    print("ATTACH")
+    monitor.attach()
+    time.sleep(2)
+    print("IS ATTACHED?:", monitor.isAttached)
+    print()
     pmc.disableUpdate()
-    print("UPDATE DETECTION ENABLED:", pmc.isUpdateEnabled())
-else:
-    print("NO ACTIVE WINDOW?!?!?!" + (" GUESS WE ARE IN WAYLAND..." if sys.platform == "linux" else ""))
+
+if len(monitorsPluggged) > 1:
+    mon1 = monitorsPluggged[0]
+    mon2 = monitorsPluggged[1]
+    print("MANAGING MONITORS")
+    print("MONITOR 1:", mon1.name)
+    print("MONITOR 2:", mon2.name)
+    print()
+    print("MONITOR 2 AS PRIMARY")
+    print("MONITOR 2 PRIMARY:", mon2.isPrimary)
+    mon2.setPrimary()
+    print("MONITOR 2 PRIMARY:", mon2.isPrimary)
+    time.sleep(5)
+    print("MONITOR 1 AS PRIMARY")
+    print("MONITOR 1 PRIMARY:", mon1.isPrimary)
+    mon1.setPrimary()
+    print("MONITOR 1 PRIMARY:", mon1.isPrimary)
+    print()
+
+    print("CHANGE POSITION OF MONITOR 2 TO BELOW_LEFT")
+    mon2.setPosition(BELOW_LEFT, mon1.name)
+    print("MONITOR 2 POSITION:", mon2.position)
+    while True:
+        try:
+            time.sleep(0.2)
+        except KeyboardInterrupt:
+            break
+    print()
+
+    print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
+    arrangement = {
+        mon2.name: {"relativePos": PRIMARY, "relativeTo": None},
+        mon1.name: {"relativePos": LEFT_BOTTOM, "relativeTo": mon2.name}
+    }
+    print(arrangement)
+    pmc.arrangeMonitors(arrangement)
+    print("MONITOR 1 POSITION:", mon1.position)
+    print("MONITOR 2 POSITION:", mon2.position)
+    while True:
+        try:
+            time.sleep(0.2)
+        except KeyboardInterrupt:
+            break
+    print()
+
+    print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, MONITOR 2 AT RIGHT_TOP")
+    arrangement = {
+        mon1.name: {"relativePos": PRIMARY, "relativeTo": None},
+        mon2.name: {"relativePos": RIGHT_TOP, "relativeTo": mon1.name}
+    }
+    print(arrangement)
+    pmc.arrangeMonitors(arrangement)
+    print("MONITOR 1 POSITION:", mon1.position)
+    print("MONITOR 2 POSITION:", mon2.position)
