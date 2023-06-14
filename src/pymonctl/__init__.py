@@ -218,7 +218,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setPosition(self, relativePos: Position, relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
         """
         Change position for the monitor identified by name relative to another existing monitor (e.g. primary monitor).
 
@@ -342,7 +342,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def brightness(self) -> Optional[float]:
+    def brightness(self) -> Optional[int]:
         """
         Get the brightness of monitor. The return value is normalized to 0-100 (as a percentage)
 
@@ -360,7 +360,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def contrast(self) -> Optional[float]:
+    def contrast(self) -> Optional[int]:
         """
         Get the contrast of monitor. The return value is normalized to 0-100 (as a percentage)
 
@@ -406,7 +406,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def defaultMode(self) -> DisplayMode:
+    def defaultMode(self) -> Optional[DisplayMode]:
         """
         Get the preferred mode for the monitor
 

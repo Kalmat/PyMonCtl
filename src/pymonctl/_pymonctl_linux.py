@@ -11,7 +11,7 @@ assert sys.platform == "linux"
 
 import math
 import os
-from typing import Optional, List, Union
+from typing import Optional, List, Union, cast, Tuple
 
 import Xlib.display
 import Xlib.X
@@ -127,8 +127,9 @@ def _getMonitorsCount() -> int:
 
 def _findMonitor(x: int, y: int) -> Optional[Monitor]:
     for monitor in _getAllMonitors():
-        if _pointInBox(x, y, monitor.position.x, monitor.position.y, monitor.size.width, monitor.size.height):
-            return monitor
+        if monitor.position is not None and monitor.size is not None:
+            if _pointInBox(x, y, monitor.position.x, monitor.position.y, monitor.size.width, monitor.size.height):
+                return monitor
     return None
 
 
@@ -155,7 +156,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         return
 
     for monName in arrangement.keys():
-        _setPosition(arrangement[monName]["relativePos"], arrangement[monName]["relativeTo"], monName)
+        _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName)
 
 
 def _getMousePos() -> Point:
@@ -206,7 +207,7 @@ class Monitor(BaseMonitor):
             pos = Point(monitor.x, monitor.y)
         return pos
 
-    def setPosition(self, relativePos: Position, relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
         _setPosition(relativePos, relativeTo, self.name)
 
@@ -309,16 +310,16 @@ class Monitor(BaseMonitor):
             crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
             for mode in res.modes:
                 if crtcInfo.mode == mode.id:
-                    return round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)
+                    return float(round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2))
         return None
     refreshRate = frequency
 
     @property
     def colordepth(self) -> int:
-        return self.screen.root_depth
+        return int(self.screen.root_depth)
 
     @property
-    def brightness(self) -> Optional[float]:
+    def brightness(self) -> Optional[int]:
         # https://manerosss.wordpress.com/2017/05/16/brightness-linux-xrandr/
         value = None
         cmd = "xrandr --verbose | grep %s -A 10 | grep Brightness | grep -o '[0-9].*'" % self.name
@@ -356,7 +357,7 @@ class Monitor(BaseMonitor):
         #               'Brightness')
 
     @brightness.setter
-    def brightness(self, brightness):
+    def brightness(self, brightness: int):
         # https://unix.stackexchange.com/questions/150816/how-can-i-lazily-read-output-from-xrandr
         value = brightness / 100
         if 0 <= value <= 1:
@@ -444,7 +445,7 @@ class Monitor(BaseMonitor):
         return outMode
 
     @property
-    def defaultMode(self) -> DisplayMode:
+    def defaultMode(self) -> Optional[DisplayMode]:
         value = None
         cmd = "xrandr -q | grep %s -A 5 | grep ' +\\|*+'" % self.name
         err, ret = subprocess.getstatusoutput(cmd)
@@ -483,7 +484,7 @@ class Monitor(BaseMonitor):
     def isPrimary(self) -> bool:
         for monitorData in _XgetAllMonitors(self.name):
             display, root, monitor, monName = monitorData
-            return monitor.primary == 1
+            return bool(monitor.primary == 1)
         return False
 
     def setPrimary(self):

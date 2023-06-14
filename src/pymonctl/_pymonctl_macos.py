@@ -11,7 +11,7 @@ import time
 
 assert sys.platform == "darwin"
 
-from typing import Optional, List, Union
+from typing import Optional, List, Union, cast
 
 import AppKit
 import Quartz
@@ -22,7 +22,7 @@ from .structs import *
 # from display_manager import display_manager_lib as dm
 
 
-def _getAllMonitors():
+def _getAllMonitors() -> list[Monitor]:
     monitors = []
     screens = AppKit.NSScreen.screens()
     for screen in screens:
@@ -123,28 +123,23 @@ def _getPrimary() -> Monitor:
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
 
     monitors = _NSgetAllMonitorsDict()
+    for monName in monitors.keys():
+        if monName not in arrangement.keys():
+            return
+    primaryPresent = False
+    for monName in arrangement.keys():
+        relPos = arrangement[monName]["relativePos"]
+        relMon = arrangement[monName]["relativeTo"]
+        if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
+                (not relMon and relPos != PRIMARY):
+            return
+        elif relPos == PRIMARY:
+            primaryPresent = True
+    if not primaryPresent:
+        return
 
-    targetArrangement: dict[str, dict[str, Union[str, int, Point, Size]]] = {}
-    while len(arrangement) > len(targetArrangement):
-        for monName in arrangement:
-            relMon = arrangement[monName]["relativeTo"]
-            relPos = arrangement[monName]["relativePos"]
-            if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                    (not relMon and relPos != PRIMARY):
-                return
-            if monName not in targetArrangement.keys() and \
-                    (relMon in targetArrangement.keys() or relPos == PRIMARY):
-                frame = monitors[monName]["screen"].frame()
-                arrangement[monName]["pos"] = Point(frame.origin.x, frame.origin.y)
-                arrangement[monName]["size"] = Point(frame.size.width, frame.size.height)
-                targetArrangement[monName] = arrangement[monName]
-                x, y, _ = _getRelativePosition(arrangement[monName], targetArrangement[relMon] if relMon else None)
-                targetArrangement[monName]["pos"] = Point(x, y)
-                break
-
-    for monName in targetArrangement:
-        x, y = targetArrangement[monName]["pos"]
-        _setPosition(x, y, monName)
+    for monName in arrangement.keys():
+        _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName)
 
 
 def _getMousePos(flipValues: bool = False) -> Point:
@@ -319,7 +314,7 @@ class Monitor(BaseMonitor):
         return depth
 
     @property
-    def brightness(self):
+    def brightness(self) -> Optional[int]:
         # display = dm.Display(self.handle)
         # return display.brightness
         return None
@@ -347,20 +342,20 @@ class Monitor(BaseMonitor):
         #     os.system("""osascript -e 'tell application "System Events"' -e 'key code 144' -e ' end tell'""")
 
     @property
-    def contrast(self):
+    def contrast(self) -> Optional[int]:
         # https://github.com/jonls/redshift/blob/master/src/gamma-quartz.c
         # raise NotImplementedError
         return None
 
     @contrast.setter
-    def contrast(self, contrast: float):
+    def contrast(self, contrast: int):
         # Decrease display contrast: Command+Option+Control-
         # Increase display contrast: Command+Option+Control+
         # raise NotImplementedError
         pass
 
     @property
-    def mode(self) -> Optional[DisplayMode]:
+    def mode(self) -> DisplayMode:
         mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
         w = Quartz.CGDisplayModeGetWidth(mode)
         h = Quartz.CGDisplayModeGetHeight(mode)
@@ -389,7 +384,7 @@ class Monitor(BaseMonitor):
                 break
 
     @property
-    def defaultMode(self):
+    def defaultMode(self) -> Optional[DisplayMode]:
         res: Optional[DisplayMode] = None
         modes = Quartz.CGDisplayCopyAllDisplayModes(self.handle,
                                                     {Quartz.kCGDisplayShowDuplicateLowResolutionModes: Quartz.kCFBooleanTrue})

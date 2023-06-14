@@ -164,9 +164,9 @@ if len(monitorsPluggged) > 1:
     print()
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
-    arrangement:  dict[str, dict[str, Union[str, Position, int]]] = {
-        mon2.name: {"relativePos": PRIMARY, "relativeTo": None},
-        mon1.name: {"relativePos": LEFT_BOTTOM, "relativeTo": mon2.name}
+    arrangement: dict[str, dict[str, Union[str, Position, Point, int]]] = {
+        str(mon2.name): {"relativePos": PRIMARY, "relativeTo": ""},
+        str(mon1.name): {"relativePos": LEFT_BOTTOM, "relativeTo": mon2.name}
     }
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
@@ -181,8 +181,8 @@ if len(monitorsPluggged) > 1:
 
     print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, MONITOR 2 AT RIGHT_TOP")
     arrangement = {
-        mon1.name: {"relativePos": PRIMARY, "relativeTo": None},
-        mon2.name: {"relativePos": RIGHT_TOP, "relativeTo": mon1.name}
+        str(mon1.name): {"relativePos": PRIMARY, "relativeTo": ""},
+        str(mon2.name): {"relativePos": RIGHT_TOP, "relativeTo": mon1.name}
     }
     print(arrangement)
     pmc.arrangeMonitors(arrangement)

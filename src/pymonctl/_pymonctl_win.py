@@ -199,7 +199,7 @@ class Monitor(BaseMonitor):
             return Point(x, y)
         return None
 
-    def setPosition(self, relativePos: Position, relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
         # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
         # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
         if relativePos == PRIMARY:
@@ -298,7 +298,7 @@ class Monitor(BaseMonitor):
         return None
 
     @property
-    def brightness(self) -> Optional[float]:
+    def brightness(self) -> Optional[int]:
         minBright = ctypes.c_uint()
         currBright = ctypes.c_uint()
         maxBright = ctypes.c_uint()
@@ -312,7 +312,7 @@ class Monitor(BaseMonitor):
         return None
 
     @brightness.setter
-    def brightness(self, brightness):
+    def brightness(self, brightness: int):
         minBright = ctypes.c_uint()
         currBright = ctypes.c_uint()
         maxBright = ctypes.c_uint()
@@ -326,7 +326,7 @@ class Monitor(BaseMonitor):
             ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
 
     @property
-    def contrast(self) -> Optional[float]:
+    def contrast(self) -> Optional[int]:
         minCont = ctypes.c_uint()
         currCont = ctypes.c_uint()
         maxCont = ctypes.c_uint()
