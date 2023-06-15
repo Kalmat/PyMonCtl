@@ -4,6 +4,7 @@
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
+
 ## General Functions
 
 Functions to get monitor instances, get info and manage monitors plugged to the system.
@@ -29,37 +30,42 @@ getPrimary() or findMonitor(x, y).
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
 the provided handle is not valid.
 
-|    Methods     | getter | setter | action |
-|:--------------:|:------:|:------:|:------:|
-|      size      |   X    |        |        |
-|    workarea    |   X    |        |        |
-|    position    |   X    |        |        |
-|  setPosition   |        |   X    |        |
-|      box       |   X    |        |        |
-|      rect      |   X    |        |        |
-|     scale      |   X    |        |        |
-|      dpi       |   X    |        |        |
-|  orientation   |   X    |   X    |        |
-|   frequency    |   X    |        |        |
-|   colordepth   |   X    |        |        |
-|   brightness   |   X    |   X    |        |
-|    contrast    |   X    |   X    |        |
-|      mode      |   X    |   X    |        |
-|  defaultMode   |   X    |        |        |
-| setDefaultMode |        |   X    |        |
-|    allModes    |   X    |        |        |
-|   isPrimary    |   X    |        |        |
-|   setPrimary   |        |   X    |        |
-|     turnOn     |        |        |   X    |
-|    turnOff     |        |        |   X    |
-|    suspend     |        |        |   X    |
-|      isOn      |   X    |        |        |
-|     attach     |        |        |   X    |
-|     detach     |        |        |   X    |
-|   isAttached   |   X    |        |        |
+|    Methods     | getter | setter | action | Windows | Linux | macOS |
+|:--------------:|:------:|:------:|:------:|:-------:|:-----:|:-----:|
+|      size      |   X    |        |        |    X    |   X   |   X   |
+|    workarea    |   X    |        |        |    X    |   X   |   X   |
+|    position    |   X    |        |        |    X    |   X   |   X   |
+|  setPosition   |        |   X    |        |    X    |   X   |   X   |
+|      box       |   X    |        |        |    X    |   X   |   X   |
+|      rect      |   X    |        |        |    X    |   X   |   X   |
+|     scale      |   X    |        |        |    X    |   X   |   X   |
+|      dpi       |   X    |        |        |    X    |   X   |   X   |
+|  orientation   |   X    |   X    |        |    X    |   X   |   X   |
+|   frequency    |   X    |        |        |    X    |   X   |   X   |
+|   colordepth   |   X    |        |        |    X    |   X   |   X   |
+|   brightness   |   X    |   X    |        |    X    |   X   |   X   |
+|    contrast    |   X    |   X    |        |    X    |   X   |   X   |
+|      mode      |   X    |   X    |        |    X    |   X   |   X   |
+|  defaultMode   |   X    |        |        |    X    |   X   |   X   |
+| setDefaultMode |        |   X    |        |    X    |   X   |   X   |
+|    allModes    |   X    |        |        |    X    |   X   |   X   |
+|   isPrimary    |   X    |        |        |    X    |   X   |   X   |
+|   setPrimary   |        |   X    |        |    X    |   X   |   X   |
+|     turnOn     |        |        |   X    |    X    |   X   |   X   |
+|    turnOff     |        |        |   X    |  X (1)  |   X   |       |
+|    suspend     |        |        |   X    |  X (1)  | X (2) | X (2) |
+|      isOn      |   X    |        |        |    X    |   X   |       |
+|     attach     |        |        |   X    |    X    |       |       |
+|     detach     |        |        |   X    |    X    |       |       |
+|   isAttached   |   X    |        |        |    X    |   X   |   X   |
+
+(1) If monitor has no VCP MCCS support, it can not be addressed separately, 
+    so ALL monitors will be turned off / suspended.
+    To address a specific monitor, try using detach() method.
+(2) It will suspend ALL monitors
 
 
-#### WARNING: Most of these getters can return ''None'' in case the value can not be obtained
+#### WARNING: Most of these getters may return ''None'' in case the value can not be obtained
 
 ## Keep Monitors info updated
 

@@ -507,7 +507,7 @@ class BaseMonitor(ABC):
         """
         Attach a previously detached monitor to system
 
-        WARNING: not working in macOS (... yet?)
+        WARNING: not working in Linux nor macOS (... yet?)
         """
         raise NotImplementedError
 
@@ -518,7 +518,7 @@ class BaseMonitor(ABC):
 
         It will not likely work if system has just one monitor plugged.
 
-        WARNING: not working in macOS (... yet?)
+        WARNING: not working in Linux nor macOS (... yet?)
         """
         raise NotImplementedError
 
@@ -527,8 +527,6 @@ class BaseMonitor(ABC):
     def isAttached(self) -> Optional[bool]:
         """
         Check if monitor is attached (not necessarily ON) to system
-
-        WARNING: not working in macOS (... yet?)
         """
         raise NotImplementedError
 
