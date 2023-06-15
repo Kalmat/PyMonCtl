@@ -14,6 +14,7 @@ from ctypes.util import find_library
 
 import Xlib.display
 import Xlib.protocol
+from Xlib.protocol.rq import Struct
 import Xlib.X
 import Xlib.Xatom
 import Xlib.Xutil
@@ -1242,7 +1243,7 @@ class EwmhWindow:
         """
         x, y, w, h = _getWindowGeom(self.xWindow, self.root.id)
         self.xWindow.unmap()  # -> Needed in Mint/Cinnamon
-        atom = self.display.get_atom(winType, True)
+        atom = self.display.get_atom(str(winType), True)
         self.changeProperty(Window.WM_WINDOW_TYPE, [atom])
         self.xWindow.map()
         self.display.flush()
@@ -1344,8 +1345,8 @@ class EwmhWindow:
         :param state2: Up to two states can be changed at once. Defaults to 0 (no second state to change).
         :param userAction: source indication (user or pager/manager action). Defaults to True
         """
-        st1: int = self.display.get_atom(state)
-        st2: int = self.display.get_atom(state2) if state2 != State.NULL else 0
+        st1: int = self.display.get_atom(str(state))
+        st2: int = self.display.get_atom(str(state2)) if state2 != State.NULL else 0
         self.sendMessage(self.display.get_atom(Window.WM_STATE), [action, st1, st2, 2 if userAction else 1])
 
     def setMaximized(self, maxHorz: bool, maxVert: bool):
