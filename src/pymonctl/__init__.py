@@ -722,6 +722,5 @@ elif sys.platform == "linux":
     from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
                                   _findMonitor, _arrangeMonitors, _getMousePos, Monitor
                                   )
-    import src.ewmhlib
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')
