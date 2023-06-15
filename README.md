@@ -2,23 +2,64 @@
 [![Type Checking](https://github.com/Kalmat/PyMonCtl/actions/workflows/type-checking.yml/badge.svg)](https://github.com/Kalmat/PyMonCtl/actions/workflows/type-checking.yml)
 [![PyPI version](https://badge.fury.io/py/PyMonCtl.svg)](https://badge.fury.io/py/PyMonCtl)
 
-
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
-| Monitor features: |
-|:-----------------:|
-|    getMonitors    |
-| getMonitorsCount  |
-|      getSize      |
-|    getWorkArea    |
-|    getPosition    |
-|      getRect      |
-|  findMonitorInfo  |
-|  findMonitorName  |
-|    getMousePos    |
-|  getCurrentMode   |
-|  getAllowedModes  |
-|    changeMode     |
+## General Functions
+
+Functions to get monitor instances, get info and manage monitors plugged to the system.
+
+| General features:  |
+|:------------------:|
+|   getAllMonitors   |
+| getAllMonitorsDict |
+|  getMonitorsCount  |
+|     getPrimary     |
+|    findMonitor     |
+|  arrangeMonitors   |
+|    getMousePos     |
+
+
+## Monitor Class
+
+Class to access all methods and functions to get info and control a given monitor plugged to the system.
+
+This class is not meant to be directly instantiated. Instead, use convenience functions like getAllMonitors(),
+getPrimary() or findMonitor(x, y).
+
+To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
+the provided handle is not valid.
+
+|    Methods     | getter | setter | action |
+|:--------------:|:------:|:------:|:------:|
+|      size      |   X    |        |        |
+|    workarea    |   X    |        |        |
+|    position    |   X    |        |        |
+|  setPosition   |        |   X    |        |
+|      box       |   X    |        |        |
+|      rect      |   X    |        |        |
+|     scale      |   X    |        |        |
+|      dpi       |   X    |        |        |
+|  orientation   |   X    |   X    |        |
+|   frequency    |   X    |        |        |
+|   colordepth   |   X    |        |        |
+|   brightness   |   X    |   X    |        |
+|    contrast    |   X    |   X    |        |
+|      mode      |   X    |   X    |        |
+|  defaultMode   |   X    |        |        |
+| setDefaultMode |        |   X    |        |
+|    allModes    |   X    |        |        |
+|   isPrimary    |   X    |        |        |
+|   setPrimary   |        |   X    |        |
+|     turnOn     |        |        |   X    |
+|    turnOff     |        |        |   X    |
+|    suspend     |        |        |   X    |
+|      isOn      |   X    |        |        |
+|     attach     |        |        |   X    |
+|     detach     |        |        |   X    |
+|   isAttached   |   X    |        |        |
+
+
+#### WARNING: Most of these getters can return ''None'' in case the value can not be obtained
 
 ## Keep Monitors info updated
 

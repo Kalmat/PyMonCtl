@@ -88,7 +88,7 @@ def _getMonitorsCount() -> int:
 def _findMonitor(x: int, y: int) -> Optional[Monitor]:
     # Watch this: started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
     hMon = win32api.MonitorFromPoint((x, y), win32con.MONITOR_DEFAULTTONEAREST)
-    if hMon:
+    if hMon > 0:
         return Monitor(hMon)
     return None
 
@@ -120,7 +120,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     for monName in arrangement.keys():
         _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName, False)
 
-    # commit actions to first request all changes, then execute this with NULL params
+    # First request all changes, then execute this with NULL params
     win32api.ChangeDisplaySettingsEx()
 
 
@@ -137,12 +137,17 @@ class Monitor(BaseMonitor):
 
         This class is not meant to be directly instantiated. Instead, use convenience functions like getAllMonitors(),
         getPrimary() or findMonitor(x, y).
+
+        It can raise ValueError exception in case provided handle is not valid
         """
         if not handle:
             handle = win32api.MonitorFromPoint((0, 0), win32con.MONITOR_DEFAULTTOPRIMARY)
         self.handle = handle
-        monitorInfo = win32api.GetMonitorInfo(handle)
-        self.name = monitorInfo.get("Device", "")
+        try:
+            monitorInfo = win32api.GetMonitorInfo(handle)
+            self.name = monitorInfo.get("Device", "")
+        except:
+            raise ValueError
 
     @property
     def size(self) -> Optional[Size]:
@@ -188,7 +193,7 @@ class Monitor(BaseMonitor):
         return None
 
     @property
-    def scale(self) -> Tuple[float, float]:
+    def scale(self) -> Optional[Tuple[float, float]]:
         pScale = ctypes.c_uint()
         ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
         return float(pScale.value), float(pScale.value)
@@ -201,7 +206,7 @@ class Monitor(BaseMonitor):
         win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
     @property
-    def dpi(self) -> Tuple[float, float]:
+    def dpi(self) -> Optional[Tuple[float, float]]:
         dpiX = ctypes.c_uint()
         dpiY = ctypes.c_uint()
         ctypes.windll.shcore.GetDpiForMonitor(self.handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
@@ -309,7 +314,7 @@ class Monitor(BaseMonitor):
         win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
     @property
-    def defaultMode(self) -> DisplayMode:
+    def defaultMode(self) -> Optional[DisplayMode]:
         settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
         return DisplayMode(settings.PelsWidth, settings.PelsHeight, settings.DisplayFrequency)
 

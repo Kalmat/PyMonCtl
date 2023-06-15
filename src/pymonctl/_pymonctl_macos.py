@@ -35,7 +35,7 @@ def _getAllMonitors() -> list[Monitor]:
 def _getScale(screen):
 
     displayId = _NSgetDisplayId(screen.localizedName())
-    scale = (0, 0)
+    scale = None
     if displayId:
         mode = Quartz.CGDisplayCopyDisplayMode(displayId)
         # Didn't find a better way to find out if mode is hidpi or not
@@ -174,11 +174,14 @@ class Monitor(BaseMonitor):
 
         This class is not meant to be directly instantiated. Instead, use convenience functions like getAllMonitors(),
         getPrimary() or findMonitor(x, y).
+
+        It can raise ValueError exception in case provided handle is not valid
         """
         if not handle:
             self.screen = AppKit.NSScreen.mainScreen()
             self.handle = Quartz.CGMainDisplayID()
         else:
+            self.screen = None
             self.handle = handle
             for screen in AppKit.NSScreen.screens():
                 desc = screen.deviceDescription()
@@ -186,11 +189,14 @@ class Monitor(BaseMonitor):
                 if handle == displayId:
                     self.screen = screen
                     break
-        try:
-            self.name = self.screen.localizedName()
-        except:
-            # In older macOS, screen doesn't have localizedName() method
-            self.name = "Display" + "_" + str(self.handle)
+        if self.screen is not None:
+            try:
+                self.name = self.screen.localizedName()
+            except:
+                # In older macOS, screen doesn't have localizedName() method
+                self.name = "Display" + "_" + str(self.handle)
+        else:
+            raise ValueError
 
     @property
     def size(self, ) -> Optional[Size]:
@@ -228,7 +234,7 @@ class Monitor(BaseMonitor):
         return res
 
     @property
-    def scale(self) -> Tuple[float, float]:
+    def scale(self) -> Optional[Tuple[float, float]]:
         scale = _getScale(self.screen)
         return scale
 
@@ -284,7 +290,7 @@ class Monitor(BaseMonitor):
                 break
 
     @property
-    def dpi(self):
+    def dpi(self) -> Optional[Tuple[float, float]]:
         desc = self.screen.deviceDescription()
         dpi = desc[Quartz.NSDeviceResolution].sizeValue()
         dpiX, dpiY = int(dpi.width), int(dpi.height)
@@ -305,12 +311,12 @@ class Monitor(BaseMonitor):
         pass
 
     @property
-    def frequency(self) -> float:
+    def frequency(self) -> Optional[float]:
         freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(self.handle))
         return freq
 
     @property
-    def colordepth(self) -> int:
+    def colordepth(self) -> Optional[int]:
         depth = Quartz.CGDisplayBitsPerPixel(self.handle)
         return depth
 
@@ -460,9 +466,9 @@ class Monitor(BaseMonitor):
         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
 
     @property
-    def isOn(self):
+    def isOn(self) -> Optional[bool]:
         # raise NotImplementedError
-        return False
+        return None
 
     def attach(self, width: int = 0, height: int = 0):
         # raise NotImplementedError
@@ -474,7 +480,7 @@ class Monitor(BaseMonitor):
         pass
 
     @property
-    def isAttached(self):
+    def isAttached(self) -> Optional[bool]:
         return self.name in _NSgetAllMonitorsDict().keys()
 
 

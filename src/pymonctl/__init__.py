@@ -259,7 +259,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def scale(self) -> Tuple[float, float]:
+    def scale(self) -> Optional[Tuple[float, float]]:
         """
         Get scale for the monitor
 
@@ -281,7 +281,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def dpi(self) -> Tuple[float, float]:
+    def dpi(self) -> Optional[Tuple[float, float]]:
         """
         Get the dpi (dots/pixels per inch) value for the monitor
 
@@ -724,5 +724,6 @@ elif sys.platform == "linux":
     from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
                                   _findMonitor, _arrangeMonitors, _getMousePos, Monitor
                                   )
+    import src.ewmhlib
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')

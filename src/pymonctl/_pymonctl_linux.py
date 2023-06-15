@@ -18,8 +18,9 @@ import Xlib.X
 from Xlib.ext import randr
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition
-from .structs import *
-from ewmhlib import Props, defaultRootWindow, getProperty, getPropertyValue
+from pymonctl.structs import *
+from ewmhlib import defaultRootWindow, getProperty, getPropertyValue
+from ewmhlib.Props import *
 
 
 if not defaultRootWindow.display.has_extension('RANDR'):
@@ -87,7 +88,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
                 is_primary = monitor.primary == 1 or (monitor.x == 0 and monitor.y == 0)
                 x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
                 # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
-                wa: List[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA.value, display=display), display=display)
+                wa: List[int] = getPropertyValue(getProperty(window=root, prop=Root.WORKAREA, display=display), display=display)
                 wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
                 dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
                 scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
@@ -161,7 +162,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
 
 def _getMousePos() -> Point:
     """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+    Get the current coordinates (x, y) of the mouse pointer on given monitor, in pixels
 
     :return: Point struct
     """
@@ -177,23 +178,29 @@ class Monitor(BaseMonitor):
 
         This class is not meant to be directly instantiated. Instead, use convenience functions like getAllMonitors(),
         getPrimary() or findMonitor(x, y).
+
+        It can raise ValueError exception in case provided handle is not valid
         """
-        self.display, self.screen, self.root, self.resources, self.handle, self.name = _XgetMonitorData(handle)
+        monitorData = _XgetMonitorData(handle)
+        if monitorData is not None:
+            self.display, self.screen, self.root, self.resources, self.handle, self.name = monitorData
+        else:
+            raise ValueError
 
     @property
     def size(self) -> Optional[Size]:
-        res: Optional[Size] = None
+        size: Optional[Size] = None
         for monitorData in _XgetAllMonitors(self.name):
             display, root, monitor, monName = monitorData
-            res = Size(monitor.width_in_pixels, monitor.height_in_pixels)
-        return res
+            size = Size(monitor.width_in_pixels, monitor.height_in_pixels)
+        return size
 
     @property
     def workarea(self) -> Optional[Rect]:
         res: Optional[Rect] = None
         # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
         wa: List[int] = getPropertyValue(
-            getProperty(window=self.root, prop=Props.Root.WORKAREA.value, display=self.display), display=self.display)
+            getProperty(window=self.root, prop=Root.WORKAREA, display=self.display), display=self.display)
         if wa:
             wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
             res = Rect(wx, wy, wr, wb)
@@ -230,14 +237,14 @@ class Monitor(BaseMonitor):
         return rect
 
     @property
-    def scale(self) -> Tuple[float, float]:
+    def scale(self) -> Optional[Tuple[float, float]]:
         for monitorData in _XgetAllMonitors(self.name):
             display, root, monitor, monName = monitorData
             x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
             dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
             scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
             return scaleX, scaleY
-        return 0.0, 0.0
+        return None
 
     @scale.setter
     def scale(self, scale: float):
@@ -256,13 +263,13 @@ class Monitor(BaseMonitor):
             pass
 
     @property
-    def dpi(self) -> Tuple[float, float]:
+    def dpi(self) -> Optional[Tuple[float, float]]:
         for monitorData in _XgetAllMonitors(self.name):
             display, root, monitor, monName = monitorData
             x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
             dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
             return dpiX, dpiY
-        return 0.0, 0.0
+        return None
 
     @property
     def orientation(self) -> Optional[Union[int, Orientation]]:
