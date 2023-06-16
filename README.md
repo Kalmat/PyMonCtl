@@ -57,7 +57,7 @@ the provided handle is not valid.
 |    allModes    |    X    |   X   |   X   |
 |   isPrimary    |    X    |   X   |   X   |
 |   setPrimary   |    X    |   X   |   X   |
-|     turnOn     |    X    |   X   |   X   |
+|     turnOn     |    X    |   X   |       |
 |    turnOff     |  X (2)  |   X   |       |
 |    suspend     |  X (2)  | X (3) | X (3) |
 |      isOn      |    X    |   X   |       |

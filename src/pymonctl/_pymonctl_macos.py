@@ -452,9 +452,7 @@ class Monitor(BaseMonitor):
         # subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
 
     def turnOff(self):
-        # https://stackoverflow.com/questions/16402672/control-screen-with-python
-        # self.suspend()
-        # raise NotImplementedError
+        # Control–Shift–Media Eject
         pass
 
     def suspend(self):

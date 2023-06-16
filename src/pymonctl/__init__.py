@@ -584,21 +584,21 @@ class _UpdateScreens(threading.Thread):
     def kill(self):
         self._kill.set()
 
-    def getTid(self):
-        if self.is_alive():
-            if hasattr(self, '_thread_id'):
-                return self._thread_id
-            for id, thread in threading._active.items():
-                if thread is self:
-                    return id
-        return None
-
-    def forceStop(self):
-        thread_id = self.getTid()
-        if thread_id is not None:
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+    def forceKill(self):
+        # https://code.activestate.com/recipes/496960-thread2-killable-threads/
+        try:
+            tid = self.native_id
+            if not tid:
+                for objid, tobj in threading._active.items():
+                    if tobj is self:
+                        tid = objid
+        except:
+            tid = None
+        if tid:
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), ctypes.py_object(SystemExit))
             if res > 1:
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+                # ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), 0)
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
 
 
 _updateScreens: Optional[_UpdateScreens] = None
@@ -651,7 +651,7 @@ def disableUpdate():
     """
     global _updateScreens
     if _updateScreens is not None:
-        timer = threading.Timer(_updateScreens._interval * 2, _forceKill)
+        timer = threading.Timer(_updateScreens._interval * 2, _forceStop)
         timer.start()
         _updateScreens.kill()
         _updateScreens.join()
@@ -659,9 +659,12 @@ def disableUpdate():
         timer.cancel()
 
 
-def _forceKill():
+def _forceStop():
     if _updateScreens is not None:
-        _updateScreens.forceStop()
+        try:
+            _updateScreens.forceKill()
+        except:
+            pass
 
 
 def isUpdateEnabled() -> bool:
