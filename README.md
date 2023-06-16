@@ -65,10 +65,13 @@ the provided handle is not valid.
 |     detach     |    X    |       |       |
 |   isAttached   |    X    |   X   |   X   |
 
+
 (1) If monitor has no VCP MCCS support, these methods won't likely work.
+
 (2) If monitor has no VCP MCCS support, it can not be addressed separately, 
     so ALL monitors will be turned off / suspended.
     To address a specific monitor, try using detach() / attach() methods.
+
 (3) It will suspend ALL monitors.
 
 

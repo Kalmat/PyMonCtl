@@ -308,7 +308,7 @@ class Monitor(BaseMonitor):
         return DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency)
 
     def setMode(self, mode: Optional[DisplayMode]):
-        if DisplayMode:
+        if DisplayMode is not None:
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.PelsWidth = mode.width
             devmode.PelsHeight = mode.height
