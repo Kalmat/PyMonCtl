@@ -304,7 +304,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setOrientation(self, orientation: Orientation):
+    def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
         """
         Change orientation for the monitor identified by name (or primary if empty)
 
@@ -350,7 +350,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setBrightness(self, brightness):
+    def setBrightness(self, brightness: Optional[int]):
         """
         Change the brightness of monitor. The input parameter must be defined as a percentage (0-100)
         """
@@ -369,7 +369,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setContrast(self, contrast: int):
+    def setContrast(self, contrast: Optional[int]):
         """
         Change the contrast of monitor. The input parameter must be defined as a percentage (0-100)
 
@@ -390,7 +390,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setMode(self, mode: DisplayMode):
+    def setMode(self, mode: Optional[DisplayMode]):
         """
         Change current monitor mode (resolution and/or refresh-rate) for the monitor
 

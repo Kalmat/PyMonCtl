@@ -278,7 +278,7 @@ class Monitor(BaseMonitor):
                 return rot
         return None
 
-    def setOrientation(self, orientation: Orientation):
+    def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
         if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
             outputs = _XgetAllOutputs(self.name)
             for outputData in outputs:
@@ -359,7 +359,7 @@ class Monitor(BaseMonitor):
         #               '--method org.freedesktop.DBus.Properties.Get org.gnome.SettingsDaemon.Power.Screen '
         #               'Brightness')
 
-    def setBrightness(self, brightness: int):
+    def setBrightness(self, brightness: Optional[int]):
         # https://unix.stackexchange.com/questions/150816/how-can-i-lazily-read-output-from-xrandr
         if brightness is not None:
             value = brightness / 100
@@ -380,7 +380,7 @@ class Monitor(BaseMonitor):
             value = int(((1 / (float(r) or 1)) + (1 / (float(g) or 1)) + (1 / (float(b) or 1))) / 3) * 100
         return value
 
-    def setContrast(self, contrast: int):
+    def setContrast(self, contrast: Optional[int]):
         if contrast is not None:
             value = contrast / 100
             if 0 <= value <= 1:
@@ -408,7 +408,7 @@ class Monitor(BaseMonitor):
                 pass
         return value
 
-    def setMode(self, mode: DisplayMode):
+    def setMode(self, mode: Optional[DisplayMode]):
         # https://stackoverflow.com/questions/12706631/x11-change-resolution-and-make-window-fullscreen
         # Xlib.ext.randr.set_screen_size(defaultRootWindow.root, mode.width, mode.height, 0, 0)
         # Xlib.ext.randr.set_screen_config(defaultRootWindow.root, size_id, 0, 0, round(mode.frequency), 0)

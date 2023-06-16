@@ -221,7 +221,7 @@ class Monitor(BaseMonitor):
             return settings.DisplayOrientation
         return None
 
-    def setOrientation(self, orientation: Orientation):
+    def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
         if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.DisplayOrientation = orientation
@@ -257,7 +257,7 @@ class Monitor(BaseMonitor):
             return normBrightness
         return None
 
-    def setBrightness(self, brightness: int):
+    def setBrightness(self, brightness: Optional[int]):
         if brightness is not None:
             minBright = ctypes.c_uint()
             currBright = ctypes.c_uint()
@@ -288,7 +288,7 @@ class Monitor(BaseMonitor):
             return normContrast
         return None
 
-    def setContrast(self, contrast: int):
+    def setContrast(self, contrast: Optional[int]):
         if contrast is not None:
             minCont = ctypes.c_uint()
             currCont = ctypes.c_uint()
@@ -307,7 +307,7 @@ class Monitor(BaseMonitor):
         winSettings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         return DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency)
 
-    def setMode(self, mode: DisplayMode):
+    def setMode(self, mode: Optional[DisplayMode]):
         if DisplayMode:
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.PelsWidth = mode.width

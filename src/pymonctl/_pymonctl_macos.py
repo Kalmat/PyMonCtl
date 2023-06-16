@@ -305,7 +305,7 @@ class Monitor(BaseMonitor):
             return orientation
         return None
 
-    def setOrientation(self, orientation: Union[int, Orientation]):
+    def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
         # display = self._dm.Display(self.handle)
         # if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
         #     display.setRotate(orientation * 90)
@@ -334,7 +334,7 @@ class Monitor(BaseMonitor):
         #     value = int(float(ret)) * 100
         # return value
 
-    def setBrightness(self, brightness: int):
+    def setBrightness(self, brightness: Optional[int]):
         # display = self._dm.Display(self.handle)
         # try:
         #     display.setBrightness(brightness)
@@ -354,7 +354,7 @@ class Monitor(BaseMonitor):
         # raise NotImplementedError
         return None
 
-    def setContrast(self, contrast: int):
+    def setContrast(self, contrast: Optional[int]):
         # Decrease display contrast: Command+Option+Control-
         # Increase display contrast: Command+Option+Control+
         # raise NotImplementedError
@@ -369,7 +369,7 @@ class Monitor(BaseMonitor):
         res = DisplayMode(w, h, r)
         return res
 
-    def setMode(self, mode: DisplayMode):
+    def setMode(self, mode: Optional[DisplayMode]):
         # https://stackoverflow.com/questions/10596489/programmatically-change-resolution-os-x
         if mode is not None:
             allModes = Quartz.CGDisplayCopyAllDisplayModes(self.handle, None)
