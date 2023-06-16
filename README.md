@@ -61,8 +61,8 @@ the provided handle is not valid.
 |    turnOff     |  X (2)  |   X   |       |
 |    suspend     |  X (2)  | X (3) | X (3) |
 |      isOn      |    X    |   X   |       |
-|     attach     |    X    |       |       |
-|     detach     |    X    |       |       |
+|     attach     |    X    |   X   |       |
+|     detach     |    X    |   X   |       |
 |   isAttached   |    X    |   X   |   X   |
 
 

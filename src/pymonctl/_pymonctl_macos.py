@@ -306,9 +306,8 @@ class Monitor(BaseMonitor):
         return None
 
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
-        # display = self._dm.Display(self.handle)
         # if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
-        #     display.setRotate(orientation * 90)
+        #     self._dm.setRotate(orientation * 90)
         pass
 
     @property
@@ -323,8 +322,7 @@ class Monitor(BaseMonitor):
 
     @property
     def brightness(self) -> Optional[int]:
-        # display = self._dm.Display(self.handle)
-        # return display.brightness
+        # return self._dm.brightness
         return None
         # https://stackoverflow.com/questions/46885603/is-there-a-programmatic-way-to-check-if-brightness-is-at-max-or-min-value-on-osx
         # value = None
@@ -335,9 +333,8 @@ class Monitor(BaseMonitor):
         # return value
 
     def setBrightness(self, brightness: Optional[int]):
-        # display = self._dm.Display(self.handle)
         # try:
-        #     display.setBrightness(brightness)
+        #     self._dm.setBrightness(brightness)
         # except:
         #     pass
         pass
