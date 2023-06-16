@@ -198,12 +198,13 @@ class Monitor(BaseMonitor):
         ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
         return float(pScale.value), float(pScale.value)
 
-    @scale.setter
-    def scale(self, scale: float):
-        devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-        devmode.Scale = scale
-        devmode.Fields = win32con.DM_SCALE
-        win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
+    def setScale(self, scale: Tuple[float, float]):
+        if scale is not None:
+            scaleX, scaleY = scale
+            devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+            devmode.Scale = scaleX
+            devmode.Fields = win32con.DM_SCALE
+            win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -220,8 +221,7 @@ class Monitor(BaseMonitor):
             return settings.DisplayOrientation
         return None
 
-    @orientation.setter
-    def orientation(self, orientation: Orientation):
+    def setOrientation(self, orientation: Orientation):
         if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.DisplayOrientation = orientation
@@ -257,19 +257,22 @@ class Monitor(BaseMonitor):
             return normBrightness
         return None
 
-    @brightness.setter
-    def brightness(self, brightness: int):
-        minBright = ctypes.c_uint()
-        currBright = ctypes.c_uint()
-        maxBright = ctypes.c_uint()
-        hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-        for hDevice in hDevices:
-            ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
-                                                     ctypes.byref(maxBright))
-            normBrightness = brightness * ((maxBright.value + minBright.value) / 100)
-            if minBright.value <= brightness <= maxBright.value and currBright.value != brightness:
-                ctypes.windll.dxva2.SeetMonitorBrightness(hDevice, normBrightness)
-            ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
+    def setBrightness(self, brightness: int):
+        if brightness is not None:
+            minBright = ctypes.c_uint()
+            currBright = ctypes.c_uint()
+            maxBright = ctypes.c_uint()
+            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+            for hDevice in hDevices:
+                ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
+                                                         ctypes.byref(maxBright))
+                normBrightness = brightness * ((maxBright.value + minBright.value) / 100)
+                if minBright.value <= brightness <= maxBright.value and currBright.value != brightness:
+                    ctypes.windll.dxva2.SeetMonitorBrightness(hDevice, normBrightness)
+                ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
+        # This fails with "wmi.x_wmi: <x_wmi: Unexpected COM Error (-2147217396, 'OLE error 0x8004100c', None, None)>"
+        # import wmi
+        # wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0].WmiSetBrightness(5, 0)
 
     @property
     def contrast(self) -> Optional[int]:
@@ -285,33 +288,33 @@ class Monitor(BaseMonitor):
             return normContrast
         return None
 
-    @contrast.setter
-    def contrast(self, contrast: int):
-        minCont = ctypes.c_uint()
-        currCont = ctypes.c_uint()
-        maxCont = ctypes.c_uint()
-        hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-        for hDevice in hDevices:
-            ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
-                                                   ctypes.byref(maxCont))
-            normContrast = contrast * ((maxCont.value + minCont.value) / 100)
-            if minCont.value <= contrast <= maxCont.value and currCont.value != contrast:
-                ctypes.windll.dxva2.SeetMonitorContrast(hDevice, normContrast)
-            ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
+    def setContrast(self, contrast: int):
+        if contrast is not None:
+            minCont = ctypes.c_uint()
+            currCont = ctypes.c_uint()
+            maxCont = ctypes.c_uint()
+            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+            for hDevice in hDevices:
+                ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
+                                                       ctypes.byref(maxCont))
+                normContrast = contrast * ((maxCont.value + minCont.value) / 100)
+                if minCont.value <= contrast <= maxCont.value and currCont.value != contrast:
+                    ctypes.windll.dxva2.SeetMonitorContrast(hDevice, normContrast)
+                ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
 
     @property
     def mode(self) -> Optional[DisplayMode]:
         winSettings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         return DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency)
 
-    @mode.setter
-    def mode(self, mode: DisplayMode):
-        devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-        devmode.PelsWidth = mode.width
-        devmode.PelsHeight = mode.height
-        devmode.DisplayFrequency = mode.frequency
-        devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY
-        win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
+    def setMode(self, mode: DisplayMode):
+        if DisplayMode:
+            devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+            devmode.PelsWidth = mode.width
+            devmode.PelsHeight = mode.height
+            devmode.DisplayFrequency = mode.frequency
+            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY
+            win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
@@ -321,7 +324,7 @@ class Monitor(BaseMonitor):
     def setDefaultMode(self):
         defMode = self.defaultMode
         if defMode:
-            self.mode = defMode
+            self.setMode(defMode)
 
     @property
     def allModes(self) -> list[DisplayMode]:

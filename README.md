@@ -16,6 +16,7 @@ Functions to get monitor instances, get info and manage monitors plugged to the 
 |  getMonitorsCount  |
 |     getPrimary     |
 |    findMonitor     |
+|  findMonitorInfo   |
 |  arrangeMonitors   |
 |    getMousePos     |
 
@@ -30,42 +31,48 @@ getPrimary() or findMonitor(x, y).
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
 the provided handle is not valid.
 
-|    Methods     | getter | setter | action | Windows | Linux | macOS |
-|:--------------:|:------:|:------:|:------:|:-------:|:-----:|:-----:|
-|      size      |   X    |        |        |    X    |   X   |   X   |
-|    workarea    |   X    |        |        |    X    |   X   |   X   |
-|    position    |   X    |        |        |    X    |   X   |   X   |
-|  setPosition   |        |   X    |        |    X    |   X   |   X   |
-|      box       |   X    |        |        |    X    |   X   |   X   |
-|      rect      |   X    |        |        |    X    |   X   |   X   |
-|     scale      |   X    |        |        |    X    |   X   |   X   |
-|      dpi       |   X    |        |        |    X    |   X   |   X   |
-|  orientation   |   X    |   X    |        |    X    |   X   |   X   |
-|   frequency    |   X    |        |        |    X    |   X   |   X   |
-|   colordepth   |   X    |        |        |    X    |   X   |   X   |
-|   brightness   |   X    |   X    |        |    X    |   X   |   X   |
-|    contrast    |   X    |   X    |        |    X    |   X   |   X   |
-|      mode      |   X    |   X    |        |    X    |   X   |   X   |
-|  defaultMode   |   X    |        |        |    X    |   X   |   X   |
-| setDefaultMode |        |   X    |        |    X    |   X   |   X   |
-|    allModes    |   X    |        |        |    X    |   X   |   X   |
-|   isPrimary    |   X    |        |        |    X    |   X   |   X   |
-|   setPrimary   |        |   X    |        |    X    |   X   |   X   |
-|     turnOn     |        |        |   X    |    X    |   X   |   X   |
-|    turnOff     |        |        |   X    |  X (1)  |   X   |       |
-|    suspend     |        |        |   X    |  X (1)  | X (2) | X (2) |
-|      isOn      |   X    |        |        |    X    |   X   |       |
-|     attach     |        |        |   X    |    X    |       |       |
-|     detach     |        |        |   X    |    X    |       |       |
-|   isAttached   |   X    |        |        |    X    |   X   |   X   |
+|                | Windows | Linux | macOS |
+|:--------------:|:-------:|:-----:|:-----:|
+|      size      |    X    |   X   |   X   |
+|    workarea    |    X    |   X   |   X   |
+|    position    |    X    |   X   |   X   |
+|  setPosition   |    X    |   X   |   X   |
+|      box       |    X    |   X   |   X   |
+|      rect      |    X    |   X   |   X   |
+|     scale      |    X    |   X   |   X   |
+|    setScale    |    X    |   X   |   X   |
+|      dpi       |    X    |   X   |   X   |
+|  orientation   |    X    |   X   |   X   |
+| setOrientation |    X    |   X   |       |
+|   frequency    |    X    |   X   |   X   |
+|   colordepth   |    X    |   X   |   X   |
+|   brightness   |  X (1)  |   X   |       |
+| setBrightness  |  X (1)  |   X   |       |
+|    contrast    |  X (1)  |   X   |       |
+|  setContrast   |  X (1)  |   X   |       |
+|      mode      |    X    |   X   |   X   |
+|    setMode     |    X    |   X   |   X   |
+|  defaultMode   |    X    |   X   |   X   |
+| setDefaultMode |    X    |   X   |   X   |
+|    allModes    |    X    |   X   |   X   |
+|   isPrimary    |    X    |   X   |   X   |
+|   setPrimary   |    X    |   X   |   X   |
+|     turnOn     |    X    |   X   |   X   |
+|    turnOff     |  X (2)  |   X   |       |
+|    suspend     |  X (2)  | X (3) | X (3) |
+|      isOn      |    X    |   X   |       |
+|     attach     |    X    |       |       |
+|     detach     |    X    |       |       |
+|   isAttached   |    X    |   X   |   X   |
 
-(1) If monitor has no VCP MCCS support, it can not be addressed separately, 
+(1) If monitor has no VCP MCCS support, these methods won't likely work.
+(2) If monitor has no VCP MCCS support, it can not be addressed separately, 
     so ALL monitors will be turned off / suspended.
-    To address a specific monitor, try using detach() method.
-(2) It will suspend ALL monitors
+    To address a specific monitor, try using detach() / attach() methods.
+(3) It will suspend ALL monitors.
 
 
-#### WARNING: Most of these getters may return ''None'' in case the value can not be obtained
+#### WARNING: Most of these properties may return ''None'' in case the value can not be obtained
 
 ## Keep Monitors info updated
 

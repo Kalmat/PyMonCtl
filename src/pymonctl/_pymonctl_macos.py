@@ -19,7 +19,7 @@ import Quartz.CoreGraphics as CG
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition
 from .structs import *
-# from display_manager import display_manager_lib as dm
+# from ._display_manager_lib import Display
 
 
 def _getAllMonitors() -> list[Monitor]:
@@ -195,6 +195,7 @@ class Monitor(BaseMonitor):
             except:
                 # In older macOS, screen doesn't have localizedName() method
                 self.name = "Display" + "_" + str(self.handle)
+            # self._dm = Display(self.handle)
         else:
             raise ValueError
 
@@ -238,8 +239,7 @@ class Monitor(BaseMonitor):
         scale = _getScale(self.screen)
         return scale
 
-    @scale.setter
-    def scale(self, scale: float):
+    def setScale(self, scale: Tuple[float, float]):
         # https://www.eizoglobal.com/support/compatibility/dpi_scaling_settings_mac_os_x/
         # Where is scale stored or how to calculate?
         # <CGDisplayMode 0x7fe8f44b2260> [{
@@ -280,14 +280,16 @@ class Monitor(BaseMonitor):
         #                 if len(mode) >= 1 and mode[0]["kCGDisplayResolution"] == (scale / 100):
         #                     Quartz.CGDisplaySetDisplayMode(displayId, mode, None)
         #                     return
-        mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
-        for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {
-                    Quartz.kCGDisplayShowDuplicateHighResolutionModes: Quartz.kCFBooleanTrue}):
-            if Quartz.CGDisplayModeGetWidth(mode) == Quartz.CGDisplayModeGetWidth(m) and \
-                    Quartz.CGDisplayModeGetHeight(mode) == Quartz.CGDisplayModeGetHeight(m) and \
-                    _getModeScale(m) == (scale, scale):
-                self.mode = m
-                break
+        if scale is not None:
+            scaleX, scaleY = scale
+            mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
+            for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {
+                        Quartz.kCGDisplayShowDuplicateHighResolutionModes: Quartz.kCFBooleanTrue}):
+                if Quartz.CGDisplayModeGetWidth(mode) == Quartz.CGDisplayModeGetWidth(m) and \
+                        Quartz.CGDisplayModeGetHeight(mode) == Quartz.CGDisplayModeGetHeight(m) and \
+                        _getModeScale(m) == (scaleX, scaleY):
+                    self.setMode(m)
+                    break
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -303,9 +305,8 @@ class Monitor(BaseMonitor):
             return orientation
         return None
 
-    @orientation.setter
-    def orientation(self, orientation: Union[int, Orientation]):
-        # display = dm.Display(self.handle)
+    def setOrientation(self, orientation: Union[int, Orientation]):
+        # display = self._dm.Display(self.handle)
         # if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
         #     display.setRotate(orientation * 90)
         pass
@@ -322,7 +323,7 @@ class Monitor(BaseMonitor):
 
     @property
     def brightness(self) -> Optional[int]:
-        # display = dm.Display(self.handle)
+        # display = self._dm.Display(self.handle)
         # return display.brightness
         return None
         # https://stackoverflow.com/questions/46885603/is-there-a-programmatic-way-to-check-if-brightness-is-at-max-or-min-value-on-osx
@@ -333,9 +334,8 @@ class Monitor(BaseMonitor):
         #     value = int(float(ret)) * 100
         # return value
 
-    @brightness.setter
-    def brightness(self, brightness: int):
-        # display = dm.Display(self.handle)
+    def setBrightness(self, brightness: int):
+        # display = self._dm.Display(self.handle)
         # try:
         #     display.setBrightness(brightness)
         # except:
@@ -354,8 +354,7 @@ class Monitor(BaseMonitor):
         # raise NotImplementedError
         return None
 
-    @contrast.setter
-    def contrast(self, contrast: int):
+    def setContrast(self, contrast: int):
         # Decrease display contrast: Command+Option+Control-
         # Increase display contrast: Command+Option+Control+
         # raise NotImplementedError
@@ -370,25 +369,25 @@ class Monitor(BaseMonitor):
         res = DisplayMode(w, h, r)
         return res
 
-    @mode.setter
-    def mode(self, mode: DisplayMode):
+    def setMode(self, mode: DisplayMode):
         # https://stackoverflow.com/questions/10596489/programmatically-change-resolution-os-x
-        allModes = Quartz.CGDisplayCopyAllDisplayModes(self.handle, None)
-        for m in allModes:
-            w = Quartz.CGDisplayModeGetWidth(m)
-            h = Quartz.CGDisplayModeGetHeight(m)
-            r = Quartz.CGDisplayModeGetRefreshRate(m)
-            if w == mode.width and h == mode.height and r == mode.frequency:
-                # This is simpler, but has a temporary effect:
-                # Quartz.CGDisplaySetDisplayMode(displayId, m, None)
-                ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-                if not ret:
-                    ret = Quartz.CGConfigureDisplayWithDisplayMode(configRef, self.handle, m, None)
+        if mode is not None:
+            allModes = Quartz.CGDisplayCopyAllDisplayModes(self.handle, None)
+            for m in allModes:
+                w = Quartz.CGDisplayModeGetWidth(m)
+                h = Quartz.CGDisplayModeGetHeight(m)
+                r = Quartz.CGDisplayModeGetRefreshRate(m)
+                if w == mode.width and h == mode.height and r == mode.frequency:
+                    # This is simpler, but has a temporary effect:
+                    # Quartz.CGDisplaySetDisplayMode(displayId, m, None)
+                    ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
                     if not ret:
-                        Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-                    else:
-                        Quartz.CGCancelDisplayConfiguration(configRef)
-                break
+                        ret = Quartz.CGConfigureDisplayWithDisplayMode(configRef, self.handle, m, None)
+                        if not ret:
+                            Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
+                        else:
+                            Quartz.CGCancelDisplayConfiguration(configRef)
+                    break
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
@@ -407,7 +406,7 @@ class Monitor(BaseMonitor):
     def setDefaultMode(self):
         defMode = self.defaultMode
         if defMode:
-            self.mode = defMode
+            self.setMode(defMode)
 
     @property
     def allModes(self) -> List[DisplayMode]:

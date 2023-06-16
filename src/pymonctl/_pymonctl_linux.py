@@ -246,21 +246,18 @@ class Monitor(BaseMonitor):
             return scaleX, scaleY
         return None
 
-    @scale.setter
-    def scale(self, scale: float):
-        # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
-        if isinstance(scale, tuple):
+    def setScale(self, scale: Tuple[float, float]):
+        if scale is not None:
+            # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
             scaleX, scaleY = scale
-        else:
-            scaleX = scaleY = scale
-        cmd = " --scale %sx%s --filter nearest" % (scaleX, scaleY)
-        if self.name and self.name in _XgetAllMonitorsNames():
-            cmd = (" --output %s" % self.name) + cmd
-        cmd = "xrandr" + cmd
-        try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-        except:
-            pass
+            cmd = " --scale %sx%s --filter nearest" % (scaleX, scaleY)
+            if self.name and self.name in _XgetAllMonitorsNames():
+                cmd = (" --output %s" % self.name) + cmd
+            cmd = "xrandr" + cmd
+            try:
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+            except:
+                pass
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -281,8 +278,7 @@ class Monitor(BaseMonitor):
                 return rot
         return None
 
-    @orientation.setter
-    def orientation(self, orientation: Orientation):
+    def setOrientation(self, orientation: Orientation):
         if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
             outputs = _XgetAllOutputs(self.name)
             for outputData in outputs:
@@ -363,16 +359,16 @@ class Monitor(BaseMonitor):
         #               '--method org.freedesktop.DBus.Properties.Get org.gnome.SettingsDaemon.Power.Screen '
         #               'Brightness')
 
-    @brightness.setter
-    def brightness(self, brightness: int):
+    def setBrightness(self, brightness: int):
         # https://unix.stackexchange.com/questions/150816/how-can-i-lazily-read-output-from-xrandr
-        value = brightness / 100
-        if 0 <= value <= 1:
-            cmd = "xrandr --output %s --brightness %s" % (self.name, str(value))
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-            except:
-                pass
+        if brightness is not None:
+            value = brightness / 100
+            if 0 <= value <= 1:
+                cmd = "xrandr --output %s --brightness %s" % (self.name, str(value))
+                try:
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                except:
+                    pass
 
     @property
     def contrast(self) -> Optional[int]:
@@ -384,17 +380,17 @@ class Monitor(BaseMonitor):
             value = int(((1 / (float(r) or 1)) + (1 / (float(g) or 1)) + (1 / (float(b) or 1))) / 3) * 100
         return value
 
-    @contrast.setter
-    def contrast(self, contrast: int):
-        value = contrast / 100
-        if 0 <= value <= 1:
-            rgb = str(round(contrast, 1))
-            gamma = rgb + ":" + rgb + ":" + rgb
-            cmd = "xrandr --output %s --gamma %s" % (self.name, gamma)
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-            except:
-                pass
+    def setContrast(self, contrast: int):
+        if contrast is not None:
+            value = contrast / 100
+            if 0 <= value <= 1:
+                rgb = str(round(contrast, 1))
+                gamma = rgb + ":" + rgb + ":" + rgb
+                cmd = "xrandr --output %s --gamma %s" % (self.name, gamma)
+                try:
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                except:
+                    pass
 
     @property
     def mode(self) -> Optional[DisplayMode]:
@@ -412,22 +408,22 @@ class Monitor(BaseMonitor):
                 pass
         return value
 
-    @mode.setter
-    def mode(self, mode: DisplayMode):
+    def setMode(self, mode: DisplayMode):
         # https://stackoverflow.com/questions/12706631/x11-change-resolution-and-make-window-fullscreen
         # Xlib.ext.randr.set_screen_size(defaultRootWindow.root, mode.width, mode.height, 0, 0)
         # Xlib.ext.randr.set_screen_config(defaultRootWindow.root, size_id, 0, 0, round(mode.frequency), 0)
         # Xlib.ext.randr.change_output_property()
-        allModes = self.allModes
-        if mode in allModes:
-            cmd = " --mode %sx%s -r %s" % (mode.width, mode.height, round(mode.frequency, 2))
-            if self.name and self.name in _XgetAllMonitorsNames():
-                cmd = (" --output %s" % self.name) + cmd
-            cmd = "xrandr" + cmd
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-            except:
-                pass
+        if mode is not None:
+            allModes = self.allModes
+            if mode in allModes:
+                cmd = " --mode %sx%s -r %s" % (mode.width, mode.height, round(mode.frequency, 2))
+                if self.name and self.name in _XgetAllMonitorsNames():
+                    cmd = (" --output %s" % self.name) + cmd
+                cmd = "xrandr" + cmd
+                try:
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                except:
+                    pass
 
     def _modeB(self) -> Optional[DisplayMode]:
 
@@ -531,8 +527,8 @@ class Monitor(BaseMonitor):
         return self.name in _XgetAllMonitorsNames()
 
     def attach(self):
+        self.turnOn()
         # raise NotImplementedError
-        pass
         # This produces the same effect, but requires to keep track of last mode used
         # outputs = __getAllOutputs(name)
         # for outputData in outputs:
@@ -543,8 +539,8 @@ class Monitor(BaseMonitor):
         #         _crtcs.pop(output)
 
     def detach(self, permanent: bool = False):
+        self.turnOff()
         # raise NotImplementedError
-        pass
         # This produces the same effect, but requires to keep track of last mode used
         # outputs = __getAllOutputs(name)
         # for outputData in outputs:

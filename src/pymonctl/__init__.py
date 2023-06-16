@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import ctypes
 import sys
 import threading
 from abc import abstractmethod, ABC
@@ -267,9 +268,8 @@ class BaseMonitor(ABC):
         """
         raise NotImplementedError
 
-    @scale.setter
     @abstractmethod
-    def scale(self, scale: float):
+    def setScale(self, scale: Tuple[float, float]):
         """
         Change scale for the monitor
 
@@ -303,9 +303,8 @@ class BaseMonitor(ABC):
         """
         raise NotImplementedError
 
-    @orientation.setter
     @abstractmethod
-    def orientation(self, orientation: Orientation):
+    def setOrientation(self, orientation: Orientation):
         """
         Change orientation for the monitor identified by name (or primary if empty)
 
@@ -350,9 +349,8 @@ class BaseMonitor(ABC):
         """
         raise NotImplementedError
 
-    @brightness.setter
     @abstractmethod
-    def brightness(self, brightness):
+    def setBrightness(self, brightness):
         """
         Change the brightness of monitor. The input parameter must be defined as a percentage (0-100)
         """
@@ -370,9 +368,8 @@ class BaseMonitor(ABC):
         """
         raise NotImplementedError
 
-    @contrast.setter
     @abstractmethod
-    def contrast(self, contrast: int):
+    def setContrast(self, contrast: int):
         """
         Change the contrast of monitor. The input parameter must be defined as a percentage (0-100)
 
@@ -392,9 +389,8 @@ class BaseMonitor(ABC):
         """
         raise NotImplementedError
 
-    @mode.setter
     @abstractmethod
-    def mode(self, mode: DisplayMode):
+    def setMode(self, mode: DisplayMode):
         """
         Change current monitor mode (resolution and/or refresh-rate) for the monitor
 
@@ -588,6 +584,22 @@ class _UpdateScreens(threading.Thread):
     def kill(self):
         self._kill.set()
 
+    def getTid(self):
+        if self.is_alive():
+            if hasattr(self, '_thread_id'):
+                return self._thread_id
+            for id, thread in threading._active.items():
+                if thread is self:
+                    return id
+        return None
+
+    def forceStop(self):
+        thread_id = self.getTid()
+        if thread_id is not None:
+            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+            if res > 1:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
+
 
 _updateScreens: Optional[_UpdateScreens] = None
 
@@ -639,9 +651,17 @@ def disableUpdate():
     """
     global _updateScreens
     if _updateScreens is not None:
+        timer = threading.Timer(_updateScreens._interval * 2, _forceKill)
+        timer.start()
         _updateScreens.kill()
         _updateScreens.join()
         _updateScreens = None
+        timer.cancel()
+
+
+def _forceKill():
+    if _updateScreens is not None:
+        _updateScreens.forceStop()
 
 
 def isUpdateEnabled() -> bool:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import sys
 assert sys.platform == "linux"
 
@@ -154,7 +155,7 @@ def getDisplayFromRoot(rootId: int) -> Tuple[Xlib.display.Display, Struct, XWind
 
 
 def getProperty(window: XWindow, prop: Union[str, int, Root, Window],
-                prop_type: int = Xlib.X.AnyPropertyType, sizehint: int = 10,
+                prop_type: int = Xlib.X.AnyPropertyType,
                 display: Xlib.display.Display = defaultDisplay) -> Optional[Xlib.protocol.request.GetProperty]:
     """
     Get given window/root property
@@ -162,7 +163,6 @@ def getProperty(window: XWindow, prop: Union[str, int, Root, Window],
     :param window: window from which get the property
     :param prop: property to retrieve as int or str (will be translated to int)
     :param prop_type: property type (e.g. Xlib.X.AnyPropertyType or Xlib.Xatom.ATOM)
-    :param sizehint: Expected data length hint (defaults to 10)
     :param display: display to which window belongs to (defaults to default display)
     :return: Xlib.protocol.request.GetProperty struct or None (property couldn't be obtained)
     """
@@ -170,7 +170,7 @@ def getProperty(window: XWindow, prop: Union[str, int, Root, Window],
         prop = display.get_atom(prop)
 
     if isinstance(prop, int) and prop != 0:
-        return window.get_full_property(prop, prop_type, sizehint)
+        return window.get_full_property(prop, prop_type, 10)
     return None
 
 
@@ -193,11 +193,11 @@ def changeProperty(window: XWindow, prop: Union[str, int, Root, Window], data: U
     if isinstance(prop, int) and prop != 0:
         # I think (to be confirmed) that 16 is not used in Python (no difference between short and long int)
         if isinstance(data, str):
-            dataFormat: int = 8
+            dataFormat: int = DataFormat.STR
             data = data.encode(encoding="utf-8")
         else:
             data = (data + [0] * (5 - len(data)))[:5]
-            dataFormat = 32
+            dataFormat = DataFormat.INT
 
         window.change_property(prop, prop_type, dataFormat, data, propMode)
         display.flush()
@@ -220,10 +220,10 @@ def sendMessage(winId: int, prop: Union[str, int, Root, Window], data: Union[Lis
     if isinstance(prop, int) and prop != 0:
         # I think (to be confirmed) that 16 is not used in Python (no difference between short and long int)
         if isinstance(data, str):
-            dataFormat: int = 8
+            dataFormat: int = DataFormat.STR
         else:
             data = (data + [0] * (5 - len(data)))[:5]
-            dataFormat = 32
+            dataFormat = DataFormat.INT
 
         ev: Xlib.protocol.event.ClientMessage = Xlib.protocol.event.ClientMessage(window=winId, client_type=prop,
                                                                                   data=(dataFormat, data))
@@ -302,19 +302,18 @@ class RootWindow:
         self.wmProtocols = self._WmProtocols(self.display, self.root)
 
     def getProperty(self, prop: Union[str, int, Root, Window],
-                    prop_type: int = Xlib.X.AnyPropertyType, sizehint: int = 10) \
+                    prop_type: int = Xlib.X.AnyPropertyType) \
             -> Optional[Xlib.protocol.request.GetProperty]:
         """
         Retrieves given property from root
 
         :param prop: Property to query (int or str format)
         :param prop_type: Property type (e.g. X.AnyPropertyType or Xatom.STRING)
-        :param sizehint: Expected data length
         :return: List of int, List of str or None (nothing obtained)
         """
         if isinstance(prop, str):
             prop = self.display.get_atom(prop)
-        return getProperty(self.root, prop, prop_type, sizehint)
+        return getProperty(self.root, prop, prop_type, self.display)
 
     def setProperty(self, prop: Union[str, int, Root, Window], data: Union[List[int], str]):
         """
@@ -602,7 +601,7 @@ class RootWindow:
             res = cast(List[int], res)
         return res
 
-    def setDesktopLayout(self, orientation: int, columns: int, rows: int, starting_corner: int):
+    def setDesktopLayout(self, orientation: Union[int, DesktopLayout], columns: int, rows: int, starting_corner: Union[int, DesktopLayout]):
         """
         Values (as per RootWindow.DesktopLayout):
           _NET_WM_ORIENTATION_HORZ 0
@@ -1019,19 +1018,18 @@ class EwmhWindow:
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
 
-    def getProperty(self, prop: Union[str, int, Root, Window], prop_type: int = Xlib.X.AnyPropertyType, sizehint: int = 10) \
+    def getProperty(self, prop: Union[str, int, Root, Window], prop_type: int = Xlib.X.AnyPropertyType) \
             -> Optional[Xlib.protocol.request.GetProperty]:
         """
         Retrieves given property data from given window
 
         :param prop: Property to query (int or str format)
         :param prop_type: Property type (e.g. X.AnyPropertyType or Xatom.STRING)
-        :param sizehint: Expected data length
         :return: List of int, List of str or None (nothing obtained)
         """
         if isinstance(prop, str):
             prop = self.display.get_atom(prop)
-        return getProperty(self.xWindow, prop, prop_type, sizehint)
+        return getProperty(self.xWindow, prop, prop_type, self.display)
 
     def sendMessage(self, prop: Union[str, int, Root, Window], data: Union[List[int], str]):
         """
@@ -1233,7 +1231,7 @@ class EwmhWindow:
         """
         return getPropertyValue(self.getProperty(Window.WM_WINDOW_TYPE), text, self.display)
 
-    def setWmWindowType(self, winType: WindowType):
+    def setWmWindowType(self, winType: Union[str, WindowType]):
         """
         Changes the type of current window.
 
@@ -1325,7 +1323,7 @@ class EwmhWindow:
         """
         return getPropertyValue(self.getProperty(Window.WM_STATE), text, self.display)
 
-    def changeWmState(self, action: StateAction, state: State, state2: State = State.NULL, userAction: bool = True):
+    def changeWmState(self, action: StateAction, state: Union[str, State], state2: Union[str, State] = State.NULL, userAction: bool = True):
         """
         Sets the window states values of current window.
 
@@ -1367,28 +1365,30 @@ class EwmhWindow:
             if State.MAXIMIZED_VERT not in states:
                 state2 = State.MAXIMIZED_VERT
             if state1 or state2:
-                self.changeWmState(StateAction.ADD, state1 if state1 != NULL else state2, state2 if state1 != NULL else NULL)
+                self.changeWmState(StateAction.ADD, cast(State, state1) if state1 != NULL else cast(State, state2),
+                                   cast(State, state2) if state1 != NULL else cast(State, NULL))
         elif maxHorz:
             if State.MAXIMIZED_HORZ not in states:
                 state = State.MAXIMIZED_HORZ
-                self.changeWmState(StateAction.ADD, state, NULL)
+                self.changeWmState(StateAction.ADD, cast(State, state), cast(State, NULL))
             if State.MAXIMIZED_VERT in states:
                 state = State.MAXIMIZED_VERT
-                self.changeWmState(StateAction.REMOVE, state, NULL)
+                self.changeWmState(StateAction.REMOVE, cast(State, state), cast(State, NULL))
         elif maxVert:
             if State.MAXIMIZED_HORZ in states:
                 state = State.MAXIMIZED_HORZ
-                self.changeWmState(StateAction.REMOVE, state, NULL)
+                self.changeWmState(StateAction.REMOVE, cast(State, state), cast(State, NULL))
             if State.MAXIMIZED_VERT not in states:
                 state = State.MAXIMIZED_VERT
-                self.changeWmState(StateAction.ADD, state, NULL)
+                self.changeWmState(StateAction.ADD, cast(State, state), cast(State, NULL))
         else:
             if State.MAXIMIZED_HORZ in states:
                 state1 = State.MAXIMIZED_HORZ
             if State.MAXIMIZED_VERT in states:
                 state2 = State.MAXIMIZED_VERT
             if state1 or state2:
-                self.changeWmState(StateAction.REMOVE, state1 if state1 != NULL else state2, state2 if state1 != NULL else NULL)
+                self.changeWmState(StateAction.REMOVE, cast(State, state1) if state1 != NULL else cast(State, state2),
+                                   cast(State, state2) if state1 != NULL else cast(State, NULL))
 
     def setMinimized(self):
         """
@@ -1841,7 +1841,7 @@ class EwmhWindow:
             gravity_flags = gravity_flags | (1 << 13)
         self.sendMessage(Root.MOVERESIZE, [gravity_flags, x, y, width, height])
 
-    def setWmMoveResize(self, x_root: int, y_root: int, orientation: int, button: int, userAction: bool = True):
+    def setWmMoveResize(self, x_root: int, y_root: int, orientation: Union[int, MoveResize], button: int, userAction: bool = True):
         """
         This message allows Clients to initiate window movement or resizing. They can define their own move and size
         "grips", whilst letting the Window Manager control the actual operation. This means that all moves/resizes
@@ -2431,6 +2431,7 @@ class _Extensions:
             self._stopRequested: bool = False
             self._checkThread: Optional[threading.Thread] = None
             self._threadStarted: bool = False
+            self._interval = 0.1
 
             # self._isCinnamon = "cinnamon" in os.environ['XDG_CURRENT_DESKTOP'].lower()
 
@@ -2451,7 +2452,7 @@ class _Extensions:
                                         self._callback(event)
                                         break
                     i -= 1
-                time.sleep(0.1)
+                time.sleep(self._interval)
 
             # Is this necessary to somehow "free" the events catching???
             self._root.change_attributes(event_mask=Xlib.X.NoEventMask)
@@ -2555,11 +2556,30 @@ class _Extensions:
             Start a new watchdog using start() again.
             """
             if self._threadStarted and self._checkThread is not None:
+                timer = threading.Timer(self._interval * 2, self._forceStop)
+                timer.start()
                 self._threadStarted = False
                 self._stopRequested = True
                 self._keep.set()
                 self._checkThread.join()
                 self._checkThread = None
+                timer.cancel()
+
+        def _getTid(self):
+            if self._checkThread and self._checkThread.is_alive():
+                if hasattr(self._checkThread, '_thread_id'):
+                    return self._checkThread._thread_id
+                for id, thread in threading._active.items():
+                    if thread is self._checkThread:
+                        return id
+            return None
+
+        def _forceStop(self):
+            thread_id = self._getTid()
+            if thread_id is not None:
+                res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
+                if res > 1:
+                    ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
 
 
 def _getWindowParent(win: XWindow, rootId: int) -> int:

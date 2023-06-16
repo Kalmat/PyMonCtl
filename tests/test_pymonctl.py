@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Union, Dict
+from typing import Union
 
 import pymonctl as pmc
 from pymonctl.structs import *
@@ -27,9 +27,9 @@ for mon in monDict:
     print(monDict[mon])
 print()
 
-monitorsPluggged = []
+monitorsPlugged = []
 for monitor in pmc.getAllMonitors():
-    monitorsPluggged.append(monitor)
+    monitorsPlugged.append(monitor)
     print("NAME", monitor.name)
     print("HANDLE/ID:", monitor.handle)
     print("IS PRIMARY:", monitor.isPrimary)
@@ -70,36 +70,37 @@ for monitor in pmc.getAllMonitors():
         if monitor.mode and mode.width != monitor.mode.width:
             targetMode = mode
             break
-    monitor.mode = targetMode
+    targetMode = DisplayMode(3840, 1080, 120)
+    monitor.setMode(targetMode)
     time.sleep(3)
     print("SET DEFAULT MODE")
     monitor.setDefaultMode()
     time.sleep(3)
     print("RESTORE MODE")
-    monitor.mode = currMode
+    monitor.setMode(currMode)
     print()
 
     print("CHANGE BRIGHTNESS")
     currBright = monitor.brightness
-    monitor.brightness = 50
+    monitor.setBrightness(50)
     time.sleep(2)
     print("RESTORE BRIGHTNESS")
-    monitor.brightness = currBright
+    monitor.setBrightness(currBright)
     print()
 
     print("CHANGE CONTRAST")
     currContrast = monitor.contrast
-    monitor.contrast = 50
+    monitor.setContrast(50)
     time.sleep(2)
     print("RESTORE CONTRAST")
-    monitor.contrast = currContrast
+    monitor.setContrast(currContrast)
     print()
 
     print("CHANGE ORIENTATION")
-    monitor.orientation = INVERTED
+    monitor.setOrientation(INVERTED)
     time.sleep(5)
     print("RESTORE ORIENTATION")
-    monitor.orientation = NORMAL
+    monitor.setOrientation(NORMAL)
     time.sleep(3)
     print()
 
@@ -135,9 +136,9 @@ for monitor in pmc.getAllMonitors():
     print()
     pmc.disableUpdate()
 
-if len(monitorsPluggged) > 1:
-    mon1 = monitorsPluggged[0]
-    mon2 = monitorsPluggged[1]
+if len(monitorsPlugged) > 1:
+    mon1 = monitorsPlugged[0]
+    mon2 = monitorsPlugged[1]
     print("MANAGING MONITORS")
     print("MONITOR 1:", mon1.name)
     print("MONITOR 2:", mon2.name)
