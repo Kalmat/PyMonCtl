@@ -696,39 +696,39 @@ def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int, str]:
         x = y = 0
         cmd = ""
     elif relPos == Position.LEFT_TOP:
-        x = relativeTo["pos"].x - monitor["size"].width
-        y = relativeTo["pos"].y
+        x = relativeTo["position"].x - monitor["size"].width
+        y = relativeTo["position"].y
         cmd = " --left-of %s"
     elif relPos == Position.LEFT_BOTTOM:
-        x = relativeTo["pos"].x - monitor["size"].width
-        y = relativeTo["pos"].y + relativeTo["size"].height - monitor["size"].height
+        x = relativeTo["position"].x - monitor["size"].width
+        y = relativeTo["position"].y + relativeTo["size"].height - monitor["size"].height
         cmd = " --left-of %s"
     elif relPos == Position.ABOVE_LEFT:
-        x = relativeTo["pos"].x
-        y = relativeTo["pos"].y - monitor["size"].height
+        x = relativeTo["position"].x
+        y = relativeTo["position"].y - monitor["size"].height
         cmd = " --above %s"
     elif relPos == Position.ABOVE_RIGHT:
-        x = relativeTo["pos"].x + relativeTo["size"].width - monitor["size"].width
-        y = relativeTo["pos"].y - monitor["size"].height
+        x = relativeTo["position"].x + relativeTo["size"].width - monitor["size"].width
+        y = relativeTo["position"].y - monitor["size"].height
         cmd = " --above %s"
     elif relPos == Position.RIGHT_TOP:
-        x = relativeTo["pos"].x + relativeTo["size"].width
-        y = relativeTo["pos"].y
+        x = relativeTo["position"].x + relativeTo["size"].width
+        y = relativeTo["position"].y
         cmd = " --right-of %s"
     elif relPos == Position.RIGHT_BOTTOM:
-        x = relativeTo["pos"].x + relativeTo["size"].width
-        y = relativeTo["pos"].y + relativeTo["size"].height - monitor["size"].height
+        x = relativeTo["position"].x + relativeTo["size"].width
+        y = relativeTo["position"].y + relativeTo["size"].height - monitor["size"].height
         cmd = " --right-of %s"
     elif relPos == Position.BELOW_LEFT:
-        x = relativeTo["pos"].x
-        y = relativeTo["pos"].y + relativeTo["size"].height
+        x = relativeTo["position"].x
+        y = relativeTo["position"].y + relativeTo["size"].height
         cmd = " --below %s"
     elif relPos == Position.BELOW_RIGHT:
-        x = relativeTo["pos"].x + relativeTo["size"].width - monitor["size"].width
-        y = relativeTo["pos"].y + relativeTo["size"].height
+        x = relativeTo["position"].x + relativeTo["size"].width - monitor["size"].width
+        y = relativeTo["position"].y + relativeTo["size"].height
         cmd = " --below %s"
     else:
-        x = y = monitor["pos"]
+        x = y = monitor["position"]
         cmd = ""
     return x, y, cmd
 

@@ -1,7 +1,15 @@
-General:
-- Include more functions to control monitors
-    - Resolution
-    - Scale
-    - Orientation
-    - Position
-    - others (?)
+LINUX
+- setPosition must be invoked twice???
+- Find a proper way to detach/attach monitors
+- Find alternative to suspend monitor
+- Is there a way to properly calculate WORKAREA??? (https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python)
+
+WINDOWS
+- Find a solution for changing scale
+
+MACOS
+- Contact display-manager-lib team to check alternatives or find another solution (for setOrientation, brightness)
+- Test everything in an actual macOS installation with a multi-monitor setup
+- Check returned coordinates
+- Find a way to turn monitor OFF/ON/SUSPEND/WAKEUP/DETACH/ATTACH
+- Investigate all other methods (contrast, scale, isOn)

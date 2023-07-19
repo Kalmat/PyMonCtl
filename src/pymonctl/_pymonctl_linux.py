@@ -250,7 +250,7 @@ class Monitor(BaseMonitor):
         if scale is not None:
             # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
             scaleX, scaleY = scale
-            cmd = " --scale %sx%s --filter nearest" % (scaleX, scaleY)
+            cmd = "  --filter nearest --scale %sx%s" % (scaleX, scaleY)
             if self.name and self.name in _XgetAllMonitorsNames():
                 cmd = (" --output %s" % self.name) + cmd
             cmd = "xrandr" + cmd
@@ -280,30 +280,30 @@ class Monitor(BaseMonitor):
 
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
         if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
-            outputs = _XgetAllOutputs(self.name)
-            for outputData in outputs:
-                display, screen, root, res, output, outputInfo = outputData
-                crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
-                if crtcInfo and crtcInfo.mode:
-                    randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y,
-                                          crtcInfo.mode, (orientation or 1) ** 2, crtcInfo.outputs)
+            # outputs = _XgetAllOutputs(self.name)
+            # for outputData in outputs:
+            #     display, screen, root, res, output, outputInfo = outputData
+            #     crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
+            #     if crtcInfo and crtcInfo.mode:
+            #         randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y,
+            #                               crtcInfo.mode, (orientation or 1) ** 2, crtcInfo.outputs)
 
-            # if orientation == RIGHT:
-            #     direction = "right"
-            # elif orientation == INVERTED:
-            #     direction = "inverted"
-            # elif orientation == LEFT:
-            #     direction = "left"
-            # else:
-            #     direction = "normal"
-            # cmd = " -o %s" % direction
-            # if name and name in __getMonitorsNames():
-            #     cmd = (" --output %s" % name) + cmd
-            # cmd = "xrandr" + cmd
-            # try:
-            #     subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-            # except:
-            #     pass
+            if orientation == RIGHT:
+                direction = "right"
+            elif orientation == INVERTED:
+                direction = "inverted"
+            elif orientation == LEFT:
+                direction = "left"
+            else:
+                direction = "normal"
+            cmd = " -o %s" % direction
+            if self.name in _XgetAllMonitorsNames():
+                cmd = (" --output %s" % self.name) + cmd
+            cmd = "xrandr" + cmd
+            try:
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+            except:
+                pass
 
     @property
     def frequency(self) -> Optional[float]:
@@ -360,7 +360,6 @@ class Monitor(BaseMonitor):
         #               'Brightness')
 
     def setBrightness(self, brightness: Optional[int]):
-        # https://unix.stackexchange.com/questions/150816/how-can-i-lazily-read-output-from-xrandr
         if brightness is not None:
             value = brightness / 100
             if 0 <= value <= 1:
@@ -578,7 +577,7 @@ def _setPrimary(name: str):
 
 
 def _setPositionTwice(relativePos: Position, relativeTo: Optional[str], name: str):
-    # Why it has to be invoked twice? Perhaps there is  an option to commit changes?
+    # Why it has to be invoked twice? Perhaps there is an option to commit changes?
     _setPositionTwice(relativePos, relativeTo, name)
     time.sleep(0.5)
     _setPositionTwice(relativePos, relativeTo, name)
@@ -594,16 +593,17 @@ def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
 
             targetMonInfo = monitors[name]["monitor"]
             targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                         "pos": Point(targetMonInfo.x, targetMonInfo.y),
+                         "position": Point(targetMonInfo.x, targetMonInfo.y),
                          "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
 
             relMonInfo = monitors[relativeTo]["monitor"]
-            relMon = {"pos": Point(relMonInfo.x, relMonInfo.y),
+            relMon = {"position": Point(relMonInfo.x, relMonInfo.y),
                       "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
 
             primaryName = _getPrimaryName()
             # WARNING: There will be no primary monitor when moving it to another position!
-            cmd2 = " --noprimary" if name == primaryName else ""
+            # cmd2 = " --noprimary" if name == primaryName else ""
+            cmd2 = ""
             x, y, relCmd = _getRelativePosition(targetMon, relMon)
             cmd3 = relCmd % relativeTo if relativePos in (LEFT_TOP, RIGHT_TOP, ABOVE_LEFT, BELOW_LEFT) else ""
             cmd = ("xrandr --output %s --pos %sx%s" % (name, x, y)) + cmd2 + cmd3

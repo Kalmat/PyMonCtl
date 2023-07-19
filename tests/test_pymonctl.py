@@ -8,7 +8,6 @@ from typing import Union
 import pymonctl as pmc
 from pymonctl.structs import *
 
-
 def countChanged(names, screensInfo):
     for name in names:
         print("MONITORS COUNT CHANGED:", name, screensInfo[name])
@@ -103,6 +102,13 @@ for monitor in pmc.getAllMonitors():
     monitor.setOrientation(NORMAL)
     time.sleep(3)
     print()
+
+    currScale = monitor.scale
+    print("CHANGE SCALE. CURRENT:", currScale)
+    monitor.setScale((200, 200))
+    time.sleep(5)
+    print("RESTORE SCALE")
+    monitor.setScale(currScale)
 
     print("IS ON?:", monitor.isOn)
     print("TURN OFF")
