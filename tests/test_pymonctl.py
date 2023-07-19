@@ -108,7 +108,8 @@ for monitor in pmc.getAllMonitors():
     monitor.setScale((200, 200))
     time.sleep(5)
     print("RESTORE SCALE")
-    monitor.setScale(currScale)
+    if currScale is not None:
+        monitor.setScale(currScale)
 
     print("IS ON?:", monitor.isOn)
     print("TURN OFF")

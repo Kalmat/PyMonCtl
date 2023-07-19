@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import sys
 
-import pymonctl
-
 assert sys.platform == "win32"
 
 import threading
@@ -148,12 +146,12 @@ class Monitor(BaseMonitor):
             hMon = win32api.MonitorFromPoint((0, 0), win32con.MONITOR_DEFAULTTOPRIMARY)
             if hMon and hMon.handle > 0:
                 handle = hMon.handle
-        self.handle = handle
-        try:
-            monitorInfo = win32api.GetMonitorInfo(handle)
-            self.name = monitorInfo.get("Device", "")
-        except:
-            raise ValueError
+            if handle:
+                self.handle = handle
+                monitorInfo = win32api.GetMonitorInfo(handle)
+                self.name = monitorInfo.get("Device", "")
+            else:
+                raise ValueError
 
     @property
     def size(self) -> Optional[Size]:
@@ -202,8 +200,6 @@ class Monitor(BaseMonitor):
     def scale(self) -> Optional[Tuple[float, float]]:
         pScale = ctypes.c_uint()
         ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
-        # scaleFactor = ctypes.windll.shcore.GetScaleFactorForDevice(0)
-        # print(scaleFactor)
         # import wmi
         # obj = wmi.WMI().Win32_PnPEntity(ConfigManagerErrorCode=0)
         # displays = [x for x in obj if 'DISPLAY' in str(x)]
@@ -266,8 +262,8 @@ class Monitor(BaseMonitor):
         if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
             devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
             if (devmode.DisplayOrientation + orientation) % 2 == 1:
-                devmode.PelsWidth, devmode.PelsHeight = devmode.PelsHeight, devmode.PelsWidth
-            devmode.DisplayOrientation = orientation
+                devmode.PelsWidth, devmode.PelsHeight = devmode.PelsHeight, devmode.PelsWidth  # type: ignore[misc]
+            devmode.DisplayOrientation = orientation  # type: ignore[misc]
             # devmode.Fields = devmode.Fields | win32con.DM_DISPLAYORIENTATION | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
             win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
@@ -353,10 +349,10 @@ class Monitor(BaseMonitor):
     def setMode(self, mode: Optional[DisplayMode]):
         if mode is not None:
             devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-            devmode.PelsWidth = mode.width
-            devmode.PelsHeight = mode.height
-            devmode.DisplayFrequency = mode.frequency
-            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY
+            devmode.PelsWidth = mode.width  # type: ignore[misc]
+            devmode.PelsHeight = mode.height  # type: ignore[misc]
+            devmode.DisplayFrequency = mode.frequency  # type: ignore[misc]
+            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)
 
     @property
@@ -467,7 +463,7 @@ class Monitor(BaseMonitor):
             # devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             # devmode.PelsWidth = settings.PelsWidth
             # devmode.PelsHeight = settings.PelsHeight
-            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
+            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY)
             for mon in win32api.EnumDisplayMonitors():
                 hMon = mon[0].handle
@@ -489,7 +485,7 @@ class Monitor(BaseMonitor):
     @property
     def isAttached(self) -> Optional[bool]:
         dev = win32api.EnumDisplayDevices(self.name, 0, 0)
-        return dev and self.name == dev.DeviceName
+        return dev is not None and self.name == dev.DeviceName
 
 
 def _setPrimary(name: str, commit: bool = True):
@@ -555,9 +551,9 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
             x, y, _ = _getRelativePosition(targetMon, relMon)
 
             devmode = win32api.EnumDisplaySettings(name, win32con.ENUM_CURRENT_SETTINGS)
-            devmode.Position_x = x
-            devmode.Position_y = y
-            devmode.Fields = devmode.Fields | win32con.DM_POSITION
+            devmode.Position_x = x  # type: ignore[misc]
+            devmode.Position_y = y  # type: ignore[misc]
+            devmode.Fields = devmode.Fields | win32con.DM_POSITION  # type: ignore[misc]
             flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
             win32api.ChangeDisplaySettingsEx(name, devmode, flags)
     if commit:
