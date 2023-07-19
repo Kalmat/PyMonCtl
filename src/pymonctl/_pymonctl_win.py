@@ -18,7 +18,7 @@ import win32evtlog
 import win32gui
 
 from pymonctl import BaseMonitor, _getRelativePosition
-from structs import *
+from pymonctl.structs import *
 
 
 dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())

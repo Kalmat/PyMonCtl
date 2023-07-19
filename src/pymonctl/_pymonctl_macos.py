@@ -18,7 +18,7 @@ import Quartz
 import Quartz.CoreGraphics as CG
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition
-from .structs import *
+from pymonctl.structs import *
 # from ._display_manager_lib import Display
 
 
