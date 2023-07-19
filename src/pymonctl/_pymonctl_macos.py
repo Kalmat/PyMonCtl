@@ -283,8 +283,9 @@ class Monitor(BaseMonitor):
         if scale is not None:
             scaleX, scaleY = scale
             mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
-            for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {
-                        Quartz.kCGDisplayShowDuplicateHighResolutionModes: Quartz.kCFBooleanTrue}):
+            for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {}):
+            # for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {
+            #             Quartz.kCGDisplayShowDuplicateHighResolutionModes: Quartz.kCFBooleanTrue}):
                 if Quartz.CGDisplayModeGetWidth(mode) == Quartz.CGDisplayModeGetWidth(m) and \
                         Quartz.CGDisplayModeGetHeight(mode) == Quartz.CGDisplayModeGetHeight(m) and \
                         _getModeScale(m) == (scaleX, scaleY):
@@ -425,7 +426,7 @@ class Monitor(BaseMonitor):
         self.setPosition(PRIMARY, "")
 
     def turnOn(self):
-        # This works, but won't wake up the display
+        # This works, but won't wake up the display despite if the mouse is moving and/or clicking
 
         def mouseEvent(eventType, posx, posy):
             theEvent = CG.CGEventCreateMouseEvent(None, eventType, CG.CGPointMake(posx, posy), CG.kCGMouseButtonLeft)
