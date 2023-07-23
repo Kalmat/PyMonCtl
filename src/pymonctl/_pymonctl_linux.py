@@ -18,7 +18,7 @@ import Xlib.X
 from Xlib.ext import randr
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition
-from pymonctl.structs import *
+from .structs import DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 from ewmhlib import defaultRootWindow, getProperty, getPropertyValue
 from ewmhlib.Props import *
 
@@ -61,12 +61,12 @@ def _XgetRoots():
 _roots = _XgetRoots()
 
 
-def _getAllMonitors() -> list[Monitor]:
+def _getAllMonitors() -> list[LinuxMonitor]:
     monitors = []
     for outputData in _XgetAllOutputs():
         display, screen, root, res, output, outputInfo = outputData
         if outputInfo.crtc:
-            monitors.append(Monitor(output))
+            monitors.append(LinuxMonitor(output))
     return monitors
 
 
@@ -126,7 +126,7 @@ def _getMonitorsCount() -> int:
     return count
 
 
-def _findMonitor(x: int, y: int) -> Optional[Monitor]:
+def _findMonitor(x: int, y: int) -> Optional[LinuxMonitor]:
     for monitor in _getAllMonitors():
         if monitor.position is not None and monitor.size is not None:
             if _pointInBox(x, y, monitor.position.x, monitor.position.y, monitor.size.width, monitor.size.height):
@@ -134,8 +134,8 @@ def _findMonitor(x: int, y: int) -> Optional[Monitor]:
     return None
 
 
-def _getPrimary() -> Monitor:
-    return Monitor()
+def _getPrimary() -> LinuxMonitor:
+    return LinuxMonitor()
 
 
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
@@ -149,9 +149,9 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         relPos = arrangement[monName]["relativePos"]
         relMon = arrangement[monName]["relativeTo"]
         if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                (not relMon and relPos != PRIMARY):
+                (not relMon and relPos != Position.PRIMARY):
             return
-        elif relPos == PRIMARY:
+        elif relPos == Position.PRIMARY:
             primaryPresent = True
     if not primaryPresent:
         return
@@ -170,7 +170,7 @@ def _getMousePos() -> Point:
     return Point(mp.root_x, mp.root_y)
 
 
-class Monitor(BaseMonitor):
+class LinuxMonitor(BaseMonitor):
 
     def __init__(self, handle: Optional[int] = None):
         """
@@ -279,7 +279,7 @@ class Monitor(BaseMonitor):
         return None
 
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
-        if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
+        if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
             # outputs = _XgetAllOutputs(self.name)
             # for outputData in outputs:
             #     display, screen, root, res, output, outputInfo = outputData
@@ -288,11 +288,11 @@ class Monitor(BaseMonitor):
             #         randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y,
             #                               crtcInfo.mode, (orientation or 1) ** 2, crtcInfo.outputs)
 
-            if orientation == RIGHT:
+            if orientation == Orientation.RIGHT:
                 direction = "right"
-            elif orientation == INVERTED:
+            elif orientation == Orientation.INVERTED:
                 direction = "inverted"
-            elif orientation == LEFT:
+            elif orientation == Orientation.LEFT:
                 direction = "left"
             else:
                 direction = "normal"
@@ -584,7 +584,7 @@ def _setPositionTwice(relativePos: Position, relativeTo: Optional[str], name: st
 
 
 def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
-    if relativePos == PRIMARY:
+    if relativePos == Position.PRIMARY:
         _setPrimary(name)
 
     else:
@@ -605,7 +605,7 @@ def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
             # cmd2 = " --noprimary" if name == primaryName else ""
             cmd2 = ""
             x, y, relCmd = _getRelativePosition(targetMon, relMon)
-            cmd3 = relCmd % relativeTo if relativePos in (LEFT_TOP, RIGHT_TOP, ABOVE_LEFT, BELOW_LEFT) else ""
+            cmd3 = relCmd % relativeTo if relativePos in (Position.LEFT_TOP, Position.RIGHT_TOP, Position.ABOVE_LEFT, Position.BELOW_LEFT) else ""
             cmd = ("xrandr --output %s --pos %sx%s" % (name, x, y)) + cmd2 + cmd3
             try:
                 subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)

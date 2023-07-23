@@ -9,13 +9,13 @@ from abc import abstractmethod, ABC
 from collections.abc import Callable
 from typing import List, Optional, Union, Tuple
 
-from .structs import *
+from .structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
 
 __all__ = [
-    "version", "structs", "getAllMonitors", "_getAllMonitorsDict", "_getMonitorsCount",
-    "getPrimary", "findMonitor", "findMonitorInfo", "arrangeMonitors",
+    "getAllMonitors", "getPrimary", "findMonitor", "findMonitorInfo", "arrangeMonitors",
     "enableUpdate", "disableUpdate", "isUpdateEnabled", "updateInterval",
-    "getMousePos", "Monitor"
+    "DisplayMode", "ScreenValue", "Size", "Point", "Box", "Rect", "Position", "Orientation",
+    "getMousePos", "version", "Monitor"
 ]
 
 __version__ = "0.0.9"
@@ -567,8 +567,8 @@ class _UpdateScreens(threading.Thread):
                             if screens[s] != self._screens[s]:
                                 names.append(s)
                     self._monitorPropsChanged(names, screens)
-            self._screens = screens
-            self._monitors = _getAllMonitors()
+            self._screens: dict[str, ScreenValue] = screens
+            self._monitors: list[Monitor] = _getAllMonitors()
 
             self._kill.wait(self._interval)
 
@@ -735,15 +735,15 @@ def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int, str]:
 
 if sys.platform == "darwin":
     from ._pymonctl_macos import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                  _findMonitor, _arrangeMonitors, _getMousePos, Monitor
+                                  _findMonitor, _arrangeMonitors, _getMousePos, MacOSMonitor as Monitor
                                   )
 elif sys.platform == "win32":
     from ._pymonctl_win import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                _findMonitor, _arrangeMonitors, _getMousePos, Monitor
+                                _findMonitor, _arrangeMonitors, _getMousePos, Win32Monitor as Monitor
                                 )
 elif sys.platform == "linux":
     from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                  _findMonitor, _arrangeMonitors, _getMousePos, Monitor
+                                  _findMonitor, _arrangeMonitors, _getMousePos, LinuxMonitor as Monitor
                                   )
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')

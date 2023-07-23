@@ -18,17 +18,17 @@ import Quartz
 import Quartz.CoreGraphics as CG
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition
-from pymonctl.structs import *
+from .structs import DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 # from ._display_manager_lib import Display
 
 
-def _getAllMonitors() -> list[Monitor]:
+def _getAllMonitors() -> list[MacOSMonitor]:
     monitors = []
     screens = AppKit.NSScreen.screens()
     for screen in screens:
         desc = screen.deviceDescription()
         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-        monitors.append(Monitor(displayId))
+        monitors.append(MacOSMonitor(displayId))
     return monitors
 
 
@@ -105,19 +105,19 @@ def _getMonitorsCount() -> int:
     return len(AppKit.NSScreen.screens())
 
 
-def _findMonitor(x: int, y: int) -> Optional[Monitor]:
+def _findMonitor(x: int, y: int) -> Optional[MacOSMonitor]:
     screens = AppKit.NSScreen.screens()
     for screen in screens:
         frame = screen.frame()
         if _pointInBox(x, y, int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)):
             desc = screen.deviceDescription()
             displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-            return Monitor(displayId)
+            return MacOSMonitor(displayId)
     return None
 
 
-def _getPrimary() -> Monitor:
-    return Monitor()
+def _getPrimary() -> MacOSMonitor:
+    return MacOSMonitor()
 
 
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
@@ -131,9 +131,9 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         relPos = arrangement[monName]["relativePos"]
         relMon = arrangement[monName]["relativeTo"]
         if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                (not relMon and relPos != PRIMARY):
+                (not relMon and relPos != Position.PRIMARY):
             return
-        elif relPos == PRIMARY:
+        elif relPos == Position.PRIMARY:
             primaryPresent = True
     if not primaryPresent:
         return
@@ -166,7 +166,7 @@ def _getMousePos(flipValues: bool = False) -> Point:
     return Point(x, y)
 
 
-class Monitor(BaseMonitor):
+class MacOSMonitor(BaseMonitor):
 
     def __init__(self, handle: Optional[int] = None):
         """
@@ -302,7 +302,7 @@ class Monitor(BaseMonitor):
     @property
     def orientation(self) -> Optional[Union[int, Orientation]]:
         orientation = int(Quartz.CGDisplayRotation(self.handle) / 90)
-        if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
+        if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
             return orientation
         return None
 
@@ -423,7 +423,7 @@ class Monitor(BaseMonitor):
 
     def setPrimary(self):
         # https://stackoverflow.com/questions/13722508/change-main-monitor-on-mac-programmatically#:~:text=To%20change%20the%20secondary%20monitor%20to%20be%20the,%28%29.%20A%20full%20sample%20can%20be%20found%20Here
-        self.setPosition(PRIMARY, "")
+        self.setPosition(Position.PRIMARY, "")
 
     def turnOn(self):
         # This works, but won't wake up the display despite if the mouse is moving and/or clicking

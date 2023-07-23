@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import sys
 
+import pymonctl
+
 assert sys.platform == "win32"
 
 import threading
 
-import ctypes
 import ctypes.wintypes
 import pywintypes
 from typing import Optional, List, Union, Tuple, cast
@@ -18,7 +19,7 @@ import win32evtlog
 import win32gui
 
 from pymonctl import BaseMonitor, _getRelativePosition
-from pymonctl.structs import *
+from .structs import DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 
 
 dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
@@ -27,10 +28,10 @@ if dpiAware == 0:
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 
 
-def _getAllMonitors() -> list[Monitor]:
-    monitors: list[Monitor] = []
+def _getAllMonitors() -> list[Win32Monitor]:
+    monitors: list[Win32Monitor] = []
     for monitor in win32api.EnumDisplayMonitors():
-        monitors.append(Monitor(monitor[0].handle))
+        monitors.append(Win32Monitor(monitor[0].handle))
     return monitors
 
 
@@ -60,7 +61,6 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
             dpiX = ctypes.c_uint()
             dpiY = ctypes.c_uint()
             ctypes.windll.shcore.GetDpiForMonitor(hMon, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
-            ctypes.windll.shcore.GetDpiForMonitor(hMon, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
             # Settings content: http://timgolden.me.uk/pywin32-docs/PyDEVMODE.html
             settings = win32api.EnumDisplaySettings(monName, win32con.ENUM_CURRENT_SETTINGS)
             rot = settings.DisplayOrientation
@@ -87,16 +87,16 @@ def _getMonitorsCount() -> int:
     return len(win32api.EnumDisplayMonitors())
 
 
-def _findMonitor(x: int, y: int) -> Optional[Monitor]:
+def _findMonitor(x: int, y: int) -> Optional[Win32Monitor]:
     # Watch this: started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
     hMon = win32api.MonitorFromPoint((x, y), win32con.MONITOR_DEFAULTTONEAREST)
     if hMon and hMon.handle > 0:
-        return Monitor(hMon)
+        return Win32Monitor(hMon)
     return None
 
 
-def _getPrimary() -> Monitor:
-    return Monitor()
+def _getPrimary() -> Win32Monitor:
+    return Win32Monitor()
 
 
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
@@ -112,9 +112,9 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         relPos = arrangement[monName]["relativePos"]
         relMon = arrangement[monName]["relativeTo"]
         if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                (not relMon and relPos != PRIMARY):
+                (not relMon and relPos != Position.PRIMARY):
             return
-        elif relPos == PRIMARY:
+        elif relPos == Position.PRIMARY:
             primaryPresent = True
     if not primaryPresent:
         return
@@ -131,7 +131,7 @@ def _getMousePos() -> Point:
     return Point(x, y)
 
 
-class Monitor(BaseMonitor):
+class Win32Monitor(BaseMonitor):
 
     def __init__(self, handle: Optional[int] = None):
         """
@@ -207,41 +207,57 @@ class Monitor(BaseMonitor):
         #     print(item)
         return float(pScale.value), float(pScale.value)
 
+    def _getPaths(self):
+
+        flags = pymonctl.structs._QDC_ONLY_ACTIVE_PATHS
+        numPathArrayElements = ctypes.c_uint32()
+        numModeInfoArrayElements = ctypes.c_uint32()
+        ctypes.windll.user32.GetDisplayConfigBufferSizes(flags,
+                                                         ctypes.byref(numPathArrayElements),
+                                                         ctypes.byref(numModeInfoArrayElements))
+        print("PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
+
+        flags = pymonctl.structs._DISPLAYCONFIG_PATH_ACTIVE
+        paths = (pymonctl.structs._DISPLAYCONFIG_PATH_INFO * numPathArrayElements.value)()
+        print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_PATH_INFO()), ctypes.sizeof(paths))
+        modes = (pymonctl.structs._DISPLAYCONFIG_MODE_INFO * numModeInfoArrayElements.value)()
+        print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_MODE_INFO), ctypes.sizeof(modes))
+        nullptr = ctypes.c_void_p()  # or None?
+        ret = ctypes.windll.user32.QueryDisplayConfig(flags,
+                                                      ctypes.byref(numPathArrayElements),
+                                                      ctypes.byref(paths),
+                                                      ctypes.byref(numModeInfoArrayElements),
+                                                      ctypes.byref(modes),
+                                                      None
+                                                      )
+        print("RET", ret, "PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
+        if ret == 0:
+            for i in range(numPathArrayElements.value):
+                pathInfo: pymonctl.structs._DISPLAYCONFIG_PATH_INFO = paths.value[i]
+                print(pathInfo)
+        else:
+            print("FAILED!!! (I guess you are gonna see this a ridiculously huge number of times...)")
+
     def setScale(self, scale: Tuple[float, float]):
-        # https://github.com/tringi/win32-dpi/blob/master/win32-dpi.cpp
-        # EFFECTIVE_DPI = 0
-        # ANGULAR_DPI = 1
-        # RAW_DPI = 2
-        # DEFAULT = 3
         if scale is not None:
             # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
-            # GET CURRENT, MINIMUM AND MAXIMUM SCALE:
-            # auto res = ::DisplayConfigGetDeviceInfo(&requestPacket.header);
-            # if (ERROR_SUCCESS == res)
-            # {//success
-            #     if (requestPacket.curScaleRel < requestPacket.minScaleRel)
-            #     {
-            #         requestPacket.curScaleRel = requestPacket.minScaleRel;
-            #     }
-            #     else if (requestPacket.curScaleRel > requestPacket.maxScaleRel)
-            #     {
-            #         requestPacket.curScaleRel = requestPacket.maxScaleRel;
-            #     }
-            # SET SCALE:
-            # DPIScalingInfo dPIScalingInfo = GetDPIScalingInfo(adapterID, sourceID);
-            # DpiHelper::DISPLAYCONFIG_SOURCE_DPI_SCALE_SET
-            # setPacket = {};
-            # setPacket.header.adapterId = adapterID;
-            # setPacket.header.id = sourceID;
-            # setPacket.header.size = sizeof(setPacket);
-            # assert (0x18 == sizeof(setPacket)); // if this fails = > OS has changed somthing, and our reverse enginnering knowledge about the API is outdated
-            # setPacket.header.type = (DISPLAYCONFIG_DEVICE_INFO_TYPE)
-            # DpiHelper::DISPLAYCONFIG_DEVICE_INFO_TYPE_CUSTOM::DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE;
-            # setPacket.scaleRel = (UINT32)
-            # dpiRelativeVal;
-            # auto res =::DisplayConfigSetDeviceInfo( & setPacket.header);
-            pass
 
+            self._getPaths()
+
+            scaleData = pymonctl.structs._DISPLAYCONFIG_SOURCE_DPI_SCALE_GET()
+            scaleData.header.type = pymonctl.structs._DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
+            scaleData.header.size = ctypes.sizeof(scaleData)
+            # HOW to GET adapterId and sourceId values???? -> QueryDisplayConfig
+            # https://stackoverflow.com/questions/67332814/how-to-properly-clone-and-extend-two-specific-monitors-on-windows
+            # Seriously all that to just get the adapterId and the sourceId???? I definitely love you, MS©
+            scaleData.header.adapterId = self.handle
+            scaleData.header.id = 1
+            scaleData.minScaleRel = 100
+            scaleData.curScaleRel = 125
+            scaleData.maxScaleRel = 250
+            print(ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(scaleData)))
+            print(scaleData.minScaleRel, scaleData.curScaleRel, scaleData.maxScaleRel)
+            # ctypes.windll.user32.DisplayConfigSetDeviceInfo(ctypes.byref(data))
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -259,7 +275,7 @@ class Monitor(BaseMonitor):
         return None
 
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
-        if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
+        if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
             devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
             if (devmode.DisplayOrientation + orientation) % 2 == 1:
                 devmode.PelsWidth, devmode.PelsHeight = devmode.PelsHeight, devmode.PelsWidth  # type: ignore[misc]
@@ -399,8 +415,8 @@ class Monitor(BaseMonitor):
                     ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
         else:
             # This will not work in modern systems
-            win32gui.SendMessage(win32con.HWND_BROADCAST, win32con.WM_SYSCOMMAND, win32con.SC_MONITORPOWER, -1)
-            # A mouse move can do the trick (for ALL monitors)
+            win32gui.SendMessageTimeout(win32con.HWND_BROADCAST, win32con.WM_SYSCOMMAND, win32con.SC_MONITORPOWER, -1,
+                                        win32con.SMTO_ABORTIFHUNG, 100)            # A mouse move can do the trick (for ALL monitors)
             mx, my = _getMousePos()
             _win32moveMouse(mx + 1, my + 1)
             _win32moveMouse(mx, my)
@@ -530,7 +546,7 @@ def _setPrimary(name: str, commit: bool = True):
 def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str, commit: bool = True):
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
-    if relativePos == PRIMARY:
+    if relativePos == Position.PRIMARY:
         _setPrimary(name, commit)
 
     else:
