@@ -97,7 +97,7 @@ class _DUMMYUNIONNAME(ctypes.Union):
 class _LUID(ctypes.Structure):
     _fields_ = [
         ('lowPart', ctypes.wintypes.DWORD),
-        ('highPart', ctypes.c_long)
+        ('highPart', ctypes.wintypes.LONG)
     ]
 
 
@@ -184,8 +184,8 @@ class _DISPLAYCONFIG_TARGET_MODE(ctypes.Structure):
 
 class _POINTL(ctypes.Structure):
     _fields_ = [
-        ('x', ctypes.c_long),
-        ('y', ctypes.c_long)
+        ('x', ctypes.wintypes.LONG),
+        ('y', ctypes.wintypes.LONG)
     ]
 
 
@@ -240,9 +240,9 @@ _DISPLAYCONFIG_PATH_ACTIVE = 0x00000001
 
 class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
     _fields_ = [
-        ('type', ctypes.c_uint),
+        ('type', ctypes.c_uint32),
         ('size', ctypes.c_uint32),
-        ('adapterId', ctypes.c_uint32),
+        ('adapterId', _LUID),
         ('id', ctypes.c_uint32)
     ]
 
@@ -256,7 +256,7 @@ class _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET(ctypes.Structure):
     ]
 
 
-_DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3  # returns min, max, suggested, and currently applied DPI scaling values.
+_DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3  # returns min, max, and currently applied DPI scaling values.
 
 
 class _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET(ctypes.Structure):

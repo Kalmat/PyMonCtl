@@ -8,6 +8,7 @@ from typing import Union
 import pymonctl as pmc
 from pymonctl.structs import *
 
+
 def countChanged(names, screensInfo):
     for name in names:
         print("MONITORS COUNT CHANGED:", name, screensInfo[name])
@@ -96,10 +97,10 @@ for monitor in pmc.getAllMonitors():
     print()
 
     print("CHANGE ORIENTATION")
-    monitor.setOrientation(INVERTED)
+    monitor.setOrientation(Orientation.INVERTED)
     time.sleep(5)
     print("RESTORE ORIENTATION")
-    monitor.setOrientation(NORMAL)
+    monitor.setOrientation(Orientation.NORMAL)
     time.sleep(3)
     print()
 
@@ -162,7 +163,7 @@ if len(monitorsPlugged) > 1:
     print()
 
     print("CHANGE POSITION OF MONITOR 2 TO BELOW_LEFT")
-    mon2.setPosition(BELOW_LEFT, mon1.name)
+    mon2.setPosition(Position.BELOW_LEFT, mon1.name)
     print("MONITOR 2 POSITION:", mon2.position)
     while True:
         try:
@@ -173,8 +174,8 @@ if len(monitorsPlugged) > 1:
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
     arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]] = {
-        str(mon2.name): {"relativePos": PRIMARY, "relativeTo": ""},
-        str(mon1.name): {"relativePos": LEFT_BOTTOM, "relativeTo": mon2.name}
+        str(mon2.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
+        str(mon1.name): {"relativePos": Position.LEFT_BOTTOM, "relativeTo": mon2.name}
     }
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
@@ -189,8 +190,8 @@ if len(monitorsPlugged) > 1:
 
     print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, MONITOR 2 AT RIGHT_TOP")
     arrangement = {
-        str(mon1.name): {"relativePos": PRIMARY, "relativeTo": ""},
-        str(mon2.name): {"relativePos": RIGHT_TOP, "relativeTo": mon1.name}
+        str(mon1.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
+        str(mon2.name): {"relativePos": Position.RIGHT_TOP, "relativeTo": mon1.name}
     }
     print(arrangement)
     pmc.arrangeMonitors(arrangement)

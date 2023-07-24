@@ -567,8 +567,8 @@ class _UpdateScreens(threading.Thread):
                             if screens[s] != self._screens[s]:
                                 names.append(s)
                     self._monitorPropsChanged(names, screens)
-            self._screens: dict[str, ScreenValue] = screens
-            self._monitors: list[Monitor] = _getAllMonitors()
+            self._screens = screens
+            self._monitors = _getAllMonitors()
 
             self._kill.wait(self._interval)
 

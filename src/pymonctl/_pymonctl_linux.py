@@ -17,8 +17,8 @@ import Xlib.display
 import Xlib.X
 from Xlib.ext import randr
 
-from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition
-from .structs import DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
+from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition, \
+                     DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 from ewmhlib import defaultRootWindow, getProperty, getPropertyValue
 from ewmhlib.Props import *
 

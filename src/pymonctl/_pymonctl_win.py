@@ -18,8 +18,8 @@ import win32con
 import win32evtlog
 import win32gui
 
-from pymonctl import BaseMonitor, _getRelativePosition
-from .structs import DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
+from pymonctl import BaseMonitor, _getRelativePosition, \
+                     DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 
 
 dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
@@ -221,19 +221,19 @@ class Win32Monitor(BaseMonitor):
         paths = (pymonctl.structs._DISPLAYCONFIG_PATH_INFO * numPathArrayElements.value)()
         print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_PATH_INFO()), ctypes.sizeof(paths))
         modes = (pymonctl.structs._DISPLAYCONFIG_MODE_INFO * numModeInfoArrayElements.value)()
-        print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_MODE_INFO), ctypes.sizeof(modes))
+        print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_MODE_INFO()), ctypes.sizeof(modes))
         nullptr = ctypes.c_void_p()  # or None?
         ret = ctypes.windll.user32.QueryDisplayConfig(flags,
                                                       ctypes.byref(numPathArrayElements),
                                                       ctypes.byref(paths),
                                                       ctypes.byref(numModeInfoArrayElements),
                                                       ctypes.byref(modes),
-                                                      None
+                                                      nullptr
                                                       )
         print("RET", ret, "PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
         if ret == 0:
             for i in range(numPathArrayElements.value):
-                pathInfo: pymonctl.structs._DISPLAYCONFIG_PATH_INFO = paths.value[i]
+                pathInfo: pymonctl.structs._DISPLAYCONFIG_PATH_INFO = paths[i].value
                 print(pathInfo)
         else:
             print("FAILED!!! (I guess you are gonna see this a ridiculously huge number of times...)")
@@ -242,7 +242,7 @@ class Win32Monitor(BaseMonitor):
         if scale is not None:
             # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
 
-            self._getPaths()
+            # self._getPaths()
 
             scaleData = pymonctl.structs._DISPLAYCONFIG_SOURCE_DPI_SCALE_GET()
             scaleData.header.type = pymonctl.structs._DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
@@ -250,13 +250,15 @@ class Win32Monitor(BaseMonitor):
             # HOW to GET adapterId and sourceId values???? -> QueryDisplayConfig
             # https://stackoverflow.com/questions/67332814/how-to-properly-clone-and-extend-two-specific-monitors-on-windows
             # Seriously all that to just get the adapterId and the sourceId???? I definitely love you, MS©
-            scaleData.header.adapterId = self.handle
-            scaleData.header.id = 1
+            scaleData.header.adapterId = pymonctl.structs._LUID()
+            scaleData.header.adapterId.lowPart = 0
+            scaleData.header.adapterId.highPart = self.handle
+            scaleData.header.id = 0
             scaleData.minScaleRel = 100
             scaleData.curScaleRel = 125
             scaleData.maxScaleRel = 250
-            print(ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(scaleData)))
-            print(scaleData.minScaleRel, scaleData.curScaleRel, scaleData.maxScaleRel)
+            ret = ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(scaleData))
+            # print("RET", ret, "MIN", scaleData.minScaleRel, "CURR", scaleData.curScaleRel, "MAX", scaleData.maxScaleRel)
             # ctypes.windll.user32.DisplayConfigSetDeviceInfo(ctypes.byref(data))
 
     @property
@@ -416,7 +418,8 @@ class Win32Monitor(BaseMonitor):
         else:
             # This will not work in modern systems
             win32gui.SendMessageTimeout(win32con.HWND_BROADCAST, win32con.WM_SYSCOMMAND, win32con.SC_MONITORPOWER, -1,
-                                        win32con.SMTO_ABORTIFHUNG, 100)            # A mouse move can do the trick (for ALL monitors)
+                                        win32con.SMTO_ABORTIFHUNG, 100)
+            # A mouse move can do the trick (for ALL monitors)
             mx, my = _getMousePos()
             _win32moveMouse(mx + 1, my + 1)
             _win32moveMouse(mx, my)
