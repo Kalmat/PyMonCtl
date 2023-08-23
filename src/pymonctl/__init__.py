@@ -19,7 +19,7 @@ __all__ = [
     "getMousePos", "version", "Monitor"
 ]
 
-__version__ = "0.0.10"
+__version__ = "0.0.11"
 
 
 def version(numberOnly: bool = True) -> str:

@@ -8,7 +8,6 @@ WINDOWS
 - Find a solution for changing scale
 
 MACOS
-- Contact display-manager-lib team to check alternatives or find another solution (for setOrientation, brightness)
 - Test everything in an actual macOS installation with a multi-monitor setup
 - Check returned coordinates (multi-monitor, flipped, ...)
 - Find a way to turn monitor OFF/ON/SUSPEND/WAKEUP/DETACH/ATTACH

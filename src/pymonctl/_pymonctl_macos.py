@@ -20,7 +20,7 @@ import Quartz.CoreGraphics as CG
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition, \
                      DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-# from ._display_manager_lib import Display
+from ._display_manager_lib import Display
 
 
 def _getAllMonitors() -> list[MacOSMonitor]:
@@ -196,7 +196,7 @@ class MacOSMonitor(BaseMonitor):
             except:
                 # In older macOS, screen doesn't have localizedName() method
                 self.name = "Display" + "_" + str(self.handle)
-            # self._dm = Display(self.handle)
+            self._dm = Display(self.handle)
         else:
             raise ValueError
 
@@ -308,9 +308,8 @@ class MacOSMonitor(BaseMonitor):
         return None
 
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
-        # if orientation in (NORMAL, INVERTED, LEFT, RIGHT):
-        #     self._dm.setRotate(orientation * 90)
-        pass
+        if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
+            self._dm.setRotate(orientation * 90)
 
     @property
     def frequency(self) -> Optional[float]:
@@ -324,8 +323,7 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def brightness(self) -> Optional[int]:
-        # return self._dm.brightness
-        return None
+        return self._dm.brightness
         # https://stackoverflow.com/questions/46885603/is-there-a-programmatic-way-to-check-if-brightness-is-at-max-or-min-value-on-osx
         # value = None
         # cmd = """nvram backlight-level | awk '{print $2}'"""
@@ -335,11 +333,10 @@ class MacOSMonitor(BaseMonitor):
         # return value
 
     def setBrightness(self, brightness: Optional[int]):
-        # try:
-        #     self._dm.setBrightness(brightness)
-        # except:
-        #     pass
-        pass
+        try:
+            self._dm.setBrightness(brightness)
+        except:
+            pass
         # https://github.com/thevickypedia/pybrightness/blob/main/pybrightness/controller.py
         # https://eastmanreference.com/complete-list-of-applescript-key-codes
         # for _ in range(32):
