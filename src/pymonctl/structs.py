@@ -232,11 +232,15 @@ class _DISPLAYCONFIG_MODE_INFO(ctypes.Structure):
     ]
 
 
-_QDC_ONLY_ACTIVE_PATHS = 0x00000002
-_DISPLAYCONFIG_PATH_ACTIVE = 0x00000001
+_QDC_ONLY_ACTIVE_PATHS = 2
+_DISPLAYCONFIG_PATH_ACTIVE = 1
 
 
 # ==================================== DisplayConfig[Get/Set]DeviceInfo =========================================
+
+
+_DPI_VALUES = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500]
+
 
 class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
     _fields_ = [
@@ -245,6 +249,9 @@ class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
         ('adapterId', _LUID),
         ('id', ctypes.c_uint32)
     ]
+
+
+_DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3  # returns min, max, and currently applied DPI scaling values
 
 
 class _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET(ctypes.Structure):
@@ -256,7 +263,7 @@ class _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET(ctypes.Structure):
     ]
 
 
-_DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3  # returns min, max, and currently applied DPI scaling values.
+_DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE = -4  # set current dpi scaling value for a display
 
 
 class _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET(ctypes.Structure):
@@ -266,4 +273,26 @@ class _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET(ctypes.Structure):
     ]
 
 
-_DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE = -4  # set current dpi scaling value for a display
+_DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2
+
+
+class _DISPLAY_CONFIG_TARGET_DEVICE_NAME(ctypes.Structure):
+    _fields_ = [
+        ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+        ('flags', ctypes.c_uint32),
+        ('outputTechnology', ctypes.c_uint32),
+        ('edidManufactureId', ctypes.c_uint16),
+        ('edidProductCodeId', ctypes.c_uint16),
+        ('connectorInstance', ctypes.c_uint32),
+        ('monitorFriendlyDeviceName', ctypes.wintypes.WCHAR * 64),
+        ('monitorDevicePath', ctypes.wintypes.WCHAR * 128)
+    ]
+
+
+_DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1
+
+class _DISPLAYCONFIG_SOURCE_DEVICE_NAME(ctypes.Structure):
+    _fields_ = [
+        ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+        ('viewGdiDeviceName', ctypes.wintypes.WCHAR * 32)
+    ]

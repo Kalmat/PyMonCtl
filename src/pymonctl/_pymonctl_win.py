@@ -21,9 +21,11 @@ import win32gui
 
 from pymonctl import BaseMonitor, _getRelativePosition, \
                      DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-from pymonctl.structs import _QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_ACTIVE, _DISPLAYCONFIG_PATH_INFO, \
-                             _DISPLAYCONFIG_MODE_INFO, _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET, \
-                             _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
+from pymonctl.structs import (_QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_INFO, _DISPLAYCONFIG_MODE_INFO, _LUID,
+                              _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET, _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET, _DPI_VALUES,
+                              _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE, _DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE,
+                              _DISPLAYCONFIG_SOURCE_DEVICE_NAME, _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
+                              )
 
 
 dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
@@ -167,6 +169,8 @@ class Win32Monitor(BaseMonitor):
             raise ValueError
         self._hasVCPSupport = _win32hasVCPSupport(self.handle)
         self._hasVCPPowerSupport = _win32hasVCPPowerSupport(self.handle)
+        self._sourceAdapterId: Optional[_LUID] = None
+        self._sourceId: Optional[int] = None
 
     @property
     def size(self) -> Optional[Size]:
@@ -229,7 +233,7 @@ class Win32Monitor(BaseMonitor):
             return float(pScale.value), float(pScale.value)
         return None
 
-    def _getPaths(self):
+    def _getPaths(self) -> Tuple[Optional[_LUID], Optional[int]]:
 
         flags = _QDC_ONLY_ACTIVE_PATHS
         numPathArrayElements = ctypes.c_uint32()
@@ -237,14 +241,11 @@ class Win32Monitor(BaseMonitor):
         ctypes.windll.user32.GetDisplayConfigBufferSizes(flags,
                                                          ctypes.byref(numPathArrayElements),
                                                          ctypes.byref(numModeInfoArrayElements))
-        print("PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
 
-        flags = _DISPLAYCONFIG_PATH_ACTIVE
+        flags = _QDC_ONLY_ACTIVE_PATHS
         paths = (_DISPLAYCONFIG_PATH_INFO * numPathArrayElements.value)()
-        print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_PATH_INFO()), ctypes.sizeof(paths))
         modes = (_DISPLAYCONFIG_MODE_INFO * numModeInfoArrayElements.value)()
-        print(ctypes.sizeof(_DISPLAYCONFIG_MODE_INFO()), ctypes.sizeof(modes))
-        nullptr = ctypes.c_void_p()  # or None?
+        nullptr = ctypes.c_void_p()
         ret = ctypes.windll.user32.QueryDisplayConfig(flags,
                                                       ctypes.byref(numPathArrayElements),
                                                       ctypes.byref(paths),
@@ -252,36 +253,67 @@ class Win32Monitor(BaseMonitor):
                                                       ctypes.byref(modes),
                                                       nullptr
                                                       )
-        print("RET", ret, "PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
         if ret == 0:
-            for i in range(numPathArrayElements.value):
-                pathInfo: _DISPLAYCONFIG_PATH_INFO = paths[i].value
-                print(pathInfo)
+            for path in paths:
+                sourceName = _DISPLAYCONFIG_SOURCE_DEVICE_NAME()
+                sourceName.header.type = _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
+                sourceName.header.size = ctypes.sizeof(sourceName)
+                sourceName.header.adapterId = path.sourceInfo.adapterId
+                sourceName.header.id = path.sourceInfo.id
+                ret = ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(sourceName))
+                if ret == 0 and sourceName.viewGdiDeviceName == self.name:
+                    return path.sourceInfo.adapterId, path.sourceInfo.id
         else:
-            print("FAILED!!! (I guess you are gonna see this a ridiculously huge number of times...)")
+            return None, None
 
-    def setScale(self, scale: Tuple[float, float]):
-        if scale is not None and self.handle is not None:
+    def setScale(self, scale: Optional[Tuple[float, float]]):
+
+        if self.handle is not None and scale is not None:
             # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
-
-            # self._getPaths()
-
-            scaleData = _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET()
-            scaleData.header.type = _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
-            scaleData.header.size = ctypes.sizeof(scaleData)
+            # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
             # HOW to GET adapterId and sourceId values???? -> QueryDisplayConfig
             # https://stackoverflow.com/questions/67332814/how-to-properly-clone-and-extend-two-specific-monitors-on-windows
             # Seriously all that to just get the adapterId and the sourceId???? I definitely love you, MS©
-            scaleData.header.adapterId = pymonctl.structs._LUID()
-            scaleData.header.adapterId.lowPart = 0
-            scaleData.header.adapterId.highPart = self.handle
-            scaleData.header.id = 0
-            scaleData.minScaleRel = 100
-            scaleData.curScaleRel = 125
-            scaleData.maxScaleRel = 250
-            ret = ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(scaleData))
-            # print("RET", ret, "MIN", scaleData.minScaleRel, "CURR", scaleData.curScaleRel, "MAX", scaleData.maxScaleRel)
-            # ctypes.windll.user32.DisplayConfigSetDeviceInfo(ctypes.byref(data))
+
+            if self._sourceAdapterId is None:
+                self._sourceAdapterId, self._sourceId = self._getPaths()
+                if self._sourceAdapterId is None:
+                    self._sourceAdapterId = 0
+                    self._sourceId = None
+
+            if self._sourceAdapterId is not None and self._sourceId is not None:
+
+                scaleData = _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET()
+                scaleData.header.type = _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
+                scaleData.header.size = ctypes.sizeof(scaleData)
+                scaleData.header.adapterId = self._sourceAdapterId
+                scaleData.header.id = self._sourceId
+                ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(scaleData))
+                minScale = _DPI_VALUES[scaleData.minScaleRel]
+                maxScale = _DPI_VALUES[scaleData.maxScaleRel]
+
+                scale = int(scale[0])
+                targetScale = -1
+                if scale < minScale:
+                    targetScale = 0
+                elif scale > maxScale:
+                    targetScale = len(_DPI_VALUES) - 1
+                else:
+                    try:
+                        targetScale = _DPI_VALUES.index(scale)
+                    except:
+                        for i, value in enumerate(_DPI_VALUES):
+                            targetScale = i
+                            if value > scale:
+                                break
+                if targetScale >= 0:
+                    setScaleData = _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET()
+                    setScaleData.header.type = _DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE
+                    setScaleData.header.size = ctypes.sizeof(setScaleData)
+                    setScaleData.header.adapterId = self._sourceAdapterId
+                    setScaleData.header.id = self._sourceId
+                    setScaleData.scaleRel = targetScale
+                    ctypes.windll.user32.DisplayConfigSetDeviceInfo(ctypes.byref(setScaleData))
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:

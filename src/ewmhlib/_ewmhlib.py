@@ -299,8 +299,8 @@ class RootWindow:
 
         if root and isinstance(root, XWindow):
             root = root.id
-        self.display, self.screen, self.root = getDisplayFromRoot(cast(int, root))
-        self.id: int = self.root.id
+        self.display, self.screen, self.root = getDisplayFromRoot(cast(Optional[int], root))
+        self.id = self.root.id
         self.wmProtocols = self._WmProtocols(self.display, self.root)
 
     def getProperty(self, prop: Union[str, int], prop_type: int = Xlib.X.AnyPropertyType) -> Optional[Xlib.protocol.request.GetProperty]:
@@ -1007,10 +1007,12 @@ class EwmhWindow:
             self.id: int = window.id
             self.display, self.screen, self.root = getDisplayFromWindow(self.id)
             self.xWindow: XWindow = window
-        else:
+        elif isinstance(window, int):
             self.id = window
             self.display, self.screen, self.root = getDisplayFromWindow(self.id)
             self.xWindow = self.display.create_resource_object('window', self.id)
+        else:
+            raise ValueError
         self.rootWindow: RootWindow = defaultRootWindow if self.root.id == defaultRoot.id else RootWindow(self.root)
         self.extensions = _Extensions(self.id, self.display, self.root)
 

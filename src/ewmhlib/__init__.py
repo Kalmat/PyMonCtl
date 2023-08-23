@@ -13,7 +13,8 @@ import ewmhlib.Structs as Structs
 __all__ = [
     "version", "displaysCount", "getDisplaysNames", "getDisplaysInfo", "getDisplayFromRoot", "getDisplayFromWindow",
     "getProperty", "getPropertyValue", "changeProperty", "sendMessage",
-    "defaultDisplay", "defaultScreen", "defaultRoot", "defaultRootWindow", "RootWindow", "EwmhWindow"
+    "defaultDisplay", "defaultScreen", "defaultRoot", "defaultRootWindow", "RootWindow", "EwmhWindow",
+    "Props", "Structs"
 ]
 
 
