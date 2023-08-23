@@ -263,8 +263,7 @@ class Win32Monitor(BaseMonitor):
                 ret = ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(sourceName))
                 if ret == 0 and sourceName.viewGdiDeviceName == self.name:
                     return path.sourceInfo.adapterId, path.sourceInfo.id
-        else:
-            return None, None
+        return None, None
 
     def setScale(self, scale: Optional[Tuple[float, float]]):
 
@@ -292,7 +291,7 @@ class Win32Monitor(BaseMonitor):
                 minScale = _DPI_VALUES[scaleData.minScaleRel]
                 maxScale = _DPI_VALUES[scaleData.maxScaleRel]
 
-                scale = int(scale[0])
+                scaleValue: int = int(scale[0])
                 targetScale = -1
                 if scale < minScale:
                     targetScale = 0
@@ -300,11 +299,11 @@ class Win32Monitor(BaseMonitor):
                     targetScale = len(_DPI_VALUES) - 1
                 else:
                     try:
-                        targetScale = _DPI_VALUES.index(scale)
+                        targetScale = _DPI_VALUES.index(scaleValue)
                     except:
                         for i, value in enumerate(_DPI_VALUES):
                             targetScale = i
-                            if value > scale:
+                            if value > scaleValue:
                                 break
                 if targetScale >= 0:
                     setScaleData = _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET()
