@@ -61,23 +61,35 @@ for monitor in pmc.getAllMonitors():
         print()
 
 
-    pmc.enableUpdate(monitorCountChanged=pluggedCB, monitorPropsChanged=changedCB)
-    print("CHANGE MODE")
+    pmc.enableUpdateInfo()
+    pmc.plugListenerRegister(pluggedCB)
+    pmc.changeListenerRegister(changedCB)
     currMode = monitor.mode
     targetMode = monitor.mode
-    modes = monitor.allModes
-    for mode in modes:
-        if monitor.mode and mode.width != monitor.mode.width:
-            targetMode = mode
-            break
-    targetMode = DisplayMode(3840, 1080, 120)
+    if monitor.size.width == 5120:
+        targetMode = DisplayMode(3840, 1080, monitor.defaultMode.frequency)
+    elif monitor.size.width == 1920:
+        targetMode = DisplayMode(1360, 768, monitor.defaultMode.frequency)
+    elif monitor.size.width == 1680:
+        targetMode = DisplayMode(1440, 900, monitor.defaultMode.frequency)
+    else:
+        modes = monitor.allModes
+        for mode in modes:
+            if monitor.mode and mode.width != monitor.mode.width:
+                targetMode = mode
+                break
+    print("CHANGE MODE", targetMode)
     monitor.setMode(targetMode)
     time.sleep(3)
-    print("SET DEFAULT MODE")
+    print("MODE CHANGED?:", monitor.mode)
+    print("SET DEFAULT MODE", monitor.defaultMode)
     monitor.setDefaultMode()
     time.sleep(3)
-    print("RESTORE MODE")
+    print("DEFAULT MODE SET?:", monitor.mode)
+    print("RESTORE MODE", currMode)
     monitor.setMode(currMode)
+    time.sleep(3)
+    print("MODE RESTORED?:", monitor.mode)
     print()
 
     print("CHANGE BRIGHTNESS")
@@ -86,6 +98,7 @@ for monitor in pmc.getAllMonitors():
     time.sleep(2)
     print("RESTORE BRIGHTNESS")
     monitor.setBrightness(currBright)
+    time.sleep(2)
     print()
 
     print("CHANGE CONTRAST")
@@ -94,6 +107,7 @@ for monitor in pmc.getAllMonitors():
     time.sleep(2)
     print("RESTORE CONTRAST")
     monitor.setContrast(currContrast)
+    time.sleep(2)
     print()
 
     print("CHANGE ORIENTATION")
@@ -115,7 +129,7 @@ for monitor in pmc.getAllMonitors():
     print("IS ON?:", monitor.isOn)
     print("TURN OFF")
     monitor.turnOff()
-    time.sleep(5)
+    time.sleep(3)
     print("IS ON?:", monitor.isOn)
     print("TURN ON")
     monitor.turnOn()
@@ -128,25 +142,28 @@ for monitor in pmc.getAllMonitors():
     print("IS ON?:", monitor.isOn)
     print("WAKEUP")
     monitor.turnOn()
-    time.sleep(2)
+    time.sleep(5)
     print("IS ON?:", monitor.isOn)
     print()
 
     print("IS ATTACHED?:", monitor.isAttached)
     print("DETACH")
     monitor.detach()
-    time.sleep(5)
+    time.sleep(3)
     print("IS ATTACHED?:", monitor.isAttached)
     print("ATTACH")
     monitor.attach()
-    time.sleep(2)
+    time.sleep(5)
     print("IS ATTACHED?:", monitor.isAttached)
     print()
-    pmc.disableUpdate()
+    pmc.disableUpdateInfo()
+    pmc.plugListenerUnregister(pluggedCB)
+    pmc.changeListenerUnregister(changedCB)
 
 if len(monitorsPlugged) > 1:
     mon1 = monitorsPlugged[0]
     mon2 = monitorsPlugged[1]
+
     print("MANAGING MONITORS")
     print("MONITOR 1:", mon1.name)
     print("MONITOR 2:", mon2.name)
@@ -154,23 +171,22 @@ if len(monitorsPlugged) > 1:
     print("MONITOR 2 AS PRIMARY")
     print("MONITOR 2 PRIMARY:", mon2.isPrimary)
     mon2.setPrimary()
+    time.sleep(3)
     print("MONITOR 2 PRIMARY:", mon2.isPrimary)
-    time.sleep(5)
     print("MONITOR 1 AS PRIMARY")
     print("MONITOR 1 PRIMARY:", mon1.isPrimary)
     mon1.setPrimary()
+    time.sleep(3)
     print("MONITOR 1 PRIMARY:", mon1.isPrimary)
     print()
 
     print("CHANGE POSITION OF MONITOR 2 TO BELOW_LEFT")
     mon2.setPosition(Position.BELOW_LEFT, mon1.name)
+    time.sleep(0.3)
     print("MONITOR 2 POSITION:", mon2.position)
-    while True:
-        try:
-            time.sleep(0.2)
-        except KeyboardInterrupt:
-            break
     print()
+
+    print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
     arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]] = {
@@ -179,14 +195,16 @@ if len(monitorsPlugged) > 1:
     }
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
-    print("MONITOR 1 POSITION:", mon1.position)
-    print("MONITOR 2 POSITION:", mon2.position)
-    while True:
-        try:
-            time.sleep(0.2)
-        except KeyboardInterrupt:
-            break
+    time.sleep(3)
+
+    print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
+
+    print("MONITOR 1 POSITION:", mon1.position, "LEFT_BOTTOM:", mon2.position == Point(mon1.size.width, mon1.size.height - mon2.size.height))
+    print("MONITOR 2 POSITION:", mon2.position, "PRIMARY:", mon2.isPrimary)
     print()
+    time.sleep(5)
+
+    print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
 
     print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, MONITOR 2 AT RIGHT_TOP")
     arrangement = {
@@ -195,5 +213,13 @@ if len(monitorsPlugged) > 1:
     }
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
-    print("MONITOR 1 POSITION:", mon1.position)
-    print("MONITOR 2 POSITION:", mon2.position)
+    time.sleep(3)
+
+    print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
+
+    print("MONITOR 1 POSITION:", mon1.position, "PRIMARY:", mon1.isPrimary)
+    print("MONITOR 2 POSITION:", mon2.position, "RIGHT_TOP:", mon2.position == Point(mon1.size.width, 0))
+
+    print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
+
+

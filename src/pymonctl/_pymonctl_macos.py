@@ -4,12 +4,13 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
-import subprocess
 import sys
-import threading
-import time
 
 assert sys.platform == "darwin"
+
+import subprocess
+import threading
+import time
 
 from typing import Optional, List, Union, cast, Tuple
 
@@ -87,7 +88,7 @@ def _getAllMonitorsDict(forceUpdate: bool = True) -> dict[str, ScreenValue]:
 
         result[scrName] = {
             'system_name': name,
-            'handle': displayId,
+            'id': displayId,
             'is_primary': is_primary,
             'position': Point(x, y),
             'size': Size(w, h),
@@ -492,7 +493,7 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
         relMon = {"pos": Point(frame.origin.x, frame.origin.y),
                   "size": Point(frame.size.width, frame.size.height)}
 
-        x, y, relCmd = _getRelativePosition(targetMon, relMon)
+        x, y = _getRelativePosition(targetMon, relMon)
         ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
         # If this display becomes primary (0, 0). MUST reposition primary monitor first!
         if not ret:

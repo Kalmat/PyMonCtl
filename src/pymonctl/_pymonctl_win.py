@@ -8,6 +8,7 @@ import pymonctl
 
 assert sys.platform == "win32"
 
+import gc
 import threading
 
 import ctypes.wintypes
@@ -20,6 +21,9 @@ import win32gui
 
 from pymonctl import BaseMonitor, _getRelativePosition, \
                      DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
+from pymonctl.structs import _QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_ACTIVE, _DISPLAYCONFIG_PATH_INFO, \
+                             _DISPLAYCONFIG_MODE_INFO, _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET, \
+                             _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
 
 
 dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
@@ -52,8 +56,8 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
             pass
         if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
             name = monName
-            x, y, r, b = monitorInfo.get("Monitor", (-1, -1, 0, 0))
-            wx, wy, wr, wb = monitorInfo.get("Work", (-1, -1, 0, 0))
+            x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+            wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, -1, -1))
             is_primary = monitorInfo.get("Flags", 0) == win32con.MONITORINFOF_PRIMARY
             pScale = ctypes.c_uint()
             ctypes.windll.shcore.GetScaleFactorForMonitor(hMon, ctypes.byref(pScale))
@@ -66,10 +70,14 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
             rot = settings.DisplayOrientation
             freq = settings.DisplayFrequency
             depth = settings.BitsPerPel
+            handle = None
+            hMon = win32api.MonitorFromPoint((x, y))
+            if hMon and hasattr(hMon, "handle"):
+                handle = hMon.handle
 
             result[name] = {
                 "system_name": name,
-                "handle": win32api.MonitorFromPoint((x, y)),
+                "id": handle,
                 "is_primary": is_primary,
                 "position": Point(x, y),
                 "size": Size(abs(r - x), abs(b - y)),
@@ -90,8 +98,8 @@ def _getMonitorsCount() -> int:
 def _findMonitor(x: int, y: int) -> Optional[Win32Monitor]:
     # Watch this: started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
     hMon = win32api.MonitorFromPoint((x, y), win32con.MONITOR_DEFAULTTONEAREST)
-    if hMon and hMon.handle > 0:
-        return Win32Monitor(hMon)
+    if hMon and hasattr(hMon, "handle"):
+        return Win32Monitor(hMon.handle)
     return None
 
 
@@ -108,6 +116,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         if monName not in arrangement.keys():
             return
     primaryPresent = False
+    setAsPrimary = ""
     for monName in arrangement.keys():
         relPos = arrangement[monName]["relativePos"]
         relMon = arrangement[monName]["relativeTo"]
@@ -115,12 +124,16 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
                 (not relMon and relPos != Position.PRIMARY):
             return
         elif relPos == Position.PRIMARY:
+            setAsPrimary = monName
             primaryPresent = True
     if not primaryPresent:
         return
 
+    _setPrimary(setAsPrimary, True)
+
     for monName in arrangement.keys():
-        _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName, False)
+        if monName != setAsPrimary:
+            _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName, False)
 
     # First request all changes, then execute this with NULL params
     win32api.ChangeDisplaySettingsEx()
@@ -144,7 +157,7 @@ class Win32Monitor(BaseMonitor):
         """
         if not handle:
             hMon = win32api.MonitorFromPoint((0, 0), win32con.MONITOR_DEFAULTTOPRIMARY)
-            if hMon and hMon.handle > 0:
+            if hMon and hasattr(hMon, "handle"):
                 handle = hMon.handle
         if handle:
             self.handle = handle
@@ -152,29 +165,34 @@ class Win32Monitor(BaseMonitor):
             self.name = monitorInfo.get("Device", "")
         else:
             raise ValueError
+        self._hasVCPSupport = _win32hasVCPSupport(self.handle)
+        self._hasVCPPowerSupport = _win32hasVCPPowerSupport(self.handle)
 
     @property
     def size(self) -> Optional[Size]:
-        monitorInfo = win32api.GetMonitorInfo(self.handle)
-        if monitorInfo:
-            x, y, r, b = monitorInfo.get("Monitor", (-1, -1, 0, 0))
-            return Size(abs(r - x), abs(b - y))
+        if self.handle is not None:
+            monitorInfo = win32api.GetMonitorInfo(self.handle)
+            if monitorInfo:
+                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+                return Size(abs(r - x), abs(b - y))
         return None
 
     @property
     def workarea(self) -> Optional[Rect]:
-        monitorInfo = win32api.GetMonitorInfo(self.handle)
-        if monitorInfo:
-            wx, wy, wr, wb = monitorInfo.get("Work", (-1, -1, 0, 0))
-            return Rect(wx, wy, wr, wb)
+        if self.handle is not None:
+            monitorInfo = win32api.GetMonitorInfo(self.handle)
+            if monitorInfo:
+                wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, -1, -1))
+                return Rect(wx, wy, wr, wb)
         return None
 
     @property
     def position(self) -> Optional[Point]:
-        monitorInfo = win32api.GetMonitorInfo(self.handle)
-        if monitorInfo:
-            x, y, r, b = monitorInfo.get("Monitor", (-1, -1, 0, 0))
-            return Point(x, y)
+        if self.handle is not None:
+            monitorInfo = win32api.GetMonitorInfo(self.handle)
+            if monitorInfo:
+                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+                return Point(x, y)
         return None
 
     def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
@@ -182,34 +200,38 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def box(self) -> Optional[Box]:
-        monitorInfo = win32api.GetMonitorInfo(self.handle)
-        if monitorInfo:
-            x, y, r, b = monitorInfo.get("Monitor", (-1, -1, 0, 0))
-            return Box(x, y, abs(r - x), abs(b - y))
+        if self.handle is not None:
+            monitorInfo = win32api.GetMonitorInfo(self.handle)
+            if monitorInfo:
+                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+                return Box(x, y, abs(r - x), abs(b - y))
         return None
 
     @property
     def rect(self) -> Optional[Rect]:
-        monitorInfo = win32api.GetMonitorInfo(self.handle)
-        if monitorInfo:
-            x, y, r, b = monitorInfo.get("Monitor", (-1, -1, 0, 0))
-            return Rect(x, y, r, b)
+        if self.handle is not None:
+            monitorInfo = win32api.GetMonitorInfo(self.handle)
+            if monitorInfo:
+                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+                return Rect(x, y, r, b)
         return None
 
     @property
     def scale(self) -> Optional[Tuple[float, float]]:
-        pScale = ctypes.c_uint()
-        ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
-        # import wmi
-        # obj = wmi.WMI().Win32_PnPEntity(ConfigManagerErrorCode=0)
-        # displays = [x for x in obj if 'DISPLAY' in str(x)]
-        # for item in displays:
-        #     print(item)
-        return float(pScale.value), float(pScale.value)
+        if self.handle is not None:
+            pScale = ctypes.c_uint()
+            ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
+            # import wmi
+            # obj = wmi.WMI().Win32_PnPEntity(ConfigManagerErrorCode=0)
+            # displays = [x for x in obj if 'DISPLAY' in str(x)]
+            # for item in displays:
+            #     print(item)
+            return float(pScale.value), float(pScale.value)
+        return None
 
     def _getPaths(self):
 
-        flags = pymonctl.structs._QDC_ONLY_ACTIVE_PATHS
+        flags = _QDC_ONLY_ACTIVE_PATHS
         numPathArrayElements = ctypes.c_uint32()
         numModeInfoArrayElements = ctypes.c_uint32()
         ctypes.windll.user32.GetDisplayConfigBufferSizes(flags,
@@ -217,11 +239,11 @@ class Win32Monitor(BaseMonitor):
                                                          ctypes.byref(numModeInfoArrayElements))
         print("PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
 
-        flags = pymonctl.structs._DISPLAYCONFIG_PATH_ACTIVE
-        paths = (pymonctl.structs._DISPLAYCONFIG_PATH_INFO * numPathArrayElements.value)()
+        flags = _DISPLAYCONFIG_PATH_ACTIVE
+        paths = (_DISPLAYCONFIG_PATH_INFO * numPathArrayElements.value)()
         print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_PATH_INFO()), ctypes.sizeof(paths))
-        modes = (pymonctl.structs._DISPLAYCONFIG_MODE_INFO * numModeInfoArrayElements.value)()
-        print(ctypes.sizeof(pymonctl.structs._DISPLAYCONFIG_MODE_INFO()), ctypes.sizeof(modes))
+        modes = (_DISPLAYCONFIG_MODE_INFO * numModeInfoArrayElements.value)()
+        print(ctypes.sizeof(_DISPLAYCONFIG_MODE_INFO()), ctypes.sizeof(modes))
         nullptr = ctypes.c_void_p()  # or None?
         ret = ctypes.windll.user32.QueryDisplayConfig(flags,
                                                       ctypes.byref(numPathArrayElements),
@@ -233,19 +255,19 @@ class Win32Monitor(BaseMonitor):
         print("RET", ret, "PATHS", numPathArrayElements.value, "MODES", numModeInfoArrayElements.value)
         if ret == 0:
             for i in range(numPathArrayElements.value):
-                pathInfo: pymonctl.structs._DISPLAYCONFIG_PATH_INFO = paths[i].value
+                pathInfo: _DISPLAYCONFIG_PATH_INFO = paths[i].value
                 print(pathInfo)
         else:
             print("FAILED!!! (I guess you are gonna see this a ridiculously huge number of times...)")
 
     def setScale(self, scale: Tuple[float, float]):
-        if scale is not None:
+        if scale is not None and self.handle is not None:
             # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
 
             # self._getPaths()
 
-            scaleData = pymonctl.structs._DISPLAYCONFIG_SOURCE_DPI_SCALE_GET()
-            scaleData.header.type = pymonctl.structs._DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
+            scaleData = _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET()
+            scaleData.header.type = _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE
             scaleData.header.size = ctypes.sizeof(scaleData)
             # HOW to GET adapterId and sourceId values???? -> QueryDisplayConfig
             # https://stackoverflow.com/questions/67332814/how-to-properly-clone-and-extend-two-specific-monitors-on-windows
@@ -263,10 +285,12 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
-        dpiX = ctypes.c_uint()
-        dpiY = ctypes.c_uint()
-        ctypes.windll.shcore.GetDpiForMonitor(self.handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
-        return dpiX.value, dpiY.value
+        if self.handle is not None:
+            dpiX = ctypes.c_uint()
+            dpiY = ctypes.c_uint()
+            ctypes.windll.shcore.GetDpiForMonitor(self.handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
+            return dpiX.value, dpiY.value
+        return None
 
     @property
     def orientation(self) -> Optional[Union[int, Orientation]]:
@@ -302,20 +326,7 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def brightness(self) -> Optional[int]:
-        minBright = ctypes.c_uint()
-        currBright = ctypes.c_uint()
-        maxBright = ctypes.c_uint()
-        hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-        for hDevice in hDevices:
-            ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
-                                                     ctypes.byref(maxBright))
-            _win32destroyPhysicalMonitors(hDevices)
-            normBrightness = int((currBright.value / ((maxBright.value + minBright.value) or 1))) * 100
-            return normBrightness
-        return None
-
-    def setBrightness(self, brightness: Optional[int]):
-        if brightness is not None:
+        if self.handle is not None:
             minBright = ctypes.c_uint()
             currBright = ctypes.c_uint()
             maxBright = ctypes.c_uint()
@@ -323,9 +334,24 @@ class Win32Monitor(BaseMonitor):
             for hDevice in hDevices:
                 ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
                                                          ctypes.byref(maxBright))
-                normBrightness = brightness * ((maxBright.value + minBright.value) / 100)
-                if minBright.value <= brightness <= maxBright.value and currBright.value != brightness:
-                    ctypes.windll.dxva2.SetMonitorBrightness(hDevice, normBrightness)
+                _win32destroyPhysicalMonitors(hDevices)
+                return currBright.value
+        return None
+
+    def setBrightness(self, brightness: Optional[int]):
+        if brightness is not None and self.handle is not None:
+            minBright = ctypes.c_uint()
+            currBright = ctypes.c_uint()
+            maxBright = ctypes.c_uint()
+            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+            for hDevice in hDevices:
+                ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
+                                                         ctypes.byref(maxBright))
+                if brightness < minBright.value:
+                    brightness = minBright.value
+                elif brightness > maxBright.value:
+                    brightness = maxBright.value
+                ctypes.windll.dxva2.SetMonitorBrightness(hDevice, brightness)
                 ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
         # This fails with "wmi.x_wmi: <x_wmi: Unexpected COM Error (-2147217396, 'OLE error 0x8004100c', None, None)>"
         # import wmi
@@ -333,20 +359,7 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def contrast(self) -> Optional[int]:
-        minCont = ctypes.c_uint()
-        currCont = ctypes.c_uint()
-        maxCont = ctypes.c_uint()
-        hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-        for hDevice in hDevices:
-            ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
-                                                   ctypes.byref(maxCont))
-            _win32destroyPhysicalMonitors(hDevices)
-            normContrast = int((currCont.value / ((maxCont.value + minCont.value) or 1))) * 100
-            return normContrast
-        return None
-
-    def setContrast(self, contrast: Optional[int]):
-        if contrast is not None:
+        if self.handle is not None:
             minCont = ctypes.c_uint()
             currCont = ctypes.c_uint()
             maxCont = ctypes.c_uint()
@@ -354,9 +367,24 @@ class Win32Monitor(BaseMonitor):
             for hDevice in hDevices:
                 ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
                                                        ctypes.byref(maxCont))
-                normContrast = contrast * ((maxCont.value + minCont.value) / 100)
-                if minCont.value <= contrast <= maxCont.value and currCont.value != contrast:
-                    ctypes.windll.dxva2.SetMonitorContrast(hDevice, normContrast)
+                _win32destroyPhysicalMonitors(hDevices)
+                return currCont.value
+        return None
+
+    def setContrast(self, contrast: Optional[int]):
+        if contrast is not None and self.handle is not None:
+            minCont = ctypes.c_uint()
+            currCont = ctypes.c_uint()
+            maxCont = ctypes.c_uint()
+            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+            for hDevice in hDevices:
+                ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
+                                                       ctypes.byref(maxCont))
+                if contrast < minCont.value:
+                    contrast = minCont.value
+                elif contrast > maxCont.value:
+                    contrast = maxCont.value
+                ctypes.windll.dxva2.SetMonitorContrast(hDevice, contrast)
                 ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
 
     @property
@@ -366,11 +394,12 @@ class Win32Monitor(BaseMonitor):
 
     def setMode(self, mode: Optional[DisplayMode]):
         if mode is not None:
-            devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
+            # devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
+            devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.PelsWidth = mode.width  # type: ignore[misc]
             devmode.PelsHeight = mode.height  # type: ignore[misc]
             devmode.DisplayFrequency = mode.frequency  # type: ignore[misc]
-            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY  # type: ignore[misc]
+            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT # | win32con.DM_DISPLAYFREQUENCY  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, 0)  # type: ignore[arg-type]
 
     @property
@@ -408,7 +437,7 @@ class Win32Monitor(BaseMonitor):
 
     def turnOn(self):
         # https://stackoverflow.com/questions/16402672/control-screen-with-python
-        if _win32hasVCPSupport(self.handle) and _win32hasVCPPowerSupport(self.handle):
+        if self.handle is not None and self._hasVCPSupport and self._hasVCPPowerSupport:
             if not self.isOn:
                 hDevices = _win32getPhysicalMonitorsHandles(self.handle)
                 for hDevice in hDevices:
@@ -426,7 +455,7 @@ class Win32Monitor(BaseMonitor):
 
     def turnOff(self):
         # https://stackoverflow.com/questions/16402672/control-screen-with-python
-        if _win32hasVCPSupport(self.handle) and _win32hasVCPPowerSupport(self.handle):
+        if self.handle is not None and self._hasVCPSupport and self._hasVCPPowerSupport:
             if self.isOn:
                 hDevices = _win32getPhysicalMonitorsHandles(self.handle)
                 for hDevice in hDevices:
@@ -439,7 +468,7 @@ class Win32Monitor(BaseMonitor):
                                         win32con.SMTO_ABORTIFHUNG, 100)
 
     def suspend(self):
-        if _win32hasVCPSupport(self.handle) and _win32hasVCPPowerSupport(self.handle):
+        if self.handle is not None and self._hasVCPSupport and self._hasVCPPowerSupport:
             hDevices = _win32getPhysicalMonitorsHandles(self.handle)
             for hDevice in hDevices:
                 # code and value according to: VESA Monitor Control Command Set (MCCS) standard, version 1.0 and 2.0.
@@ -453,25 +482,26 @@ class Win32Monitor(BaseMonitor):
     @property
     def isOn(self) -> Optional[bool]:
         ret = None
-        if _win32hasVCPSupport(self.handle) and _win32hasVCPPowerSupport(self.handle):
-            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-            for hDevice in hDevices:
-                # code and value according to: VESA Monitor Control Command Set (MCCS) standard, version 1.0 and 2.0.
-                pvct = ctypes.c_uint()
-                currValue = ctypes.c_uint()
-                maxValue = ctypes.c_uint()
-                ctypes.windll.dxva2.GetVCPFeatureAndVCPFeatureReply(hDevice, 0xD6, ctypes.byref(pvct),
-                                                                    ctypes.byref(currValue), ctypes.byref(maxValue))
-                ret = currValue.value == 1
-            _win32destroyPhysicalMonitors(hDevices)
-        else:
-            # Not working by now (tried with hDevice as well)
-            # https://stackoverflow.com/questions/203355/is-there-any-way-to-detect-the-monitor-state-in-windows-on-or-off
-            # https://learn.microsoft.com/en-us/windows/win32/power/power-management-functions
-            is_working = ctypes.c_uint()
-            res = ctypes.windll.kernel32.GetDevicePowerState(self.handle, ctypes.byref(is_working))
-            if res:
-                ret = bool(is_working.value == 1)
+        if self.handle is not None:
+            if self._hasVCPSupport and self._hasVCPPowerSupport:
+                hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+                for hDevice in hDevices:
+                    # code and value according to: VESA Monitor Control Command Set (MCCS) standard, version 1.0 and 2.0.
+                    pvct = ctypes.c_uint()
+                    currValue = ctypes.c_uint()
+                    maxValue = ctypes.c_uint()
+                    ctypes.windll.dxva2.GetVCPFeatureAndVCPFeatureReply(hDevice, 0xD6, ctypes.byref(pvct),
+                                                                        ctypes.byref(currValue), ctypes.byref(maxValue))
+                    ret = currValue.value == 1
+                _win32destroyPhysicalMonitors(hDevices)
+            else:
+                # Not working by now (tried with hDevice as well)
+                # https://stackoverflow.com/questions/203355/is-there-any-way-to-detect-the-monitor-state-in-windows-on-or-off
+                # https://learn.microsoft.com/en-us/windows/win32/power/power-management-functions
+                is_working = ctypes.c_uint()
+                res = ctypes.windll.kernel32.GetDevicePowerState(self.handle, ctypes.byref(is_working))
+                if res:
+                    ret = bool(is_working.value == 1)
         return ret
 
     def attach(self):
@@ -484,11 +514,7 @@ class Win32Monitor(BaseMonitor):
             # devmode.PelsHeight = settings.PelsHeight
             devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY)  # type: ignore[arg-type]
-            for mon in win32api.EnumDisplayMonitors():
-                hMon = mon[0].handle
-                monInfo = win32api.GetMonitorInfo(hMon)
-                if monInfo.get("Device", "") == self.name:
-                    self.handle = hMon
+            self._findNewHandles()
 
     def detach(self, permanent: bool = False):
         dev = win32api.EnumDisplayDevices(self.name, 0, 0)
@@ -500,6 +526,21 @@ class Win32Monitor(BaseMonitor):
             devmode.Position_y = 0
             devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_POSITION
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY if permanent else 0)  # type: ignore[arg-type]
+            self._findNewHandles()
+
+    def _findNewHandles(self):
+        # https://stackoverflow.com/questions/328851/printing-all-instances-of-a-class
+        # All monitor IDs will change after detaching or attaching a monitor
+        monitors = win32api.EnumDisplayMonitors()
+        otherMonitorInstances = [cast(Win32Monitor, obj) for obj in gc.get_objects() if isinstance(obj, Win32Monitor)]
+        for instance in otherMonitorInstances:
+            for monitor in monitors:
+                hMon = monitor[0].handle
+                monitorInfo = win32api.GetMonitorInfo(hMon)
+                monName = monitorInfo.get("Device", "")
+                if instance.name == monName:
+                    instance.handle = hMon
+                    break
 
     @property
     def isAttached(self) -> Optional[bool]:
@@ -525,7 +566,7 @@ def _setPrimary(name: str, commit: bool = True):
                     # devmode = win32api.EnumDisplaySettings(name, win32con.ENUM_CURRENT_SETTINGS)
                     devmode.Position_x = 0
                     devmode.Position_y = 0
-                    devmode.Fields = devmode.Fields | win32con.DM_POSITION
+                    devmode.Fields = win32con.DM_POSITION
                     flags = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
                     win32api.ChangeDisplaySettingsEx(name, devmode, flags)  # type: ignore[arg-type]
                     break
@@ -540,7 +581,7 @@ def _setPrimary(name: str, commit: bool = True):
                 y = monInfo["Monitor"][1] - yOffset
                 devmode.Position_x = x
                 devmode.Position_y = y
-                devmode.Fields = devmode.Fields | win32con.DM_POSITION
+                devmode.Fields = win32con.DM_POSITION
                 win32api.ChangeDisplaySettingsEx(monName, devmode, flags)  # type: ignore[arg-type]
         if commit:
             win32api.ChangeDisplaySettingsEx()
@@ -556,18 +597,18 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
         monitors = _win32getAllMonitorsDict()
         if name in monitors.keys() and relativeTo in monitors.keys():
             targetMonInfo = monitors[name]["monitor"]
-            x, y, r, b = targetMonInfo.get("Monitor", (-1, -1, 0, 0))
+            x, y, r, b = targetMonInfo.get("Monitor", (0, 0, -1, -1))
             w = abs(r - x)
             h = abs(b - y)
             targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
                          "position": Point(x, y), "size": Size(w, h)}
 
             relMonInfo = monitors[relativeTo]["monitor"]
-            x, y, r, b = relMonInfo.get("Monitor", (-1, -1, 0, 0))
+            x, y, r, b = relMonInfo.get("Monitor", (0, 0, -1, -1))
             w = abs(r - x)
             h = abs(b - y)
             relMon = {"position": Point(x, y), "size": Size(w, h)}
-            x, y, _ = _getRelativePosition(targetMon, relMon)
+            x, y = _getRelativePosition(targetMon, relMon)
 
             devmode = win32api.EnumDisplaySettings(name, win32con.ENUM_CURRENT_SETTINGS)
             devmode.Position_x = x  # type: ignore[misc]
@@ -739,3 +780,6 @@ def _eventLogLoop(kill: threading.Event, interval: float):
         kill.wait(interval)
 
     win32evtlog.CloseEventLog(handle)
+
+# import win32ui
+# print(win32ui.GetDeviceCaps(win32gui.GetDC(None), win32con.HORZSIZE), win32ui.GetDeviceCaps(win32gui.GetDC(None), win32con.VERTSIZE))

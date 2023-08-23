@@ -2,27 +2,30 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import subprocess
 import sys
-import threading
-import time
 
 assert sys.platform == "linux"
 
+import subprocess
+import threading
+import time
+
 import math
-import os
 from typing import Optional, List, Union, cast, Tuple
 
 import Xlib.display
 import Xlib.X
+import Xlib.protocol
 from Xlib.ext import randr
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition, \
                      DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-from ewmhlib import defaultRootWindow, getProperty, getPropertyValue
-from ewmhlib.Props import *
+from ewmhlib import displaysCount, getDisplaysNames, defaultDisplay, defaultRoot, defaultScreen, defaultRootWindow, \
+                    getProperty, getPropertyValue
+from ewmhlib.Props import Root
 
 
+# Check if randr extension is available
 if not defaultRootWindow.display.has_extension('RANDR'):
     sys.stderr.write('{}: server does not have the RANDR extension\n'.format(sys.argv[0]))
     ext = defaultRootWindow.display.query_extension('RANDR')
@@ -31,39 +34,52 @@ if not defaultRootWindow.display.has_extension('RANDR'):
     if ext is None:
         sys.exit(1)
 
+# Check if Xorg is running (this all will not work on Wayland or alike)
+p = subprocess.Popen(["xset", "-q"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+p.communicate()
+if p.returncode != 0:
+    sys.stderr.write('{}: Xorg is not available\n'.format(sys.argv[0]))
+    sys.exit(1)
+
 
 def _XgetDisplays() -> List[Xlib.display.Display]:
     displays: List[Xlib.display.Display] = []
-    try:
-        files = os.listdir("/tmp/.X11-unix")
-    except:
-        files = []
-    for f in files:
-        if f.startswith("X"):
-            displays.append(Xlib.display.Display(":"+f[1:]))
+    if displaysCount > 1 or defaultDisplay.screen_count() > 1:
+        for name in getDisplaysNames():
+            try:
+                displays.append(Xlib.display.Display(name))
+            except:
+                pass
     if not displays:
-        displays = [Xlib.display.Display()]
+        displays = [defaultDisplay]
     return displays
 _displays = _XgetDisplays()
 
 
 def _XgetRoots():
     roots = []
-    global _displays
-    for display in _displays:
-        for i in range(display.screen_count()):
-            try:
-                screen = display.screen(i)
-                roots.append([display, screen, screen.root])
-            except:
-                pass
+    if displaysCount > 1 or defaultDisplay.screen_count() > 1:
+        global _displays
+        for display in _displays:
+            for i in range(display.screen_count()):
+                try:
+                    screen = display.screen(i)
+                    res = screen.root.xrandr_get_screen_resources()
+                    roots.append([display, screen, screen.root, res])
+                except:
+                    pass
+    if not roots:
+        res = defaultRoot.xrandr_get_screen_resources()
+        roots.append([defaultDisplay, defaultScreen, defaultRoot, res])
     return roots
 _roots = _XgetRoots()
 
 
-def _getAllMonitors() -> list[LinuxMonitor]:
+def _getAllMonitors(outputs=None) -> list[LinuxMonitor]:
     monitors = []
-    for outputData in _XgetAllOutputs():
+    if not outputs:
+        outputs = _XgetAllOutputs()
+    for outputData in outputs:
         display, screen, root, res, output, outputInfo = outputData
         if outputInfo.crtc:
             monitors.append(LinuxMonitor(output))
@@ -85,13 +101,13 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
 
             if outputInfo.name == monitorName and outputInfo.crtc:
                 crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, res.config_timestamp)
-                is_primary = monitor.primary == 1 or (monitor.x == 0 and monitor.y == 0)
+                is_primary = monitor.primary == 1
                 x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
                 # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
                 wa: List[int] = getPropertyValue(getProperty(window=root, prop=Root.WORKAREA, display=display), display=display)
                 wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
-                dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
-                scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
+                dpiX, dpiY = round((w * 25.4) / (monitor.width_in_millimeters or 1)), round((h * 25.4) / (monitor.height_in_millimeters or 1))
+                scaleX, scaleY = _scale(monitorName)
                 rot = int(math.log(crtcInfo.rotation, 2))
                 freq = 0.0
                 for mode in res.modes:
@@ -102,7 +118,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
 
                 result[outputInfo.name] = {
                     "system_name": outputInfo.name,
-                    'handle': output,
+                    'id': output,
                     'is_primary': is_primary,
                     'position': Point(x, y),
                     'size': Size(w, h),
@@ -121,7 +137,7 @@ def _getMonitorsCount() -> int:
     count = 0
     global _roots
     for rootData in _roots:
-        display, screen, root = rootData
+        display, screen, root, res = rootData
         count += len(randr.get_monitors(root).monitors)
     return count
 
@@ -156,8 +172,51 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     if not primaryPresent:
         return
 
+    newArrangement: dict[str, dict[str, Union[int, bool]]] = {}
+    newPos: dict[str, dict[str, int]] = {}
+    xOffset = yOffset = 0
     for monName in arrangement.keys():
-        _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName)
+        arrInfo = arrangement[monName]
+
+        targetMonInfo = monitors[monName]["monitor"]
+        relativePos = arrInfo["relativePos"]
+        relativeTo = arrInfo["relativeTo"]
+
+        targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                     "position": Point(targetMonInfo.x, targetMonInfo.y),
+                     "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
+
+        if relativePos == Position.PRIMARY:
+            x, y = 0, 0
+
+        else:
+            relMonInfo = monitors[relativeTo]["monitor"]
+            if relativeTo in newPos.keys():
+                relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+            else:
+                relX, relY = relMonInfo.x, relMonInfo.y
+            relMon = {"position": Point(relX, relY),
+                      "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
+
+            x, y = _getRelativePosition(targetMon, relMon)
+            if x < 0:
+                xOffset += abs(x)
+            if y < 0:
+                yOffset += abs(y)
+        newPos[monName] = {"x": x, "y": y}
+
+        newArrangement[monName] = {
+            "setPrimary": relativePos == Position.PRIMARY,
+            "x": x,
+            "y": y
+        }
+
+    if newArrangement:
+        cmd = _buildCommand(newArrangement, xOffset, yOffset)
+        try:
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+        except:
+            pass
 
 
 def _getMousePos() -> Point:
@@ -186,6 +245,7 @@ class LinuxMonitor(BaseMonitor):
             self.display, self.screen, self.root, self.resources, self.handle, self.name = monitorData
         else:
             raise ValueError
+        self._crtc: dict[str, Union[int, Xlib.ext.randr.GetCrtcInfo]] = {}
 
     @property
     def size(self) -> Optional[Size]:
@@ -237,27 +297,28 @@ class LinuxMonitor(BaseMonitor):
         return rect
 
     @property
-    def scale(self) -> Optional[Tuple[float, float]]:
-        for monitorData in _XgetAllMonitors(self.name):
-            display, root, monitor, monName = monitorData
-            x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
-            dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
-            scaleX, scaleY = round((dpiX / 96) * 100), round((dpiY / 96) * 100)
-            return scaleX, scaleY
-        return None
+    def scale(self) -> Tuple[Optional[float], Optional[float]]:
+        return _scale(self.name)
 
     def setScale(self, scale: Tuple[float, float]):
-        if scale is not None:
+        if scale is not None and self.name and self.name in _XgetAllMonitorsNames():
             # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
-            scaleX, scaleY = scale
-            cmd = "  --filter nearest --scale %sx%s" % (scaleX, scaleY)
-            if self.name and self.name in _XgetAllMonitorsNames():
-                cmd = (" --output %s" % self.name) + cmd
-            cmd = "xrandr" + cmd
+            scaleX, scaleY = round(100/ scale[0], 1), round(100 / scale[1], 1)
+            # cmd = "xrandr --output %s --scale %sx%s --filter nearest" % (self.name, scaleX, scaleY)
+            cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
+            retry = False
             try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                ret = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                if ret and hasattr(ret, "returncode"):
+                    retry = ret.returncode != 0
             except:
                 pass
+            # if retry:
+            #     try:
+            #         cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
+            #         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+            #     except:
+            #         pass
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -283,7 +344,7 @@ class LinuxMonitor(BaseMonitor):
             # outputs = _XgetAllOutputs(self.name)
             # for outputData in outputs:
             #     display, screen, root, res, output, outputInfo = outputData
-            #     crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
+            #     crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, res.config_timestamp)
             #     if crtcInfo and crtcInfo.mode:
             #         randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y,
             #                               crtcInfo.mode, (orientation or 1) ** 2, crtcInfo.outputs)
@@ -296,10 +357,7 @@ class LinuxMonitor(BaseMonitor):
                 direction = "left"
             else:
                 direction = "normal"
-            cmd = " -o %s" % direction
-            if self.name in _XgetAllMonitorsNames():
-                cmd = (" --output %s" % self.name) + cmd
-            cmd = "xrandr" + cmd
+            cmd = "xrandr --output %s --rotate %s" % (self.name, direction)
             try:
                 subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
             except:
@@ -310,7 +368,7 @@ class LinuxMonitor(BaseMonitor):
         outputs = _XgetAllOutputs(self.name)
         for outputData in outputs:
             display, screen, root, res, output, outputInfo = outputData
-            crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
+            crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, res.config_timestamp)
             for mode in res.modes:
                 if crtcInfo.mode == mode.id:
                     return float(round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2))
@@ -383,7 +441,7 @@ class LinuxMonitor(BaseMonitor):
         if contrast is not None:
             value = contrast / 100
             if 0 <= value <= 1:
-                rgb = str(round(contrast, 1))
+                rgb = str(round(value, 1))
                 gamma = rgb + ":" + rgb + ":" + rgb
                 cmd = "xrandr --output %s --gamma %s" % (self.name, gamma)
                 try:
@@ -413,16 +471,17 @@ class LinuxMonitor(BaseMonitor):
         # Xlib.ext.randr.set_screen_config(defaultRootWindow.root, size_id, 0, 0, round(mode.frequency), 0)
         # Xlib.ext.randr.change_output_property()
         if mode is not None:
-            allModes = self.allModes
-            if mode in allModes:
-                cmd = " --mode %sx%s -r %s" % (mode.width, mode.height, round(mode.frequency, 2))
-                if self.name and self.name in _XgetAllMonitorsNames():
-                    cmd = (" --output %s" % self.name) + cmd
-                cmd = "xrandr" + cmd
-                try:
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-                except:
-                    pass
+            # allModes = self.allModes
+            # if mode in allModes:
+            cmd = " --mode %sx%s -r %s" % (mode.width, mode.height, round(mode.frequency, 2))
+            if self.name:
+                cmd = (" --output %s" % self.name) + cmd
+            cmd = "xrandr" + cmd
+            i = 0
+            while mode != self.mode and i <= 3:
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                i += 1
+                time.sleep(0.3)
 
     def _modeB(self) -> Optional[DisplayMode]:
 
@@ -479,7 +538,7 @@ class LinuxMonitor(BaseMonitor):
                 break
         for mode in allModes:
             modes.append(DisplayMode(mode.width, mode.height,
-                                             round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)))
+                                     round(mode.dot_clock / ((mode.h_total * mode.v_total) or 1), 2)))
         return modes
 
     @property
@@ -500,8 +559,21 @@ class LinuxMonitor(BaseMonitor):
                     cmdPart = " --right-of %s" % monName
                     break
             cmd = ("xrandr --output %s" % self.name) + cmdPart + " --auto"
+            i = 0
+            while i <= 3 and not self.isOn:
+                try:
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                except:
+                    pass
+                i += 1
+                time.sleep(0.3)
+        else:
+            cmd = "xset -q | grep ' Monitor is ' | awk '{ print$4 }'"
             try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                err, ret = subprocess.getstatusoutput(cmd)
+                if err == 0 and ret == "Standby":
+                    cmd = "xset dpms force on"
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
             except:
                 pass
 
@@ -526,61 +598,60 @@ class LinuxMonitor(BaseMonitor):
         return self.name in _XgetAllMonitorsNames()
 
     def attach(self):
-        self.turnOn()
-        # raise NotImplementedError
         # This produces the same effect, but requires to keep track of last mode used
-        # outputs = __getAllOutputs(name)
-        # for outputData in outputs:
-        #     display, screen, root, res, output, outputInfo = outputData
-        #     if output in _crtcs.keys():
-        #         crtcCode, crtcInfo = _crtcs[output]
-        #         randr.set_crtc_config(display, crtcCode, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, crtcInfo.mode, crtcInfo.rotation, crtcInfo.outputs)
-        #         _crtcs.pop(output)
+        if self._crtc:
+            crtcCode = self._crtc["crtc"]
+            crtcInfo = self._crtc["crtc_info"]
+            randr.set_crtc_config(self.display, crtcCode, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, crtcInfo.mode, crtcInfo.rotation, crtcInfo.outputs)
+            self._crtc = {}
 
     def detach(self, permanent: bool = False):
-        self.turnOff()
-        # raise NotImplementedError
         # This produces the same effect, but requires to keep track of last mode used
-        # outputs = __getAllOutputs(name)
-        # for outputData in outputs:
-        #     display, screen, root, res, output, outputInfo = outputData
-        #     if outputInfo.crtc:
-        #         crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
-        #         randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
-        #         _crtcs[output] = (outputInfo.crtc, crtcInfo)
+        outputs = _XgetAllOutputs(self.name)
+        for outputData in outputs:
+            display, screen, root, res, output, outputInfo = outputData
+            if outputInfo.crtc:
+                crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
+                randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
+                self._crtc = {"crtc": outputInfo.crtc, "crtc_info": crtcInfo}
+
 
     @property
     def isAttached(self) -> bool:
-        cmd = "xrandr | grep ' connected ' | awk '{ print$1 }'"
-        err, ret = subprocess.getstatusoutput(cmd)
-        if err != 0:
-            ret = []
-        return self.name in ret
+        outputs = _XgetAllOutputs(self.name)
+        for outputData in outputs:
+            display, screen, root, res, output, outputInfo = outputData
+            if outputInfo.crtc:
+                crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
+                if crtcInfo.mode != 0:
+                    return True
+                break
+        return False
 
 
 def _getPrimaryName():
     for monitorData in _XgetAllMonitors():
         display, root, monitor, monName = monitorData
-        if monitor.primary == 1 or (monitor.x == 0 and monitor.y == 0):
+        if monitor.primary == 1:
             return monName
     return None
 
 
 def _setPrimary(name: str):
-    mainMon = _getPrimaryName()
-    if name != mainMon:
-        cmd = "xrandr --output %s --pos 0x0 --primary --left-of %s" % (name, mainMon)
+    if name and name != _getPrimaryName():
+        cmd = "xrandr --output %s --primary" % name
         try:
             subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
         except:
             pass
 
 
-def _setPositionTwice(relativePos: Position, relativeTo: Optional[str], name: str):
-    # Why it has to be invoked twice? Perhaps there is an option to commit changes?
-    _setPositionTwice(relativePos, relativeTo, name)
-    time.sleep(0.5)
-    _setPositionTwice(relativePos, relativeTo, name)
+def _getPosition(name):
+    pos: Optional[Point] = None
+    for monitorData in _XgetAllMonitors(name):
+        display, root, monitor, monName = monitorData
+        pos = Point(monitor.x, monitor.y)
+    return pos
 
 
 def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
@@ -589,54 +660,152 @@ def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
 
     else:
         monitors = _XgetAllMonitorsDict()
+        arrangement: dict[str, dict[str, Union[int, bool]]] = {}
+        xOffset = yOffset = 0
         if name in monitors.keys() and relativeTo in monitors.keys():
+            newPos: dict[str, dict[str, int]] = {}
+            for monitor in monitors.keys():
+                if name == monitor:
+                    targetMonInfo = monitors[monitor]["monitor"]
+                    targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                                 "position": Point(targetMonInfo.x, targetMonInfo.y),
+                                 "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
 
-            targetMonInfo = monitors[name]["monitor"]
-            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                         "position": Point(targetMonInfo.x, targetMonInfo.y),
-                         "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
+                    relMonInfo = monitors[relativeTo]["monitor"]
+                    if relativeTo in newPos.keys():
+                        x, y = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                    else:
+                        x, y = relMonInfo.x, relMonInfo.y
+                    relMon = {"position": Point(x, y),
+                              "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
 
-            relMonInfo = monitors[relativeTo]["monitor"]
-            relMon = {"position": Point(relMonInfo.x, relMonInfo.y),
-                      "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
+                    x, y = _getRelativePosition(targetMon, relMon)
+                    w, h = targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels
+                    setPrimary = targetMonInfo.primary == 1
 
-            primaryName = _getPrimaryName()
-            # WARNING: There will be no primary monitor when moving it to another position!
-            # cmd2 = " --noprimary" if name == primaryName else ""
-            cmd2 = ""
-            x, y, relCmd = _getRelativePosition(targetMon, relMon)
-            cmd3 = relCmd % relativeTo if relativePos in (Position.LEFT_TOP, Position.RIGHT_TOP, Position.ABOVE_LEFT, Position.BELOW_LEFT) else ""
-            cmd = ("xrandr --output %s --pos %sx%s" % (name, x, y)) + cmd2 + cmd3
+                    newPos[monitor] = {"x": x, "y": y}
+
+                else:
+                    monInfo = monitors[monitor]["monitor"]
+                    x, y = monInfo.x, monInfo.y
+                    setPrimary = monInfo.primary == 1
+                if x < 0:
+                    xOffset += abs(x)
+                if y < 0:
+                    yOffset += abs(y)
+
+                arrangement[monitor] = {
+                    "setPrimary": setPrimary,
+                    "x": x,
+                    "y": y
+                }
+
+        if arrangement:
+            cmd = _buildCommand(arrangement, xOffset, yOffset)
             try:
                 subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
             except:
                 pass
 
 
+def _buildCommand(arrangement: dict[str, dict[str, Union[int, bool]]], xOffset: int, yOffset: int):
+    cmd = "xrandr"
+    for monName in arrangement.keys():
+        arrInfo = arrangement[monName]
+        cmd += " --output %s" % monName
+        # xrandr won't accept negative values!!!!
+        # https://superuser.com/questions/485120/how-do-i-align-the-bottom-edges-of-two-monitors-with-xrandr
+        cmd += " --pos %sx%s" % (str(int(arrInfo["x"]) + xOffset), str(int(arrInfo["y"]) + yOffset))
+        if arrInfo["setPrimary"]:
+            cmd += " --primary"
+    print(cmd)
+    return cmd
+
+
+def _scale(name: str = "") -> Tuple[Optional[float], Optional[float]]:
+    value = None
+    cmd = "xrandr -q | grep %s -A 5 | grep ' +\\|*+'" % name
+    err, ret = subprocess.getstatusoutput(cmd)
+    if err == 0 and ret:
+        try:
+            res = ret.split(" ")
+            lines = list(filter(None, res))
+            a, b = lines[0].split("x")
+            w = int(a)
+            h = int(b)
+            r = float(lines[1].replace("+", "").replace("*", ""))
+            value = DisplayMode(w, h, r)
+        except:
+            pass
+    scaleX, scaleY = None, None
+    if value:
+        for monitorData in _XgetAllMonitors(name):
+            display, root, monitor, monName = monitorData
+            w, h = monitor.width_in_pixels, monitor.height_in_pixels
+            wm, hm = monitor.width_in_millimeters, monitor.height_in_millimeters
+            if wm and hm:
+                wDef, hDef = value.width, value.height
+                dpiXDef, dpiYDef = round((wDef * 25.4) / wm), round((hDef * 25.4) / hm)
+                dpiX, dpiY = round((w * 25.4) / wm), round((h * 25.4) / hm)
+                if dpiX and dpiY and dpiXDef and dpiYDef:
+                    scaleX, scaleY = round(100 / (dpiX / dpiXDef)), round(100 / (dpiY / dpiYDef))
+    return scaleX, scaleY
+
+
+_outputs = []
+_lockOutputs = threading.RLock()
+_monitors = []
+_lockMonitors = threading.RLock()
+
+
 def _XgetAllOutputs(name: str = ""):
-    outputs = []
-    global _roots
-    for rootData in _roots:
-        display, screen, root = rootData
-        res = randr.get_screen_resources(root)
-        for output in res.outputs:
-            outputInfo = randr.get_output_info(display, output, res.config_timestamp)
-            if not name or (name and name == outputInfo.name):
-                outputs.append([display, screen, root, res, output, outputInfo])
-    return outputs
+    global _outputs
+    global _lockOutputs
+    global _monitors
+    global _lockMonitors
+    newMonitors = _XgetAllMonitors()
+    if _monitors != newMonitors:
+        with _lockMonitors:
+            _monitors = newMonitors
+        outputs = []
+        global _roots
+        for rootData in _roots:
+            display, screen, root, res = rootData
+            if res:
+                for output in res.outputs:
+                    try:
+                        outputInfo = randr.get_output_info(display, output, res.config_timestamp)
+                        outputs.append([display, screen, root, res, output, outputInfo])
+                    except:
+                        pass
+        with _lockOutputs:
+            _outputs = outputs
+    if name:
+        ret = []
+        for outputData in _outputs:
+            display, screen, root, res, output, outputInfo = outputData
+            if name == outputInfo.name:
+                ret.append(outputData)
+                break
+        return ret
+    else:
+        return _outputs
 
 
 def _XgetAllCrtcs(name: str = ""):
     crtcs = []
-    for outputData in _XgetAllOutputs():
+    outputs = _XgetAllOutputs(name)
+    for outputData in outputs:
         display, screen, root, res, output, outputInfo = outputData
-        res = randr.get_screen_resources(root)
-        for output in res.outputs:
-            outputInfo = randr.get_output_info(display, output, res.config_timestamp)
-            if not name or (name and name == outputInfo.name):
-                for crtc in outputInfo.crtcs:
+        if not name or (name and name == outputInfo.name):
+            for crtc in outputInfo.crtcs:
+                try:
                     crtcInfo = randr.get_crtc_info(display, crtc, res.config_timestamp)
                     crtcs.append([display, screen, root, res, output, outputInfo, crtc, crtcInfo])
+                except:
+                    pass
+            if name:
+                return crtcs
     return crtcs
 
 
@@ -644,7 +813,7 @@ def _XgetAllMonitors(name: str = ""):
     monitors = []
     global _roots
     for rootData in _roots:
-        display, screen, root = rootData
+        display, screen, root, res = rootData
         for monitor in randr.get_monitors(root).monitors:
             monName = display.get_atom_name(monitor.name)
             if not name or (name and name == monName):
@@ -658,7 +827,7 @@ def _XgetAllMonitorsDict():
     monitors = {}
     global _roots
     for rootData in _roots:
-        display, screen, root = rootData
+        display, screen, root, res = rootData
         for monitor in randr.get_monitors(root).monitors:
             monitors[display.get_atom_name(monitor.name)] = {"display": display, "root": root, "monitor": monitor}
     return monitors
@@ -668,8 +837,8 @@ def _XgetAllMonitorsNames():
     monNames = []
     global _roots
     for rootData in _roots:
-        display, screen, root = rootData
-        for monitor in randr.get_monitors(root, is_active=True).monitors:
+        display, screen, root, res = rootData
+        for monitor in randr.get_monitors(root).monitors:
             monNames.append(display.get_atom_name(monitor.name))
     return monNames
 
@@ -678,7 +847,7 @@ def _XgetPrimary():
     outputs = _XgetAllOutputs()
     for monitorData in _XgetAllMonitors():
         display, root, monitor, monName = monitorData
-        if monitor.primary == 1 or (monitor.x == 0 and monitor.y == 0):
+        if monitor.primary == 1:
             for outputData in outputs:
                 display, screen, root, res, output, outputInfo = outputData
                 if outputInfo.name == monName:
@@ -696,13 +865,13 @@ def _XgetMonitorData(handle: Optional[int] = None):
                 return display, screen, root, res, output, outputInfo.name
     else:
         outputs = _XgetAllOutputs()
-        monitors = _XgetAllMonitors()
-        for monitorData in monitors:
+        global _monitors
+        for monitorData in _monitors:
             display, root, monitor, monName = monitorData
-            if monitor.primary == 1 or len(monitors) == 1:
+            if monitor.primary == 1 or len(_monitors) == 1:
                 for outputData in outputs:
                     display, screen, root, res, output, outputInfo = outputData
-                    if outputInfo.crtc:
+                    if monName == outputInfo.name and outputInfo.crtc:
                         return display, screen, root, res, output, outputInfo.name
     return None
 
@@ -748,6 +917,7 @@ def _eventLoop(kill: threading.Event, interval: float):
                     print('Output property change')
                     # e = randr.OutputPropertyNotify(display=display.display, binarydata = e._binary)
                     print(e._data)
+
                 else:
                     print("Unrecognised subcode", e.sub_code)
 

@@ -2,23 +2,24 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import ctypes
 import sys
 import threading
 from abc import abstractmethod, ABC
 from collections.abc import Callable
 from typing import List, Optional, Union, Tuple
 
-from .structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
+from pymonctl.structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
 
 __all__ = [
     "getAllMonitors", "getPrimary", "findMonitor", "findMonitorInfo", "arrangeMonitors",
-    "enableUpdate", "disableUpdate", "isUpdateEnabled", "updateInterval",
+    "enableUpdateInfo", "disableUpdateInfo", "isUpdateInfoEnabled", "isWatchdogEnabled", "updateWatchdogInterval",
+    "plugListenerRegister", "plugListenerUnregister", "isPlugListenerRegistered",
+    "changeListenerRegister", "changeListenerUnregister", "isChangeListenerRegistered",
     "DisplayMode", "ScreenValue", "Size", "Point", "Box", "Rect", "Position", "Orientation",
     "getMousePos", "version", "Monitor"
 ]
 
-__version__ = "0.0.9"
+__version__ = "0.0.10"
 
 
 def version(numberOnly: bool = True) -> str:
@@ -503,18 +504,20 @@ class BaseMonitor(ABC):
         """
         Attach a previously detached monitor to system
 
-        WARNING: not working in Linux nor macOS (... yet?)
+        WARNING: not working in macOS (... yet?)
         """
         raise NotImplementedError
 
     @abstractmethod
     def detach(self, permanent: bool = False):
         """
-        Detach monitor from system
+        Detach monitor from system.
+
+        Be aware that if you detach a monitor and the script ends, you will have to physically re-attach the monitor.
 
         It will not likely work if system has just one monitor plugged.
 
-        WARNING: not working in Linux nor macOS (... yet?)
+        WARNING: not working in macOS (... yet?)
         """
         raise NotImplementedError
 
@@ -527,48 +530,54 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
 
+_updateRequested = False
+_plugListeners: List[Callable[[List[str], dict[str, ScreenValue]], None]] = []
+_lockPlug = threading.RLock()
+_changeListeners: List[Callable[[List[str], dict[str, ScreenValue]], None]] = []
+_lockChange = threading.RLock()
+_kill = threading.Event()
+
+
 class _UpdateScreens(threading.Thread):
 
-    def __init__(self, interval: float = 0.3,
-                 monitorCountChanged: Optional[Callable[[List[str], dict[str, ScreenValue]], None]] = None,
-                 monitorPropsChanged: Optional[Callable[[List[str], dict[str, ScreenValue]], None]] = None):
+    def __init__(self, kill: threading.Event()):
         threading.Thread.__init__(self)
 
-        self._kill = threading.Event()
-        self._interval = interval
-        self._monitorCountChanged = monitorCountChanged
-        self._monitorPropsChanged = monitorPropsChanged
+        self._kill = kill
+        self._interval = 0.5
         self._screens: dict[str, ScreenValue] = _getAllMonitorsDict()
         self._monitors: list[Monitor] = []
-        self._count = _getMonitorsCount()
 
     def run(self):
 
         # _eventLoop(self._kill, self._interval)
 
+        global _updateRequested
+        global _plugListeners
+        global _changeListeners
+
         while not self._kill.is_set():
 
-            screens = _getAllMonitorsDict()
-            currentScreens = list(self._screens.keys())
+            if _updateRequested or _plugListeners or _changeListeners:
 
-            if self._monitorCountChanged is not None:
+                screens = _getAllMonitorsDict()
                 newScreens = list(screens.keys())
-                countNewScreens = len(newScreens)
-                if self._count != countNewScreens:
-                    self._count = countNewScreens
-                    names = [s for s in newScreens if s not in currentScreens] + [s for s in currentScreens if s not in newScreens]
-                    self._monitorCountChanged(names, screens)
+                currentScreens = list(self._screens.keys())
 
-            if self._monitorPropsChanged is not None:
+                if currentScreens != newScreens:
+                    names = [s for s in newScreens if s not in currentScreens] + \
+                            [s for s in currentScreens if s not in newScreens]
+                    for listener in _plugListeners:
+                        listener(names, screens)
+
                 if self._screens != screens:
-                    names = []
-                    for s in screens.keys():
-                        if s in currentScreens:
-                            if screens[s] != self._screens[s]:
-                                names.append(s)
-                    self._monitorPropsChanged(names, screens)
-            self._screens = screens
-            self._monitors = _getAllMonitors()
+                    names = [s for s in newScreens if s in currentScreens and screens[s] != self._screens[s]]
+                    self._screens = screens
+                    if names:
+                        for listener in _changeListeners:
+                            listener(names, screens)
+
+                self._monitors = _getAllMonitors()
 
             self._kill.wait(self._interval)
 
@@ -581,32 +590,12 @@ class _UpdateScreens(threading.Thread):
     def getMonitors(self) -> list[Monitor]:
         return self._monitors
 
-    def kill(self):
-        self._kill.set()
-
-    def forceKill(self):
-        # https://code.activestate.com/recipes/496960-thread2-killable-threads/
-        try:
-            tid = self.native_id
-            if not tid:
-                for objid, tobj in threading._active.items():
-                    if tobj is self:
-                        tid = objid
-        except:
-            tid = None
-        if tid:
-            res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), ctypes.py_object(SystemExit))
-            if res > 1:
-                # ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), 0)
-                ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
-
 
 _updateScreens: Optional[_UpdateScreens] = None
+_lockUpdate = threading.RLock()
 
 
-def enableUpdate(interval: float = 1.0,
-                 monitorCountChanged: Optional[Callable[[List[str], dict[str, ScreenValue]], None]] = None,
-                 monitorPropsChanged: Optional[Callable[[List[str], dict[str, ScreenValue]], None]] = None):
+def enableUpdateInfo():
     """
     Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
     or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. This function can also be
@@ -618,119 +607,242 @@ def enableUpdate(interval: float = 1.0,
 
     If disabled, the information on the monitors connected to the system will be updated right at the moment,
     but this might be slow and CPU-consuming, especially if quickly and repeatedly invoked.
+    """
+    global _updateRequested
+    _updateRequested = True
+    if _updateScreens is None:
+        _startUpdateScreens()
 
-    It is also possible to define callbacks to be notified in case the number of connected monitors or their
-    properties change. The information passed to the callbacks is:
+
+def disableUpdateInfo():
+    """
+    The monitors information will be immediately queried after disabling this feature, not taking advantage of
+    keeping information updated on a separate thread.
+
+    Enable this process again, or invoke getMonitors() function if you need updated info.
+    """
+    global _updateRequested
+    _updateRequested = False
+    if not _plugListeners and not _changeListeners and not _updateRequested:
+        _killUpdateScreens()
+
+
+def plugListenerRegister(monitorCountChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+    """
+    Use this only if you need to keep track of monitor that can be dynamically plugged or unplugged in a
+    multi-monitor setup.
+
+    The registered callbacks will be invoked in case the number of connected monitors change.
+    The information passed to the callbacks is:
 
         - Names of the screens which have changed (as a list of strings).
         - All screens info, as returned by getAllMonitorsDict() function.
 
-    It is possible to access all their properties by using screen name as dictionary key
+    It is possible to access all monitors information by using screen name as dictionary key
 
-    :param interval: Wait interval for the thread loop in seconds (or fractions). Adapt to your needs. Defaults to 1.0.
-                     Higher values will take longer to detect and notify changes.
-                     Lower values will consume more CPU, and will produce fake, non-final notifications (triggered by intermediate states).
     :param monitorCountChanged: callback to be invoked in case the number of monitor connected changes
-    :param monitorPropsChanged: callback to be invoked in case the properties of connected monitors change
     """
-    global _updateScreens
+    global _plugListeners
+    global _lockPlug
+    with _lockPlug:
+        if monitorCountChanged not in _plugListeners:
+            _plugListeners.append(monitorCountChanged)
     if _updateScreens is None:
-        _updateScreens = _UpdateScreens(interval, monitorCountChanged, monitorPropsChanged)
-        _updateScreens.daemon = True
-        _updateScreens.start()
+        _startUpdateScreens()
 
 
-def disableUpdate():
+def plugListenerUnregister(monitorCountChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
     """
-    Stop and kill thread. The monitors information will be immediately queried after disabling this process,
-    not taking advantage of keeping information updated on a separate thread.
+    Use this function to un-register your custom callback. The callback will not be invoked anymore in case
+    the number of monitor changes.
 
-    Besides, the callbacks provided (if any) will not be invoked anymore, even though monitors change.
-
-    Enable this process again, or invoke getMonitors() function if you need updated info.
+    :param monitorCountChanged: callback previously registered
     """
-    global _updateScreens
-    if _updateScreens is not None:
-        timer = threading.Timer(_updateScreens._interval * 2, _forceStop)
-        timer.start()
-        _updateScreens.kill()
-        _updateScreens.join()
-        _updateScreens = None
-        timer.cancel()
-
-
-def _forceStop():
-    if _updateScreens is not None:
+    global _plugListeners
+    global _lockPlug
+    with _lockPlug:
         try:
-            _updateScreens.forceKill()
+            objIndex = _plugListeners.index(monitorCountChanged)
+            _plugListeners.pop(objIndex)
         except:
             pass
+    if not _plugListeners and not _changeListeners and not _updateRequested:
+        _killUpdateScreens()
 
 
-def isUpdateEnabled() -> bool:
+def changeListenerRegister(monitorPropsChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
     """
-    Get monitors watch process status (enabled / disabled)
+    Use this only if you need to keep track of monitor properties changes (position, size, refresh-rate, etc.) in a
+    multi-monitor setup.
 
-    :return: Returns ''True'' if enabled.
+    The registered callbacks will be invoked in case these properties change.
+    The information passed to the callbacks is:
+
+        - Names of the screens which have changed (as a list of strings).
+        - All screens info, as returned by getAllMonitorsDict() function.
+
+    It is possible to access all monitor information by using screen name as dictionary key
+
+    :param monitorPropsChanged: callback to be invoked in case the number of monitor properties change
+    """
+    global _changeListeners
+    global _lockChange
+    with _lockChange:
+        if monitorPropsChanged not in _changeListeners:
+            _changeListeners.append(monitorPropsChanged)
+    if _updateScreens is None:
+        _startUpdateScreens()
+
+
+def changeListenerUnregister(monitorPropsChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+    """
+    Use this function to un-register your custom callback. The callback will not be invoked anymore in case
+    the monitor properties change.
+
+    :param monitorPropsChanged: callback previously registered
+    """
+    global _changeListeners
+    global _lockChange
+    with _lockChange:
+        try:
+            objIndex = _plugListeners.index(monitorPropsChanged)
+            _plugListeners.pop(objIndex)
+        except:
+            pass
+    if not _plugListeners and not _changeListeners and not _updateRequested:
+        _killUpdateScreens()
+
+
+def _startUpdateScreens():
+    global _updateScreens
+    global _lockUpdate
+    with _lockUpdate:
+        if _updateScreens is None:
+            _kill.clear()
+            _updateScreens = _UpdateScreens(_kill)
+            _updateScreens.daemon = True
+            _updateScreens.start()
+
+
+def _killUpdateScreens():
+    global _updateScreens
+    global _lockUpdate
+    global _kill
+    with _lockUpdate:
+        if _updateScreens is not None:
+            timer = threading.Timer(_updateScreens._interval * 2, _timerHandler)
+            timer.start()
+            try:
+                _kill.set()
+                _updateScreens.join(_updateScreens._interval * 3)
+            except:
+                pass
+            _updateScreens = None
+            timer.cancel()
+
+
+class _TimeOutException(Exception):
+    pass
+
+
+def _timerHandler():
+    global _updateScreens
+    raise _TimeOutException()
+
+
+def isWatchdogEnabled() -> bool:
+    """
+    Check if the daemon updating screens information and (if applies) invoking callbacks when needed is alive.
+
+    If it is not, just enable update process, or register the callbacks you need. It will be automatically started.
+
+    :return: Return ''True'' is process (thread) is alive
     """
     global _updateScreens
     return bool(_updateScreens is not None)
 
 
-def updateInterval(interval: float):
+def isUpdateInfoEnabled() -> bool:
     """
-    Change the wait interval for the thread loop in seconds (or fractions)
-    Higher values will take longer to detect and notify changes.
-    Lower values will consume more CPU
+    Get monitors watch process status (enabled / disabled).
 
-    :param interval: new interval value as float
+    :return: Returns ''True'' if enabled.
+    """
+    global _updateRequested
+    return _updateRequested
+
+
+def isPlugListenerRegistered(monitorCountChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+    """
+    Check if callback is already registered to be invoked when monitor plugged count change
+
+    :return: Returns ''True'' if registered
+    """
+    global _plugListeners
+    return monitorCountChanged in _plugListeners
+
+
+def isChangeListenerRegistered(monitorPropsChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+    """
+    Check if callback is already registered to be invoked when monitor properties change
+
+    :return: Returns ''True'' if registered
+    """
+    global _changeListeners
+    return monitorPropsChanged in _changeListeners
+
+
+def updateWatchdogInterval(interval: float):
+    """
+    Change the wait interval for the thread loop in seconds (or fractions), Default is 0.50 seconds.
+
+    Higher values will take longer to detect and notify changes.
+
+    Lower values will make it faster, but will consume more CPU.
+
+    Also bear in mind that the OS will take some time to refresh changes, so lowering the update interval
+    may not necessarily produce better (faster) results.
+
+    :param interval: new interval value in seconds (or fractions), as float.
     """
     global _updateScreens
     if interval > 0 and _updateScreens is not None:
         _updateScreens.updateInterval(interval)
 
 
-def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int, str]:
+def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
+    # TODO: Won't accept negative values!!!! MUST modify the other monitors coords...
+    # https://superuser.com/questions/485120/how-do-i-align-the-bottom-edges-of-two-monitors-with-xrandr
     relPos = monitor["relativePos"]
     if relPos == Position.PRIMARY:
         x = y = 0
-        cmd = ""
     elif relPos == Position.LEFT_TOP:
         x = relativeTo["position"].x - monitor["size"].width
         y = relativeTo["position"].y
-        cmd = " --left-of %s"
     elif relPos == Position.LEFT_BOTTOM:
         x = relativeTo["position"].x - monitor["size"].width
         y = relativeTo["position"].y + relativeTo["size"].height - monitor["size"].height
-        cmd = " --left-of %s"
     elif relPos == Position.ABOVE_LEFT:
         x = relativeTo["position"].x
         y = relativeTo["position"].y - monitor["size"].height
-        cmd = " --above %s"
     elif relPos == Position.ABOVE_RIGHT:
         x = relativeTo["position"].x + relativeTo["size"].width - monitor["size"].width
         y = relativeTo["position"].y - monitor["size"].height
-        cmd = " --above %s"
     elif relPos == Position.RIGHT_TOP:
         x = relativeTo["position"].x + relativeTo["size"].width
         y = relativeTo["position"].y
-        cmd = " --right-of %s"
     elif relPos == Position.RIGHT_BOTTOM:
         x = relativeTo["position"].x + relativeTo["size"].width
         y = relativeTo["position"].y + relativeTo["size"].height - monitor["size"].height
-        cmd = " --right-of %s"
     elif relPos == Position.BELOW_LEFT:
         x = relativeTo["position"].x
         y = relativeTo["position"].y + relativeTo["size"].height
-        cmd = " --below %s"
     elif relPos == Position.BELOW_RIGHT:
         x = relativeTo["position"].x + relativeTo["size"].width - monitor["size"].width
         y = relativeTo["position"].y + relativeTo["size"].height
-        cmd = " --below %s"
     else:
         x = y = monitor["position"]
-        cmd = ""
-    return x, y, cmd
+    return x, y
 
 
 if sys.platform == "darwin":
