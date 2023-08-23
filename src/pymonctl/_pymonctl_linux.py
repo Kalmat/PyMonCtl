@@ -16,6 +16,7 @@ from typing import Optional, List, Union, cast, Tuple
 import Xlib.display
 import Xlib.X
 import Xlib.protocol
+import Xlib.xobject
 from Xlib.ext import randr
 
 from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition, \
@@ -713,7 +714,7 @@ def _buildCommand(arrangement: dict[str, dict[str, Union[int, bool]]], xOffset: 
     return cmd
 
 
-def _scale(name: str = "") -> Tuple[Optional[float], Optional[float]]:
+def _scale(name: str = "") -> Optional[Tuple[float, float]]:
     value = None
     cmd = "xrandr -q | grep %s -A 5 | grep ' +\\|*+'" % name
     err, ret = subprocess.getstatusoutput(cmd)
@@ -728,7 +729,6 @@ def _scale(name: str = "") -> Tuple[Optional[float], Optional[float]]:
             value = DisplayMode(w, h, r)
         except:
             pass
-    scaleX, scaleY = None, None
     if value:
         for monitorData in _XgetAllMonitors(name):
             display, root, monitor, monName = monitorData
@@ -740,12 +740,13 @@ def _scale(name: str = "") -> Tuple[Optional[float], Optional[float]]:
                 dpiX, dpiY = round((w * 25.4) / wm), round((h * 25.4) / hm)
                 if dpiX and dpiY and dpiXDef and dpiYDef:
                     scaleX, scaleY = round(100 / (dpiX / dpiXDef)), round(100 / (dpiY / dpiYDef))
-    return scaleX, scaleY
+                    return scaleX, scaleY
+    return None
 
 
 _outputs = []
 _lockOutputs = threading.RLock()
-_monitors = []
+_monitors: List[List[Xlib.display.Display, Xlib.xobject.drawable, Xlib.ext.randr.GetMonitors, str]] = []
 _lockMonitors = threading.RLock()
 
 
