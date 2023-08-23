@@ -108,7 +108,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
                 wa: List[int] = getPropertyValue(getProperty(window=root, prop=Root.WORKAREA, display=display), display=display)
                 wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
                 dpiX, dpiY = round((w * 25.4) / (monitor.width_in_millimeters or 1)), round((h * 25.4) / (monitor.height_in_millimeters or 1))
-                scaleX, scaleY = _scale(monitorName)
+                scaleX, scaleY =  _scale(monitorName) or 0, 0
                 rot = int(math.log(crtcInfo.rotation, 2))
                 freq = 0.0
                 for mode in res.modes:
@@ -746,7 +746,7 @@ def _scale(name: str = "") -> Optional[Tuple[float, float]]:
 
 _outputs = []
 _lockOutputs = threading.RLock()
-_monitors: List[List[Xlib.display.Display, Xlib.xobject.drawable, Xlib.ext.randr.GetMonitors, str]] = []
+_monitors: List[List[Union[Xlib.display.Display, Xlib.xobject.drawable.Window, Xlib.ext.randr.GetMonitors, str]]] = []
 _lockMonitors = threading.RLock()
 
 
