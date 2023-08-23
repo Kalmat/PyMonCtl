@@ -179,8 +179,8 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         arrInfo = arrangement[monName]
 
         targetMonInfo = monitors[monName]["monitor"]
-        relativePos = arrInfo["relativePos"]
-        relativeTo = arrInfo["relativeTo"]
+        relativePos: Position = arrInfo["relativePos"]
+        relativeTo: str = arrInfo["relativeTo"]
 
         targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
                      "position": Point(targetMonInfo.x, targetMonInfo.y),
@@ -591,8 +591,8 @@ class LinuxMonitor(BaseMonitor):
     def attach(self):
         # This produces the same effect, but requires to keep track of last mode used
         if self._crtc:
-            crtcCode = self._crtc["crtc"]
-            crtcInfo = self._crtc["crtc_info"]
+            crtcCode: int = self._crtc["crtc"]
+            crtcInfo: Xlib.ext.randr.GetCrtcInfo = self._crtc["crtc_info"]
             randr.set_crtc_config(self.display, crtcCode, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, crtcInfo.mode, crtcInfo.rotation, crtcInfo.outputs)
             self._crtc = {}
 
@@ -603,7 +603,7 @@ class LinuxMonitor(BaseMonitor):
             display, screen, root, res, output, outputInfo = outputData
             if outputInfo.crtc:
                 crtcInfo: Xlib.ext.randr.GetCrtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
-                randr.set_crtc_config(display, cast(int, outputInfo.crtc), Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
+                randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
                 self._crtc = {"crtc": outputInfo.crtc, "crtc_info": crtcInfo}
 
 
