@@ -299,7 +299,7 @@ class RootWindow:
 
         if root and isinstance(root, XWindow):
             root = root.id
-        self.display, self.screen, self.root = getDisplayFromRoot(root)
+        self.display, self.screen, self.root = getDisplayFromRoot(cast(int, root))
         self.id: int = self.root.id
         self.wmProtocols = self._WmProtocols(self.display, self.root)
 
@@ -1012,7 +1012,7 @@ class EwmhWindow:
             self.display, self.screen, self.root = getDisplayFromWindow(self.id)
             self.xWindow = self.display.create_resource_object('window', self.id)
         self.rootWindow: RootWindow = defaultRootWindow if self.root.id == defaultRoot.id else RootWindow(self.root)
-        self.extensions = _Extensions(window, self.display, self.root)
+        self.extensions = _Extensions(self.id, self.display, self.root)
 
         self._currDesktop = os.environ['XDG_CURRENT_DESKTOP'].lower()
 

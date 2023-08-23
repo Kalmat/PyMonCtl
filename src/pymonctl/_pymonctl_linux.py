@@ -123,7 +123,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
                     'position': Point(x, y),
                     'size': Size(w, h),
                     'workarea': Rect(wx, wy, wr, wb),
-                    'scale': (scaleX, scaleY),
+                    'scale': (scaleX or 0.0, scaleY or 0.0),
                     'dpi': (dpiX, dpiY),
                     'orientation': rot,
                     'frequency': freq,
@@ -297,28 +297,19 @@ class LinuxMonitor(BaseMonitor):
         return rect
 
     @property
-    def scale(self) -> Tuple[Optional[float], Optional[float]]:
+    def scale(self) -> Optional[Tuple[float, float]]:
         return _scale(self.name)
 
-    def setScale(self, scale: Tuple[float, float]):
+    def setScale(self, scale: Optional[Tuple[float, float]]):
         if scale is not None and self.name and self.name in _XgetAllMonitorsNames():
             # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
             scaleX, scaleY = round(100/ scale[0], 1), round(100 / scale[1], 1)
             # cmd = "xrandr --output %s --scale %sx%s --filter nearest" % (self.name, scaleX, scaleY)
             cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
-            retry = False
             try:
-                ret = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-                if ret and hasattr(ret, "returncode"):
-                    retry = ret.returncode != 0
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
             except:
                 pass
-            # if retry:
-            #     try:
-            #         cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
-            #         subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
-            #     except:
-            #         pass
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -611,8 +602,8 @@ class LinuxMonitor(BaseMonitor):
         for outputData in outputs:
             display, screen, root, res, output, outputInfo = outputData
             if outputInfo.crtc:
-                crtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
-                randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
+                crtcInfo: Xlib.ext.randr.GetCrtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
+                randr.set_crtc_config(display, cast(int, outputInfo.crtc), Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
                 self._crtc = {"crtc": outputInfo.crtc, "crtc_info": crtcInfo}
 
 

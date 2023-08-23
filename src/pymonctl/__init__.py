@@ -540,7 +540,7 @@ _kill = threading.Event()
 
 class _UpdateScreens(threading.Thread):
 
-    def __init__(self, kill: threading.Event()):
+    def __init__(self, kill: threading.Event):
         threading.Thread.__init__(self)
 
         self._kill = kill
@@ -811,8 +811,6 @@ def updateWatchdogInterval(interval: float):
 
 
 def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
-    # TODO: Won't accept negative values!!!! MUST modify the other monitors coords...
-    # https://superuser.com/questions/485120/how-do-i-align-the-bottom-edges-of-two-monitors-with-xrandr
     relPos = monitor["relativePos"]
     if relPos == Position.PRIMARY:
         x = y = 0

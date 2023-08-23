@@ -35,12 +35,12 @@ class Size(NamedTuple):
 
 class ScreenValue(TypedDict):
     system_name: str
-    handle: int
+    id: int
     is_primary: bool
     position: Point
     size: Size
     workarea: Rect
-    scale: Tuple[int, int]
+    scale: Tuple[float, float]
     dpi: Tuple[int, int]
     orientation: int
     frequency: float

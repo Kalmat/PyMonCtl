@@ -70,7 +70,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
             rot = settings.DisplayOrientation
             freq = settings.DisplayFrequency
             depth = settings.BitsPerPel
-            handle = None
+            handle: int = None
             hMon = win32api.MonitorFromPoint((x, y))
             if hMon and hasattr(hMon, "handle"):
                 handle = hMon.handle
@@ -532,7 +532,7 @@ class Win32Monitor(BaseMonitor):
         # https://stackoverflow.com/questions/328851/printing-all-instances-of-a-class
         # All monitor IDs will change after detaching or attaching a monitor
         monitors = win32api.EnumDisplayMonitors()
-        otherMonitorInstances = [cast(Win32Monitor, obj) for obj in gc.get_objects() if isinstance(obj, Win32Monitor)]
+        otherMonitorInstances = [obj for obj in gc.get_objects() if isinstance(obj, Win32Monitor)]
         for instance in otherMonitorInstances:
             for monitor in monitors:
                 hMon = monitor[0].handle
