@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import sys
 
-import pymonctl
-
 assert sys.platform == "win32"
 
 import gc
@@ -97,12 +95,12 @@ def _getMonitorsCount() -> int:
     return len(win32api.EnumDisplayMonitors())
 
 
-def _findMonitor(x: int, y: int) -> Optional[Win32Monitor]:
+def _findMonitor(x: int, y: int) -> Optional[List[Win32Monitor]]:
     # Watch this: started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
     hMon = win32api.MonitorFromPoint((x, y), win32con.MONITOR_DEFAULTTONEAREST)
     if hMon and hasattr(hMon, "handle"):
-        return Win32Monitor(hMon.handle)
-    return None
+        return [Win32Monitor(hMon.handle)]
+    return []
 
 
 def _getPrimary() -> Win32Monitor:

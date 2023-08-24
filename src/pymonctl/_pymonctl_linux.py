@@ -143,12 +143,13 @@ def _getMonitorsCount() -> int:
     return count
 
 
-def _findMonitor(x: int, y: int) -> Optional[LinuxMonitor]:
+def _findMonitor(x: int, y: int) -> Optional[List[LinuxMonitor]]:
+    monitors = []
     for monitor in _getAllMonitors():
         if monitor.position is not None and monitor.size is not None:
             if _pointInBox(x, y, monitor.position.x, monitor.position.y, monitor.size.width, monitor.size.height):
-                return monitor
-    return None
+                monitors.append(monitor)
+    return monitors
 
 
 def _getPrimary() -> LinuxMonitor:
@@ -215,7 +216,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     if newArrangement:
         cmd = _buildCommand(newArrangement, xOffset, yOffset)
         try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
         except:
             pass
 
@@ -308,7 +309,7 @@ class LinuxMonitor(BaseMonitor):
             # cmd = "xrandr --output %s --scale %sx%s --filter nearest" % (self.name, scaleX, scaleY)
             cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
             try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
             except:
                 pass
 
@@ -351,7 +352,7 @@ class LinuxMonitor(BaseMonitor):
                 direction = "normal"
             cmd = "xrandr --output %s --rotate %s" % (self.name, direction)
             try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
             except:
                 pass
 
@@ -415,7 +416,7 @@ class LinuxMonitor(BaseMonitor):
             if 0 <= value <= 1:
                 cmd = "xrandr --output %s --brightness %s" % (self.name, str(value))
                 try:
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
                 except:
                     pass
 
@@ -437,7 +438,7 @@ class LinuxMonitor(BaseMonitor):
                 gamma = rgb + ":" + rgb + ":" + rgb
                 cmd = "xrandr --output %s --gamma %s" % (self.name, gamma)
                 try:
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
                 except:
                     pass
 
@@ -471,7 +472,10 @@ class LinuxMonitor(BaseMonitor):
             cmd = "xrandr" + cmd
             i = 0
             while mode != self.mode and i <= 3:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                try:
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
+                except:
+                    pass
                 i += 1
                 time.sleep(0.3)
 
@@ -554,7 +558,7 @@ class LinuxMonitor(BaseMonitor):
             i = 0
             while i <= 3 and not self.isOn:
                 try:
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
                 except:
                     pass
                 i += 1
@@ -565,7 +569,7 @@ class LinuxMonitor(BaseMonitor):
                 err, ret = subprocess.getstatusoutput(cmd)
                 if err == 0 and ret == "Standby":
                     cmd = "xset dpms force on"
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
             except:
                 pass
 
@@ -573,7 +577,7 @@ class LinuxMonitor(BaseMonitor):
         if self.isOn:
             cmd = "xrandr --output %s --off" % self.name
             try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
             except:
                 pass
 
@@ -581,7 +585,7 @@ class LinuxMonitor(BaseMonitor):
         # xrandr has no standby option. xset doesn't allow to target just one output (it works at display level)
         cmd = "xset dpms force standby"
         try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
         except:
             pass
 
@@ -633,7 +637,7 @@ def _setPrimary(name: str):
     if name and name != _getPrimaryName():
         cmd = "xrandr --output %s --primary" % name
         try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
         except:
             pass
 
@@ -695,7 +699,7 @@ def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
         if arrangement:
             cmd = _buildCommand(arrangement, xOffset, yOffset)
             try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
             except:
                 pass
 

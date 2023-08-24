@@ -6,6 +6,16 @@ Cross-Platform module which provides a set of features to get info on and contro
 
 #### My most sincere thanks and appreciation to the University of Utah Student Computing Labs for their awesome work on the display_manager_lib module, for sharing it so generously, and most especially for allowing to be integrated into PyMonCtl
 
+External tools/extensions/APIs used:
+- Linux:
+  - Xlib's randr extension
+  - xrandr command-line tool
+  - xset command-line tool
+- Windows:
+  - VCP MCCS API interface
+- macOS:
+  - pmset command-line tool
+
 ## General Functions
 
 Functions to get monitor instances, get info and manage monitors plugged to the system.
@@ -32,50 +42,52 @@ getPrimary() or findMonitor(x, y).
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
 the provided handle is not valid.
 
-|                | Windows | Linux  | macOS |
-|:--------------:|:-------:|:------:|:-----:|
-|      size      |    X    |   X    |   X   |
-|    workarea    |    X    |   X    |   X   |
-|    position    |    X    |   X    |   X   |
-|  setPosition   |    X    |   X    |   X   |
-|      box       |    X    |   X    |   X   |
-|      rect      |    X    |   X    |   X   |
-|     scale      |    X    |   X    |   X   |
-|    setScale    |    X    |   X    |   X   |
-|      dpi       |    X    |   X    |   X   |
-|  orientation   |    X    |   X    |   X   |
-| setOrientation |    X    |   X    | X (1) |
-|   frequency    |    X    |   X    |   X   |
-|   colordepth   |    X    |   X    |   X   |
-|   brightness   |  X (2)  |   X    | X (1) |
-| setBrightness  |  X (2)  |   X    | X (1) |
-|    contrast    |  X (2)  |   X    |       |
-|  setContrast   |  X (2)  |   X    |       |
-|      mode      |    X    |   X    |   X   |
-|    setMode     |    X    |   X    |   X   |
-|  defaultMode   |    X    |   X    |   X   |
-| setDefaultMode |    X    |   X    |   X   |
-|    allModes    |    X    |   X    |   X   |
-|   isPrimary    |    X    |   X    |   X   |
-|   setPrimary   |    X    |   X    |   X   |
-|     turnOn     |    X    |   X    |       |
-|    turnOff     |  X (3)  |   X    |       |
-|    suspend     |  X (3)  | X (4)  | X (4) |
-|      isOn      |    X    |   X    |       |
-|     attach     |    X    |   X    |       |
-|     detach     |    X    |   X    |       |
-|   isAttached   |    X    |   X    |   X   |
+|                | Windows | Linux | macOS |
+|:--------------:|:-------:|:-----:|:-----:|
+|      size      |    X    |   X   |   X   |
+|    workarea    |    X    |   X   |   X   |
+|    position    |    X    |   X   |   X   |
+|  setPosition   |    X    |   X   |   X   |
+|      box       |    X    |   X   |   X   |
+|      rect      |    X    |   X   |   X   |
+|     scale      |    X    |   X   |   X   |
+|    setScale    |    X    |   X   |   X   |
+|      dpi       |    X    |   X   |   X   |
+|  orientation   |    X    |   X   |   X   |
+| setOrientation |    X    |   X   | X (1) |
+|   frequency    |    X    |   X   |   X   |
+|   colordepth   |    X    |   X   |   X   |
+|   brightness   |  X (2)  |   X   | X (1) |
+| setBrightness  |  X (2)  |   X   | X (1) |
+|    contrast    |  X (2)  | X (3) | X (3) |
+|  setContrast   |  X (2)  | X (3) | X (3) |
+|      mode      |    X    |   X   |   X   |
+|    setMode     |    X    |   X   |   X   |
+|  defaultMode   |    X    |   X   |   X   |
+| setDefaultMode |    X    |   X   |   X   |
+|    allModes    |    X    |   X   |   X   |
+|   isPrimary    |    X    |   X   |   X   |
+|   setPrimary   |    X    |   X   |   X   |
+|     turnOn     |    X    |   X   |       |
+|    turnOff     |  X (4)  |   X   |       |
+|    suspend     |  X (4)  | X (5) | X (5) |
+|      isOn      |    X    |   X   |   X   |
+|     attach     |    X    |   X   |       |
+|     detach     |    X    |   X   |       |
+|   isAttached   |    X    |   X   |   X   |
 
 
-(1) Thru display_manager_lib from University of Utah - Marriott Library - Apple Infrastructure (thank you, guys!)
+(1) Thru display_manager_lib from University of Utah - Marriott Library - Apple Infrastructure (thank you, guys!).
 
 (2) If monitor has no VCP MCCS support, these methods won't likely work.
 
-(3) If monitor has no VCP MCCS support, it can not be addressed separately, 
-    so ALL monitors will be turned off / suspended.
-    To address a specific monitor, try using detach() / attach() methods.
+(3) It doesn't exactly returns / changes contrast, but gamma values.
 
-(4) It will suspend ALL monitors.
+(4) If monitor has no VCP MCCS support, it can not be addressed separately, 
+    so ALL monitors will be turned off / suspended.
+    To address a specific monitor, try using turnOff() / turnOn() / detach() / attach() methods.
+
+(5) It will suspend ALL monitors.
 
 
 #### WARNING: Most of these properties may return ''None'' in case the value can not be obtained

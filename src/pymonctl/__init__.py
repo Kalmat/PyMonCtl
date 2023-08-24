@@ -19,7 +19,7 @@ __all__ = [
     "getMousePos", "version", "Monitor"
 ]
 
-__version__ = "0.0.11"
+__version__ = "0.0.12"
 
 
 def version(numberOnly: bool = True) -> str:
@@ -111,7 +111,7 @@ def getPrimary() -> Monitor:
     return _getPrimary()
 
 
-def findMonitor(x: int, y: int) -> Optional[Monitor]:
+def findMonitor(x: int, y: int) -> Optional[List[Monitor]]:
     """
     Get monitor instance in which given coordinates (x, y) are found.
 
@@ -222,13 +222,18 @@ class BaseMonitor(ABC):
     @abstractmethod
     def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
         """
-        Change position for the monitor identified by name relative to another existing monitor (e.g. primary monitor).
+        Change relative position of the current the monitor in relation to another existing monitor (e.g. primary monitor).
 
-        In case the target monitor is the primary one, it will have no effect. To do so, you must switch the primary
-        monitor first, then reposition it.
+        In general, it is HIGHLY recommendable to use arrangeMonitors() method instead of setPosition(), and most
+        especially in complex arrangements or setups with more than 2 monitors.
 
-        Notice that in complex arrangements or setups with more than 2 monitors, it is recommendable
-        to use arrangeMonitors() method.
+        Important issues:
+
+        - On Windows, primary monitor is mandatory, and it is always placed in (0, 0) coordinates. Besides, the monitors can not overlap. In case the monitor you want to reposition is the primary or the unique one, it will have no effect. To do so, you must switch the primary monitor first, then reposition it.
+
+        - On Linux, primary monitor can be anywhere, monitors can overlap and even there can be no primary monitor
+
+        - On macOS, tests in multi-monitor setups are still required to confirm these behaviors and produce a final version
 
         :param relativePos: position in relation to another existing monitor (e.g. primary) as per Positions.*
         :param relativeTo: monitor in relation to which this monitor must be placed
@@ -504,6 +509,9 @@ class BaseMonitor(ABC):
         """
         Attach a previously detached monitor to system
 
+        All monitor IDs will change after detaching or attaching a monitor. The module will try to refresh them for
+        all existing instances
+
         WARNING: not working in macOS (... yet?)
         """
         raise NotImplementedError
@@ -514,6 +522,9 @@ class BaseMonitor(ABC):
         Detach monitor from system.
 
         Be aware that if you detach a monitor and the script ends, you will have to physically re-attach the monitor.
+
+        All monitor IDs will change after detaching or attaching a monitor. The module will try to refresh them for
+        all existing instances
 
         It will not likely work if system has just one monitor plugged.
 

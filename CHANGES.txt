@@ -1,3 +1,5 @@
+0.0.12, 2023/08/24 -- ALL: findMonitor() returns a list of Monitor instances
+                      MACOS: Added contrast(), setContrast(), isOn() and isAttached(), improved setMode()
 0.0.11, 2023/08/23 -- MACOS: Added display_manager_lib (thanks to University of Utah - Marriott Library - Apple Infrastructure)
                       WIN32: Fixed setScale()
 0.0.10, 2023/08/21 -- ALL: Fixed watchdog thread

@@ -291,6 +291,7 @@ class _DISPLAY_CONFIG_TARGET_DEVICE_NAME(ctypes.Structure):
 
 _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1
 
+
 class _DISPLAYCONFIG_SOURCE_DEVICE_NAME(ctypes.Structure):
     _fields_ = [
         ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),

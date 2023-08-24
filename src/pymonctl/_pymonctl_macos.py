@@ -4,6 +4,8 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
+import ctypes
+import ctypes.wintypes
 import sys
 
 assert sys.platform == "darwin"
@@ -106,14 +108,20 @@ def _getMonitorsCount() -> int:
     return len(AppKit.NSScreen.screens())
 
 
-def _findMonitor(x: int, y: int) -> Optional[MacOSMonitor]:
-    screens = AppKit.NSScreen.screens()
-    for screen in screens:
-        frame = screen.frame()
-        if _pointInBox(x, y, int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)):
-            desc = screen.deviceDescription()
-            displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-            return MacOSMonitor(displayId)
+def _findMonitor(x: int, y: int) -> Optional[List[MacOSMonitor]]:
+    ret, monIds, count = CG.CGGetDisplaysWithPoint((x, y), 10, None, None)
+    monitors = []
+    if ret == 0:
+        for i in range(count):
+            monitors.append(MacOSMonitor(monIds[i]))
+    return monitors
+    # screens = AppKit.NSScreen.screens()
+    # for screen in screens:
+    #     frame = screen.frame()
+    #     if _pointInBox(x, y, int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)):
+    #         desc = screen.deviceDescription()
+    #         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
+    #         return MacOSMonitor(displayId)
     return None
 
 
@@ -346,44 +354,76 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def contrast(self) -> Optional[int]:
-        # https://github.com/jonls/redshift/blob/master/src/gamma-quartz.c
-        # raise NotImplementedError
-        return None
+        # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
+
+        contrast = None
+        try:
+            ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
+                CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
+            if ret == 0:
+                contrast = int(((1 / (float(redGamma) or 1)) + (1 / (float(greenGamma) or 1)) + (1 / (float(blueGamma) or 1))) / 3) * 100
+        except:
+            pass
+        return contrast
 
     def setContrast(self, contrast: Optional[int]):
-        # Decrease display contrast: Command+Option+Control-
-        # Increase display contrast: Command+Option+Control+
-        # raise NotImplementedError
-        pass
+        # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
+        try:
+            ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
+                CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
+            if ret == 0:
+                newRedGamma = contrast / 100
+                if newRedGamma < redMin:
+                    newRedGamma = redMin
+                elif newRedGamma > redMax:
+                    newRedGamma = redMax
+                newGreenGamma = contrast / 100
+                if newGreenGamma < greenMin:
+                    newGreenGamma = greenMin
+                elif newGreenGamma > greenMax:
+                    newGreenGamma = greenMax
+                newBlueGamma = contrast / 100
+                if newBlueGamma < blueMin:
+                    newBlueGamma = blueMin
+                elif newBlueGamma > blueMax:
+                    newBlueGamma = blueMax
+                ret = CG.CGSetDisplayTransferByFormula(self.handle,
+                                                       redMin, redMax, newRedGamma,
+                                                       greenMin, greenMax, newGreenGamma,
+                                                       blueMin, blueMax, newBlueGamma
+                                                       )
+        except:
+            pass
 
     @property
     def mode(self) -> Optional[DisplayMode]:
-        mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
-        w = Quartz.CGDisplayModeGetWidth(mode)
-        h = Quartz.CGDisplayModeGetHeight(mode)
-        r = Quartz.CGDisplayModeGetRefreshRate(mode)
-        res = DisplayMode(w, h, r)
+        res = None
+        try:
+            mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
+            w = Quartz.CGDisplayModeGetWidth(mode)
+            h = Quartz.CGDisplayModeGetHeight(mode)
+            r = Quartz.CGDisplayModeGetRefreshRate(mode)
+            res = DisplayMode(w, h, r)
+        except:
+            pass
         return res
 
     def setMode(self, mode: Optional[DisplayMode]):
         # https://stackoverflow.com/questions/10596489/programmatically-change-resolution-os-x
+        # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
         if mode is not None:
-            allModes = Quartz.CGDisplayCopyAllDisplayModes(self.handle, None)
-            for m in allModes:
-                w = Quartz.CGDisplayModeGetWidth(m)
-                h = Quartz.CGDisplayModeGetHeight(m)
-                r = Quartz.CGDisplayModeGetRefreshRate(m)
-                if w == mode.width and h == mode.height and r == mode.frequency:
-                    # This is simpler, but has a temporary effect:
-                    # Quartz.CGDisplaySetDisplayMode(displayId, m, None)
-                    ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-                    if not ret:
-                        ret = Quartz.CGConfigureDisplayWithDisplayMode(configRef, self.handle, m, None)
-                        if not ret:
-                            Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-                        else:
-                            Quartz.CGCancelDisplayConfiguration(configRef)
-                    break
+            try:
+                ret, bestMode = CG.CGDisplayBestModeForParametersAndRefreshRate(
+                                    self.handle, self.colordepth, mode.width, mode.height, mode.frequency, None)
+                CG.CGDisplaySwitchToMode(self.handle, bestMode)
+                # ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+                # ret = Quartz.CGConfigureDisplayWithDisplayMode(configRef, self.handle, bestMode, None)
+                # if not ret:
+                #     Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
+                # else:
+                #     Quartz.CGCancelDisplayConfiguration(configRef)
+            except:
+                pass
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
@@ -417,7 +457,7 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def isPrimary(self):
-        return self.name == _getName(Quartz.CGMainDisplayID())
+        return self.handle == Quartz.CGMainDisplayID()
 
     def setPrimary(self):
         # https://stackoverflow.com/questions/13722508/change-main-monitor-on-mac-programmatically#:~:text=To%20change%20the%20secondary%20monitor%20to%20be%20the,%28%29.%20A%20full%20sample%20can%20be%20found%20Here
@@ -443,38 +483,47 @@ class MacOSMonitor(BaseMonitor):
             time.sleep(0.1)
             mouseEvent(CG.kCGEventLeftMouseUp, posx, posy)
 
-        # mousemove(200, 200)
-        mouseclick(200, 200)
+        if CG.CGDisplayIsAsleep(self.handle):
+            mousemove(200, 200)
+            mouseclick(200, 200)
+            # This won't wake up monitor either (refers to the whole system)
+            # cmd = """pmset wake"""
+            # subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
 
-        # This won't wake up monitor either (refers to the whole system)
-        # cmd = """pmset wake"""
-        # subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+        elif not CG.CGDisplayIsActive(self.handle):
+            # CG.CGDisplayRelease(self.handle)
+            pass
 
     def turnOff(self):
-        # Control–Shift–Media Eject
+        # CG.CGDisplayCapture(self.handle)
+        # https://stackoverflow.com/questions/32319778/check-if-display-is-sleeping-in-applescript
         pass
 
     def suspend(self):
-        cmd = """pmset displaysleepnow"""
-        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL)
+        # Control–Shift–Media Eject
+        cmd = """pmset displaysleepnow"""  #  with administrator privileges
+        try:
+            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
+        except:
+            pass
 
     @property
     def isOn(self) -> Optional[bool]:
-        # raise NotImplementedError
-        return None
+        # https://stackoverflow.com/questions/20099333/terminal-command-to-show-connected-displays-monitors-resolutions
+        # TRY: 'system_profiler SPDisplaysDataType' or 'defaults read'
+        return CG.CGDisplayIsActive(self.handle) == 1
 
     def attach(self, width: int = 0, height: int = 0):
-        # raise NotImplementedError
         pass
 
     def detach(self, permanent: bool = False):
         # Maybe manipulating position and/or size?
-        # raise NotImplementedError
         pass
 
     @property
     def isAttached(self) -> Optional[bool]:
-        return self.name in _NSgetAllMonitorsDict().keys()
+        # return self.name in _NSgetAllMonitorsDict().keys()
+        return CG.CGDisplayIsOnline(self.handle) == 1
 
 
 def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str):
