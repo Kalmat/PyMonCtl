@@ -368,32 +368,33 @@ class MacOSMonitor(BaseMonitor):
 
     def setContrast(self, contrast: Optional[int]):
         # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
-        try:
-            ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
-                CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
-            if ret == 0:
-                newRedGamma = contrast / 100
-                if newRedGamma < redMin:
-                    newRedGamma = redMin
-                elif newRedGamma > redMax:
-                    newRedGamma = redMax
-                newGreenGamma = contrast / 100
-                if newGreenGamma < greenMin:
-                    newGreenGamma = greenMin
-                elif newGreenGamma > greenMax:
-                    newGreenGamma = greenMax
-                newBlueGamma = contrast / 100
-                if newBlueGamma < blueMin:
-                    newBlueGamma = blueMin
-                elif newBlueGamma > blueMax:
-                    newBlueGamma = blueMax
-                ret = CG.CGSetDisplayTransferByFormula(self.handle,
-                                                       redMin, redMax, newRedGamma,
-                                                       greenMin, greenMax, newGreenGamma,
-                                                       blueMin, blueMax, newBlueGamma
-                                                       )
-        except:
-            pass
+        if contrast is not None:
+            try:
+                ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
+                    CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
+                if ret == 0:
+                    newRedGamma = contrast / 100
+                    if newRedGamma < redMin:
+                        newRedGamma = redMin
+                    elif newRedGamma > redMax:
+                        newRedGamma = redMax
+                    newGreenGamma = contrast / 100
+                    if newGreenGamma < greenMin:
+                        newGreenGamma = greenMin
+                    elif newGreenGamma > greenMax:
+                        newGreenGamma = greenMax
+                    newBlueGamma = contrast / 100
+                    if newBlueGamma < blueMin:
+                        newBlueGamma = blueMin
+                    elif newBlueGamma > blueMax:
+                        newBlueGamma = blueMax
+                    ret = CG.CGSetDisplayTransferByFormula(self.handle,
+                                                           redMin, redMax, newRedGamma,
+                                                           greenMin, greenMax, newGreenGamma,
+                                                           blueMin, blueMax, newBlueGamma
+                                                           )
+            except:
+                pass
 
     @property
     def mode(self) -> Optional[DisplayMode]:
