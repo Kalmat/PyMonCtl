@@ -6,7 +6,7 @@ import time
 from typing import Union
 
 import pymonctl as pmc
-from pymonctl.structs import *
+from pymonctl._structs import *
 
 
 def countChanged(names, screensInfo):

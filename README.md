@@ -4,8 +4,6 @@
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
-#### My most sincere thanks and appreciation to the University of Utah Student Computing Labs for their awesome work on the display_manager_lib module, for sharing it so generously, and most especially for allowing to be integrated into PyMonCtl
-
 External tools/extensions/APIs used:
 - Linux:
   - Xlib's randr extension
@@ -15,6 +13,9 @@ External tools/extensions/APIs used:
   - VCP MCCS API interface
 - macOS:
   - pmset command-line tool
+
+    
+My most sincere thanks and appreciation to the University of Utah Student Computing Labs for their awesome work on the display_manager_lib module, for sharing it so generously, and most especially for allowing to be integrated into PyMonCtl
 
 ## General Functions
 

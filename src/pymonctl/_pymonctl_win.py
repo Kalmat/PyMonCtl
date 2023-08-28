@@ -17,13 +17,13 @@ import win32con
 import win32evtlog
 import win32gui
 
-from pymonctl import BaseMonitor, _getRelativePosition, \
-                     DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-from pymonctl.structs import (_QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_INFO, _DISPLAYCONFIG_MODE_INFO, _LUID,
-                              _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET, _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET, _DPI_VALUES,
-                              _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE, _DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE,
-                              _DISPLAYCONFIG_SOURCE_DEVICE_NAME, _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
-                              )
+from ._main import BaseMonitor, _getRelativePosition, \
+                   DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
+from pymonctl._structs import (_QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_INFO, _DISPLAYCONFIG_MODE_INFO, _LUID,
+                               _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET, _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET, _DPI_VALUES,
+                               _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE, _DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE,
+                               _DISPLAYCONFIG_SOURCE_DEVICE_NAME, _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
+                               )
 
 
 dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
@@ -56,8 +56,8 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
             pass
         if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
             name = monName
-            x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
-            wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, -1, -1))
+            x, y, r, b = monitorInfo["Monitor"]
+            wx, wy, wr, wb = monitorInfo["Work"]
             is_primary = monitorInfo.get("Flags", 0) == win32con.MONITORINFOF_PRIMARY
             pScale = ctypes.c_uint()
             ctypes.windll.shcore.GetScaleFactorForMonitor(hMon, ctypes.byref(pScale))
@@ -172,28 +172,28 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def size(self) -> Optional[Size]:
-        if self.handle is not None:
-            monitorInfo = win32api.GetMonitorInfo(self.handle)
-            if monitorInfo:
-                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+        monitorInfo = win32api.GetMonitorInfo(self.handle)
+        if monitorInfo:
+            x, y, r, b = monitorInfo["Monitor"]
+            if x is not None:
                 return Size(abs(r - x), abs(b - y))
         return None
 
     @property
     def workarea(self) -> Optional[Rect]:
-        if self.handle is not None:
-            monitorInfo = win32api.GetMonitorInfo(self.handle)
-            if monitorInfo:
-                wx, wy, wr, wb = monitorInfo.get("Work", (0, 0, -1, -1))
+        monitorInfo = win32api.GetMonitorInfo(self.handle)
+        if monitorInfo:
+            wx, wy, wr, wb = monitorInfo["Work"]
+            if wx is not None:
                 return Rect(wx, wy, wr, wb)
         return None
 
     @property
     def position(self) -> Optional[Point]:
-        if self.handle is not None:
-            monitorInfo = win32api.GetMonitorInfo(self.handle)
-            if monitorInfo:
-                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+        monitorInfo = win32api.GetMonitorInfo(self.handle)
+        if monitorInfo:
+            x, y, r, b = monitorInfo["Monitor"]
+            if x is not None:
                 return Point(x, y)
         return None
 
@@ -202,34 +202,32 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def box(self) -> Optional[Box]:
-        if self.handle is not None:
-            monitorInfo = win32api.GetMonitorInfo(self.handle)
-            if monitorInfo:
-                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+        monitorInfo = win32api.GetMonitorInfo(self.handle)
+        if monitorInfo:
+            x, y, r, b = monitorInfo["Monitor"]
+            if x is not None:
                 return Box(x, y, abs(r - x), abs(b - y))
         return None
 
     @property
     def rect(self) -> Optional[Rect]:
-        if self.handle is not None:
-            monitorInfo = win32api.GetMonitorInfo(self.handle)
-            if monitorInfo:
-                x, y, r, b = monitorInfo.get("Monitor", (0, 0, -1, -1))
+        monitorInfo = win32api.GetMonitorInfo(self.handle)
+        if monitorInfo:
+            x, y, r, b = monitorInfo["Monitor"]
+            if x is not None:
                 return Rect(x, y, r, b)
         return None
 
     @property
     def scale(self) -> Optional[Tuple[float, float]]:
-        if self.handle is not None:
-            pScale = ctypes.c_uint()
-            ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
-            # import wmi
-            # obj = wmi.WMI().Win32_PnPEntity(ConfigManagerErrorCode=0)
-            # displays = [x for x in obj if 'DISPLAY' in str(x)]
-            # for item in displays:
-            #     print(item)
-            return float(pScale.value), float(pScale.value)
-        return None
+        pScale = ctypes.c_uint()
+        ctypes.windll.shcore.GetScaleFactorForMonitor(self.handle, ctypes.byref(pScale))
+        # import wmi
+        # obj = wmi.WMI().Win32_PnPEntity(ConfigManagerErrorCode=0)
+        # displays = [x for x in obj if 'DISPLAY' in str(x)]
+        # for item in displays:
+        #     print(item)
+        return float(pScale.value), float(pScale.value)
 
     def _getPaths(self) -> Tuple[Optional[_LUID], Optional[int]]:
 
@@ -265,7 +263,7 @@ class Win32Monitor(BaseMonitor):
 
     def setScale(self, scale: Optional[Tuple[float, float]]):
 
-        if self.handle is not None and scale is not None:
+        if scale is not None:
             # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
             # https://github.com/lihas/windows-DPI-scaling-sample/blob/master/DPIHelper/DpiHelper.cpp
             # HOW to GET adapterId and sourceId values???? -> QueryDisplayConfig
@@ -291,9 +289,9 @@ class Win32Monitor(BaseMonitor):
 
                 scaleValue: int = int(scale[0])
                 targetScale = -1
-                if scale < minScale:
+                if scaleValue < minScale:
                     targetScale = 0
-                elif scale > maxScale:
+                elif scaleValue > maxScale:
                     targetScale = len(_DPI_VALUES) - 1
                 else:
                     try:
@@ -314,12 +312,10 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
-        if self.handle is not None:
-            dpiX = ctypes.c_uint()
-            dpiY = ctypes.c_uint()
-            ctypes.windll.shcore.GetDpiForMonitor(self.handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
-            return dpiX.value, dpiY.value
-        return None
+        dpiX = ctypes.c_uint()
+        dpiY = ctypes.c_uint()
+        ctypes.windll.shcore.GetDpiForMonitor(self.handle, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
+        return dpiX.value, dpiY.value
 
     @property
     def orientation(self) -> Optional[Union[int, Orientation]]:
@@ -355,20 +351,20 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def brightness(self) -> Optional[int]:
-        if self.handle is not None:
-            minBright = ctypes.c_uint()
-            currBright = ctypes.c_uint()
-            maxBright = ctypes.c_uint()
-            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-            for hDevice in hDevices:
-                ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
-                                                         ctypes.byref(maxBright))
-                _win32destroyPhysicalMonitors(hDevices)
-                return currBright.value
+        minBright = ctypes.c_uint()
+        currBright = ctypes.c_uint()
+        maxBright = ctypes.c_uint()
+        hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+        for hDevice in hDevices:
+            ctypes.windll.dxva2.GetMonitorBrightness(hDevice, ctypes.byref(minBright), ctypes.byref(currBright),
+                                                     ctypes.byref(maxBright))
+            _win32destroyPhysicalMonitors(hDevices)
+            return currBright.value
         return None
 
+
     def setBrightness(self, brightness: Optional[int]):
-        if brightness is not None and self.handle is not None:
+        if brightness is not None:
             minBright = ctypes.c_uint()
             currBright = ctypes.c_uint()
             maxBright = ctypes.c_uint()
@@ -388,20 +384,19 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def contrast(self) -> Optional[int]:
-        if self.handle is not None:
-            minCont = ctypes.c_uint()
-            currCont = ctypes.c_uint()
-            maxCont = ctypes.c_uint()
-            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-            for hDevice in hDevices:
-                ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
-                                                       ctypes.byref(maxCont))
-                _win32destroyPhysicalMonitors(hDevices)
-                return currCont.value
+        minCont = ctypes.c_uint()
+        currCont = ctypes.c_uint()
+        maxCont = ctypes.c_uint()
+        hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+        for hDevice in hDevices:
+            ctypes.windll.dxva2.GetMonitorContrast(hDevice, ctypes.byref(minCont), ctypes.byref(currCont),
+                                                   ctypes.byref(maxCont))
+            _win32destroyPhysicalMonitors(hDevices)
+            return currCont.value
         return None
 
     def setContrast(self, contrast: Optional[int]):
-        if contrast is not None and self.handle is not None:
+        if contrast is not None:
             minCont = ctypes.c_uint()
             currCont = ctypes.c_uint()
             maxCont = ctypes.c_uint()
@@ -466,7 +461,7 @@ class Win32Monitor(BaseMonitor):
 
     def turnOn(self):
         # https://stackoverflow.com/questions/16402672/control-screen-with-python
-        if self.handle is not None and self._hasVCPSupport and self._hasVCPPowerSupport:
+        if self._hasVCPSupport and self._hasVCPPowerSupport:
             if not self.isOn:
                 hDevices = _win32getPhysicalMonitorsHandles(self.handle)
                 for hDevice in hDevices:
@@ -484,7 +479,7 @@ class Win32Monitor(BaseMonitor):
 
     def turnOff(self):
         # https://stackoverflow.com/questions/16402672/control-screen-with-python
-        if self.handle is not None and self._hasVCPSupport and self._hasVCPPowerSupport:
+        if self._hasVCPSupport and self._hasVCPPowerSupport:
             if self.isOn:
                 hDevices = _win32getPhysicalMonitorsHandles(self.handle)
                 for hDevice in hDevices:
@@ -497,7 +492,7 @@ class Win32Monitor(BaseMonitor):
                                         win32con.SMTO_ABORTIFHUNG, 100)
 
     def suspend(self):
-        if self.handle is not None and self._hasVCPSupport and self._hasVCPPowerSupport:
+        if self._hasVCPSupport and self._hasVCPPowerSupport:
             hDevices = _win32getPhysicalMonitorsHandles(self.handle)
             for hDevice in hDevices:
                 # code and value according to: VESA Monitor Control Command Set (MCCS) standard, version 1.0 and 2.0.
@@ -511,26 +506,25 @@ class Win32Monitor(BaseMonitor):
     @property
     def isOn(self) -> Optional[bool]:
         ret = None
-        if self.handle is not None:
-            if self._hasVCPSupport and self._hasVCPPowerSupport:
-                hDevices = _win32getPhysicalMonitorsHandles(self.handle)
-                for hDevice in hDevices:
-                    # code and value according to: VESA Monitor Control Command Set (MCCS) standard, version 1.0 and 2.0.
-                    pvct = ctypes.c_uint()
-                    currValue = ctypes.c_uint()
-                    maxValue = ctypes.c_uint()
-                    ctypes.windll.dxva2.GetVCPFeatureAndVCPFeatureReply(hDevice, 0xD6, ctypes.byref(pvct),
-                                                                        ctypes.byref(currValue), ctypes.byref(maxValue))
-                    ret = currValue.value == 1
-                _win32destroyPhysicalMonitors(hDevices)
-            else:
-                # Not working by now (tried with hDevice as well)
-                # https://stackoverflow.com/questions/203355/is-there-any-way-to-detect-the-monitor-state-in-windows-on-or-off
-                # https://learn.microsoft.com/en-us/windows/win32/power/power-management-functions
-                is_working = ctypes.c_uint()
-                res = ctypes.windll.kernel32.GetDevicePowerState(self.handle, ctypes.byref(is_working))
-                if res:
-                    ret = bool(is_working.value == 1)
+        if self._hasVCPSupport and self._hasVCPPowerSupport:
+            hDevices = _win32getPhysicalMonitorsHandles(self.handle)
+            for hDevice in hDevices:
+                # code and value according to: VESA Monitor Control Command Set (MCCS) standard, version 1.0 and 2.0.
+                pvct = ctypes.c_uint()
+                currValue = ctypes.c_uint()
+                maxValue = ctypes.c_uint()
+                ctypes.windll.dxva2.GetVCPFeatureAndVCPFeatureReply(hDevice, 0xD6, ctypes.byref(pvct),
+                                                                    ctypes.byref(currValue), ctypes.byref(maxValue))
+                ret = currValue.value == 1
+            _win32destroyPhysicalMonitors(hDevices)
+        else:
+            # Not working by now (tried with hDevice as well)
+            # https://stackoverflow.com/questions/203355/is-there-any-way-to-detect-the-monitor-state-in-windows-on-or-off
+            # https://learn.microsoft.com/en-us/windows/win32/power/power-management-functions
+            is_working = ctypes.c_uint()
+            res = ctypes.windll.kernel32.GetDevicePowerState(self.handle, ctypes.byref(is_working))
+            if res:
+                ret = bool(is_working.value == 1)
         return ret
 
     def attach(self):
@@ -626,14 +620,14 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
         monitors = _win32getAllMonitorsDict()
         if name in monitors.keys() and relativeTo in monitors.keys():
             targetMonInfo = monitors[name]["monitor"]
-            x, y, r, b = targetMonInfo.get("Monitor", (0, 0, -1, -1))
+            x, y, r, b = targetMonInfo["Monitor"]
             w = abs(r - x)
             h = abs(b - y)
             targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
                          "position": Point(x, y), "size": Size(w, h)}
 
             relMonInfo = monitors[relativeTo]["monitor"]
-            x, y, r, b = relMonInfo.get("Monitor", (0, 0, -1, -1))
+            x, y, r, b = relMonInfo["Monitor"]
             w = abs(r - x)
             h = abs(b - y)
             relMon = {"position": Point(x, y), "size": Size(w, h)}
@@ -809,6 +803,3 @@ def _eventLogLoop(kill: threading.Event, interval: float):
         kill.wait(interval)
 
     win32evtlog.CloseEventLog(handle)
-
-# import win32ui
-# print(win32ui.GetDeviceCaps(win32gui.GetDC(None), win32con.HORZSIZE), win32ui.GetDeviceCaps(win32gui.GetDC(None), win32con.VERTSIZE))

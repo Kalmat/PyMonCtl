@@ -20,8 +20,8 @@ import AppKit
 import Quartz
 import Quartz.CoreGraphics as CG
 
-from pymonctl import BaseMonitor, _pointInBox, _getRelativePosition, \
-                     DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
+from ._main import BaseMonitor, _pointInBox, _getRelativePosition, \
+                   DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 from ._display_manager_lib import Display
 
 
@@ -32,6 +32,9 @@ def _getAllMonitors() -> list[MacOSMonitor]:
         desc = screen.deviceDescription()
         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
         monitors.append(MacOSMonitor(displayId))
+    # Alternatives to test:
+    v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)
+    v, ids, cnt = CG.CGGetActiveDisplayList(10, None, None)
     return monitors
 
 
@@ -416,7 +419,7 @@ class MacOSMonitor(BaseMonitor):
             try:
                 ret, bestMode = CG.CGDisplayBestModeForParametersAndRefreshRate(
                                     self.handle, self.colordepth, mode.width, mode.height, mode.frequency, None)
-                CG.CGDisplaySwitchToMode(self.handle, bestMode)
+                CG.CGDisplaySwitchToMode(self.handle, bestMode.get("Mode", 0))
                 # ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
                 # ret = Quartz.CGConfigureDisplayWithDisplayMode(configRef, self.handle, bestMode, None)
                 # if not ret:
@@ -468,14 +471,16 @@ class MacOSMonitor(BaseMonitor):
         # This works, but won't wake up the display despite if the mouse is moving and/or clicking
 
         def mouseEvent(eventType, posx, posy):
-            theEvent = CG.CGEventCreateMouseEvent(None, eventType, CG.CGPointMake(posx, posy), CG.kCGMouseButtonLeft)
-            CG.CGEventSetType(theEvent, eventType)
+            ev = CG.CGEventCreateMouseEvent(None, eventType, CG.CGPointMake(posx, posy), CG.kCGMouseButtonLeft)
+            CG.CGEventSetType(ev, eventType)
             # or kCGSessionEventTap?
-            CG.CGEventPost(CG.kCGHIDEventTap, theEvent)
-            # CG.CFRelease(theEvent)   # Produces a Hardware error?!?!?!
+            CG.CGEventPost(CG.kCGHIDEventTap, ev)
+            # CG.CFRelease(ev)   # Produces a Hardware error?!?!?!
 
         def mousemove(posx, posy):
             mouseEvent(CG.kCGEventMouseMoved, posx, posy)
+            # Alternative:
+            CG.CGDisplayMoveCursorToPoint(self.handle, (posx, posy))
 
         def mouseclick(posx, posy):
             # Not necessary to previously move the mouse to given location

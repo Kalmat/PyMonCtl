@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import ctypes
 import ctypes.wintypes
 from enum import IntEnum
 from typing import NamedTuple, Tuple
@@ -10,6 +9,7 @@ from typing_extensions import TypedDict
 
 
 class Box(NamedTuple):
+    """Container class to handle Box struct (left, top, width, height)"""
     left: int
     top: int
     width: int
@@ -17,6 +17,7 @@ class Box(NamedTuple):
 
 
 class Rect(NamedTuple):
+    """Container class to handle Rect struct (left, top, right, bottom)"""
     left: int
     top: int
     right: int
@@ -24,16 +25,33 @@ class Rect(NamedTuple):
 
 
 class Point(NamedTuple):
+    """Container class to handle Point struct (x, y)"""
     x: int
     y: int
 
 
 class Size(NamedTuple):
+    """Container class to handle Size struct (right, bottom)"""
     width: int
     height: int
 
 
 class ScreenValue(TypedDict):
+    """
+    Container class to handle ScreenValue struct:
+
+        - system_name (str): name of the monitor as known by the system
+        - id (int): handle/identifier of the monitor
+        - is_primary (bool): ''True'' if it is the primary monitor
+        - position (Point): position of the monitor
+        - size (Size): size of the monitor, in pixels
+        - workarea (Rect): coordinates of the usable area of the monitor usable by apps/windows (no docks, taskbars, ...)
+        - scale (Tuple[int, int]): text scale currently applied to monitor
+        - dpi (Tuple[int, int]): dpi values of current resolution
+        - orientation (int): rotation value of the monitor as per Orientation values (NORMAL = 0,  RIGHT = 1,  INVERTED = 2, LEFT = 3)
+        - frequency (float): refresh rate of the monitor
+        - colordepth (int): color depth of the monitor
+    """
     system_name: str
     id: int
     is_primary: bool
@@ -48,6 +66,13 @@ class ScreenValue(TypedDict):
 
 
 class DisplayMode(NamedTuple):
+    """
+    Container class to handle DisplayMode struct:
+
+        - width (int): width, in pixels
+        - height (int): height, in pixels
+        - frequency (float): refresh rate
+    """
     width: int
     height: int
     frequency: float
