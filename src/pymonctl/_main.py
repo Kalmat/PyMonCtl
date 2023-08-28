@@ -8,7 +8,7 @@ from abc import abstractmethod, ABC
 from collections.abc import Callable
 from typing import List, Optional, Union, Tuple
 
-from pymonctl._structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
+from ._structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
 
 
 def _pointInBox(x: int, y: int, left: int, top: int, width: int, height: int) -> bool:
@@ -95,7 +95,7 @@ def getPrimary() -> Monitor:
     return _getPrimary()
 
 
-def findMonitor(x: int, y: int) -> Optional[List[Monitor]]:
+def findMonitor(x: int, y: int) -> List[Monitor]:
     """
     Get monitor instance in which given coordinates (x, y) are found.
 

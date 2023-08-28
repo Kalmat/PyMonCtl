@@ -139,7 +139,7 @@ def _getMonitorsCount() -> int:
     return count
 
 
-def _findMonitor(x: int, y: int) -> Optional[List[LinuxMonitor]]:
+def _findMonitor(x: int, y: int) -> List[LinuxMonitor]:
     monitors = []
     for monitor in _getAllMonitors():
         if monitor.position is not None and monitor.size is not None:

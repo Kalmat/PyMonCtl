@@ -95,7 +95,7 @@ def _getMonitorsCount() -> int:
     return len(win32api.EnumDisplayMonitors())
 
 
-def _findMonitor(x: int, y: int) -> Optional[List[Win32Monitor]]:
+def _findMonitor(x: int, y: int) -> List[Win32Monitor]:
     # Watch this: started to fail when repeatedly and quickly invoking it in Python 3.10 (it was ok in 3.9)
     hMon = win32api.MonitorFromPoint((x, y), win32con.MONITOR_DEFAULTTONEAREST)
     if hMon and hasattr(hMon, "handle"):

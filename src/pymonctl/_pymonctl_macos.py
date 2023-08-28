@@ -111,21 +111,13 @@ def _getMonitorsCount() -> int:
     return len(AppKit.NSScreen.screens())
 
 
-def _findMonitor(x: int, y: int) -> Optional[List[MacOSMonitor]]:
+def _findMonitor(x: int, y: int) -> List[MacOSMonitor]:
     ret, monIds, count = CG.CGGetDisplaysWithPoint((x, y), 10, None, None)
     monitors = []
     if ret == 0:
         for i in range(count):
             monitors.append(MacOSMonitor(monIds[i]))
     return monitors
-    # screens = AppKit.NSScreen.screens()
-    # for screen in screens:
-    #     frame = screen.frame()
-    #     if _pointInBox(x, y, int(frame.origin.x), int(frame.origin.y), int(frame.size.width), int(frame.size.height)):
-    #         desc = screen.deviceDescription()
-    #         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-    #         return MacOSMonitor(displayId)
-    return None
 
 
 def _getPrimary() -> MacOSMonitor:
