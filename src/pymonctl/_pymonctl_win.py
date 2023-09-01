@@ -659,17 +659,17 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                     #     mx, my, mr, mb = monitors[monitor]["monitor"]["Monitor"]
                     #     if mx <= x <= mr and my <= y <= mb:
                     #         return
-                    devmode.Position_x = x
-                    devmode.Position_y = y
-                    devmode.Fields = win32con.DM_POSITION
+                    devmode.Position_x = x  # type: ignore[misc]
+                    devmode.Position_y = y  # type: ignore[misc]
+                    devmode.Fields = win32con.DM_POSITION  # type: ignore[misc]
 
                 else:
-                    devmode.Orientation = settings.Orientation
-                    devmode.Fields = win32con.DM_ORIENTATION
+                    devmode.Orientation = settings.Orientation  # type: ignore[misc]
+                    devmode.Fields = win32con.DM_ORIENTATION  # type: ignore[misc]
                     if settings.Orientation in (Orientation.LEFT, Orientation.RIGHT):
-                        devmode.PelsWidth = settings.PelsHeight
-                        devmode.PelsHeight = settings.PelsWidth
-                        devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
+                        devmode.PelsWidth = settings.PelsHeight  # type: ignore[misc]
+                        devmode.PelsHeight = settings.PelsWidth  # type: ignore[misc]
+                        devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT  # type: ignore[misc]
 
                 win32api.ChangeDisplaySettingsEx(monitor, devmode, win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET)
 
