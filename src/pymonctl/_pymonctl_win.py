@@ -546,8 +546,8 @@ class Win32Monitor(BaseMonitor):
             devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
             # Sometimes an empty struct is required, but others we need to retrieve Display Settings first
             # devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-            # devmode.PelsWidth = settings.PelsWidth
-            # devmode.PelsHeight = settings.PelsHeight
+            # devmode.PelsWidth = settings.PelsWidth  # type: ignore[misc]
+            # devmode.PelsHeight = settings.PelsHeight  # type: ignore[misc]
             devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY)  # type: ignore[arg-type]
             self._findNewHandles()
@@ -557,11 +557,11 @@ class Win32Monitor(BaseMonitor):
         if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
             devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
             # devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
-            devmode.PelsWidth = 0
-            devmode.PelsHeight = 0
-            devmode.Position_x = 0
-            devmode.Position_y = 0
-            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_POSITION
+            devmode.PelsWidth = 0  # type: ignore[misc]
+            devmode.PelsHeight = 0  # type: ignore[misc]
+            devmode.Position_x = 0  # type: ignore[misc]
+            devmode.Position_y = 0  # type: ignore[misc]
+            devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_POSITION  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY if permanent else 0)  # type: ignore[arg-type]
             self._findNewHandles()
 
@@ -659,17 +659,17 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                     #     mx, my, mr, mb = monitors[monitor]["monitor"]["Monitor"]
                     #     if mx <= x <= mr and my <= y <= mb:
                     #         return
-                    devmode.Position_x = x  # type: ignore[misc]
-                    devmode.Position_y = y  # type: ignore[misc]
-                    devmode.Fields = win32con.DM_POSITION  # type: ignore[misc]
+                    devmode.Position_x = x
+                    devmode.Position_y = y
+                    devmode.Fields = win32con.DM_POSITION
 
                 else:
-                    devmode.Orientation = settings.Orientation  # type: ignore[misc]
-                    devmode.Fields = win32con.DM_ORIENTATION  # type: ignore[misc]
+                    devmode.Orientation = settings.Orientation
+                    devmode.Fields = win32con.DM_ORIENTATION
                     if settings.Orientation in (Orientation.LEFT, Orientation.RIGHT):
-                        devmode.PelsWidth = settings.PelsHeight  # type: ignore[misc]
-                        devmode.PelsHeight = settings.PelsWidth  # type: ignore[misc]
-                        devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT  # type: ignore[misc]
+                        devmode.PelsWidth = settings.PelsHeight
+                        devmode.PelsHeight = settings.PelsWidth
+                        devmode.Fields = devmode.Fields | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
 
                 win32api.ChangeDisplaySettingsEx(monitor, devmode, win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET)
 
