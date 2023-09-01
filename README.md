@@ -4,7 +4,7 @@
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
-External tools/extensions/APIs used:
+Additional tools/extensions/APIs used:
 - Linux:
   - Xlib's randr extension
   - xrandr command-line tool
@@ -13,15 +13,16 @@ External tools/extensions/APIs used:
   - VCP MCCS API interface
 - macOS:
   - pmset command-line tool
-
     
-My most sincere thanks and appreciation to the University of Utah Student Computing Labs for their awesome work on the display_manager_lib module, for sharing it so generously, and most especially for allowing to be integrated into PyMonCtl
+My most sincere thanks and appreciation to the University of Utah Student Computing Labs for their awesome work on 
+the [display_manager_lib](https://github.com/univ-of-utah-marriott-library-apple/display_manager) module, for sharing it so generously, and most especially for allowing to be integrated 
+into PyMonCtl
 
-## General Functions
+## General Features
 
-Functions to get monitor instances, get info and manage monitors plugged to the system.
+Functions to get monitor instances, get info and arrange monitors plugged to the system.
 
-| General features:  |
+| General functions: |
 |:------------------:|
 |   getAllMonitors   |
 | getAllMonitorsDict |
@@ -37,8 +38,8 @@ Functions to get monitor instances, get info and manage monitors plugged to the 
 
 Class to access all methods and functions to get info and control a given monitor plugged to the system.
 
-This class is not meant to be directly instantiated. Instead, use convenience functions like getAllMonitors(),
-getPrimary() or findMonitor(x, y).
+This class is not meant to be directly instantiated. Instead, use convenience functions like `getAllMonitors()`,
+`getPrimary()` or `findMonitor(x, y)`.
 
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
 the provided handle is not valid.
@@ -72,17 +73,18 @@ the provided handle is not valid.
 |     turnOn     |    X    |   X   |       |
 |    turnOff     |  X (4)  |   X   |       |
 |    suspend     |  X (4)  | X (5) | X (5) |
-|      isOn      |    X    |   X   |   X   |
+|      isOn      |  X (6)  |   X   |   X   |
+|  isSuspended   |  X (2)  |   X   |   X   |
 |     attach     |    X    |   X   |       |
 |     detach     |    X    |   X   |       |
 |   isAttached   |    X    |   X   |   X   |
 
 
-(1) Thru display_manager_lib from University of Utah - Marriott Library - Apple Infrastructure (thank you, guys!).
+(1) Through display_manager_lib from University of Utah - Marriott Library - Apple Infrastructure (thank you, guys!).
 
 (2) If monitor has no VCP MCCS support, these methods won't likely work.
 
-(3) It doesn't exactly returns / changes contrast, but gamma values.
+(3) It doesn't exactly return / change contrast, but gamma values.
 
 (4) If monitor has no VCP MCCS support, it can not be addressed separately, 
     so ALL monitors will be turned off / suspended.
@@ -90,10 +92,12 @@ the provided handle is not valid.
 
 (5) It will suspend ALL monitors.
 
+(6) Only if monitor has VCP MCCS support.
+
 
 #### WARNING: Most of these properties may return ''None'' in case the value can not be obtained
 
-## Monitors screening
+## Monitoring Monitor(s)
 
 You can activate a watchdog, running in a separate Thread, which will allow you to keep monitors 
 information updated, without negatively impacting your main process, and define hooks and its callbacks to be  
@@ -107,10 +111,10 @@ notified when monitors are plugged / unplugged or their properties change.
 The watchdog will automatically start while the update information is enabled and / or there are any listeners 
 registered, and will automatically stop otherwise.
 
-You can check if the watchdog is working (isWatchdogEnabled()) and also change its update interval 
-(updateWatchdogInterval) in case you need a custom period (default is 0.5 seconds). Adjust this value to your needs, 
-but take into account higher values will take longer to detect and notify changes; whilst lower values will 
-consume more CPU.
+You can check if the watchdog is working (`isWatchdogEnabled()`) and also change its update interval 
+(`updateWatchdogInterval()`) in case you need a custom period (default is 0.5 seconds). Adjust this value to your needs, 
+but take into account that higher values will take longer to detect and notify changes; whilst lower values will 
+consume more CPU and may produce additional notifications for "intermediate" status.
 
 ### Keep Monitors info updated
 
@@ -120,14 +124,14 @@ consume more CPU.
 |     disableUpdateInfo      |
 |    isUpdateInfoEnabled     |
 
-Enable this only if you need to keep track of monitor-related events like changing its resolution, position,
+Enable this only if you need to keep track of monitor-related events like changing its resolution, position, scale,
 or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. If you need monitors info updated 
-at a given moment, but not continuously updated, just invoke getMonitors() at your convenience.
+at a given moment, but not continuously updated, just invoke `getAllMonitors()` at your convenience.
 
 If enabled, it will activate a separate thread which will periodically update the list of monitors and
-their properties (see `getMonitors()` and `getMonitorsDict()` function).
+their properties (see `getAllMonitors()` and `getAllMonitorsDict()` function).
 
-### Get notifications on Monitors changes
+### Get notified on Monitors changes
 
 It is possible to register listeners to be invoked in case the number of connected monitors or their 
 properties change.
@@ -141,10 +145,10 @@ properties change.
 |  isPlugListenerRegistered  |
 | isChangeListenerRegistered |
 
-The information passed to the listeners is:
+The information passed to the listeners is as follows:
 
    - Names of the monitors which have changed (as a list of strings)
-   - All monitors info, as returned by `getMonitorsDict()`. To access monitors properties, use monitor name/s as dictionary key
+   - All monitors info, as returned by `getAllMonitorsDict()`. To access monitors properties, use monitor name/s as dictionary key
 
 Example:
 
@@ -161,7 +165,6 @@ Example:
         for name in names:
             print("MONITORS INFO:", screensInfo[name])
 
-    pmc.enableUpdateInfo()
     pmc.plugListenerRegister(countChanged)
     pmc.changeListenerRegister(propsChanged)
 
@@ -173,7 +176,6 @@ Example:
         except KeyboardInterrupt:
             break
 
-    pmc.disableUpdateInfo()
     pmc.plugListenerUnregister(countChanged)
     pmc.changeListenerUnregister(propsChanged)
 

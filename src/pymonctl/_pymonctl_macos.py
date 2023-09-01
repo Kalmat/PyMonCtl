@@ -470,8 +470,8 @@ class MacOSMonitor(BaseMonitor):
             # CG.CFRelease(ev)   # Produces a Hardware error?!?!?!
 
         def mousemove(posx, posy):
-            mouseEvent(CG.kCGEventMouseMoved, posx, posy)
-            # Alternative:
+            # Alternatives:
+            # mouseEvent(CG.kCGEventMouseMoved, posx, posy)
             CG.CGDisplayMoveCursorToPoint(self.handle, (posx, posy))
 
         def mouseclick(posx, posy):
@@ -493,34 +493,35 @@ class MacOSMonitor(BaseMonitor):
             pass
 
     def turnOff(self):
-        # CG.CGDisplayCapture(self.handle)
         # https://stackoverflow.com/questions/32319778/check-if-display-is-sleeping-in-applescript
+        # CG.CGDisplayCapture(self.handle)  # This turns display black, not off
         pass
 
+    @property
+    def isOn(self) -> Optional[bool]:
+        return CG.CGDisplayIsActive(self.handle)
+
     def suspend(self):
-        # Control–Shift–Media Eject
-        cmd = """pmset displaysleepnow"""  #  with administrator privileges
+        # Also injecting: Control–Shift–Media Eject
+        cmd = """pmset displaysleepnow"""
         try:
             subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
         except:
             pass
 
     @property
-    def isOn(self) -> Optional[bool]:
-        # https://stackoverflow.com/questions/20099333/terminal-command-to-show-connected-displays-monitors-resolutions
-        # TRY: 'system_profiler SPDisplaysDataType' or 'defaults read'
-        return CG.CGDisplayIsActive(self.handle) == 1
+    def isSuspended(self) -> Optional[bool]:
+        return CG.CGDisplayIsAsleep(self.handle)
 
     def attach(self, width: int = 0, height: int = 0):
         pass
 
     def detach(self, permanent: bool = False):
-        # Maybe manipulating position and/or size?
+        # Maybe manipulating position, size and/or mode?
         pass
 
     @property
     def isAttached(self) -> Optional[bool]:
-        # return self.name in _NSgetAllMonitorsDict().keys()
         return CG.CGDisplayIsOnline(self.handle) == 1
 
 

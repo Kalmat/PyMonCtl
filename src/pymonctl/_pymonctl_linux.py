@@ -535,14 +535,9 @@ class LinuxMonitor(BaseMonitor):
             except:
                 pass
         else:
-            cmd = "xset -q | grep ' Monitor is ' | awk '{ print$4 }'"
-            try:
-                err, ret = subprocess.getstatusoutput(cmd)
-                if err == 0 and ret == "Standby":
-                    cmd = "xset dpms force on"
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-            except:
-                pass
+            if self.isSuspended:
+                cmd = "xset dpms force on"
+                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
 
     def turnOff(self):
         if self.isOn:
@@ -551,6 +546,20 @@ class LinuxMonitor(BaseMonitor):
                 subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
             except:
                 pass
+
+    @property
+    def isOn(self) -> Optional[bool]:
+        # https://stackoverflow.com/questions/3433203/how-to-determine-if-lcd-monitor-is-turned-on-from-linux-command-line
+        cmd = "xrandr --listactivemonitors"
+        ret: Optional[bool] = None
+        try:
+            err, res = subprocess.getstatusoutput(cmd)
+            if err == 0:
+                ret = self.name in res
+        except:
+            pass
+        isSuspended = self.isSuspended
+        return (ret and not isSuspended) if isSuspended is not None else ret
 
     def suspend(self):
         # xrandr has no standby option. xset doesn't allow to target just one output (it works at display level)
@@ -561,16 +570,15 @@ class LinuxMonitor(BaseMonitor):
             pass
 
     @property
-    def isOn(self) -> bool:
-        # https://stackoverflow.com/questions/3433203/how-to-determine-if-lcd-monitor-is-turned-on-from-linux-command-line
-        cmd = "xrandr --listactivemonitors"
+    def isSuspended(self) -> Optional[bool]:
+        cmd = "xset -q | grep ' Monitor is ' | awk '{ print$4 }'"
         try:
             err, ret = subprocess.getstatusoutput(cmd)
             if err == 0:
-                return self.name in ret
+                return ret == "Standby"
         except:
             pass
-        return False
+        return None
 
     def attach(self):
         # This produces the same effect, but requires to keep track of last mode used
