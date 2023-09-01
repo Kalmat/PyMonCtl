@@ -419,7 +419,7 @@ class Win32Monitor(BaseMonitor):
             devmode.PelsWidth = mode.width  # type: ignore[misc]
             devmode.PelsHeight = mode.height  # type: ignore[misc]
             devmode.DisplayFrequency = mode.frequency  # type: ignore[misc]
-            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT # | win32con.DM_DISPLAYFREQUENCY  # type: ignore[misc]
+            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT  # type: ignore[misc]
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_UPDATEREGISTRY)  # type: ignore[arg-type]
 
     @property
@@ -438,7 +438,7 @@ class Win32Monitor(BaseMonitor):
         modes: List[DisplayMode] = []
         while True:
             try:
-                winSettings = win32api.EnumDisplaySettings(self.name, i, win32con.ENUM_REGISTRY_SETTINGS)
+                winSettings = win32api.EnumDisplaySettings(self.name, i)
                 mode = DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency)
                 if mode not in modes:
                     modes.append(mode)
