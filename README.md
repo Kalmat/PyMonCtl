@@ -4,6 +4,8 @@
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
+**WARNING: macOS multi-monitor support is still experimental and not fully tested.**
+
 Additional tools/extensions/APIs used:
 - Linux:
   - Xlib's randr extension

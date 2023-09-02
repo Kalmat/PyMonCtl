@@ -201,14 +201,23 @@ if len(monitorsPlugged) > 1:
     if mon1.size is not None and mon2.size is not None and mon1.position is not None and mon2.position is not None:
         print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
 
-        print("MONITOR 1 POSITION:", mon1.position, "LEFT_BOTTOM:", mon2.position == Point(mon1.size.width, mon1.size.height - mon2.size.height))
+        print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY (%s, %s), MONITOR 1 AT LEFT_BOTTOM (%s, %s)" % (0, 0, -mon1.size.width, mon2.size.height - mon1.size.height))
+        arrangement = {
+            str(mon2.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
+            str(mon1.name): {"relativePos": Position.LEFT_BOTTOM, "relativeTo": mon2.name}
+        }
+        print(arrangement)
+        pmc.arrangeMonitors(arrangement)
+        time.sleep(3)
+
+        print("MONITOR 1 POSITION:", mon1.position, "LEFT_BOTTOM:", mon1.position == Point(-mon1.size.width, mon2.size.height - mon1.size.height))
         print("MONITOR 2 POSITION:", mon2.position, "PRIMARY:", mon2.isPrimary)
         print()
         time.sleep(5)
 
         print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
 
-        print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, MONITOR 2 AT RIGHT_TOP")
+        print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY (%s, %s), MONITOR 2 AT RIGHT_TOP (%s, %s)" % (0, 0, mon1.size.width, 0))
         arrangement = {
             str(mon1.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
             str(mon2.name): {"relativePos": Position.RIGHT_TOP, "relativeTo": mon1.name}
