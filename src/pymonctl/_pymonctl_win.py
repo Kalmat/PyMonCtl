@@ -363,7 +363,7 @@ class Win32Monitor(BaseMonitor):
         if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
             # Sometimes an empty struct is required, but others we need to retrieve Display Settings first
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-            devmode = cast(pywintypes.DEVMODEType, settings)  # type: ignore[attr-defined]
+            devmode = cast(pywintypes.DEVMODEType, settings)  # type: ignore[attr-defined, name-defined]
             if (settings.DisplayOrientation + orientation) % 2 == 1:
                 devmode.PelsWidth, devmode.PelsHeight = devmode.PelsHeight, devmode.PelsWidth
             devmode.DisplayOrientation = orientation
