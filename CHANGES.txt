@@ -1,4 +1,4 @@
-0.5, 2023/09/02 -- ALL: Fixed x, y calculation in some setPosition() and arrangeMonitors() cases
+0.5, 2023/09/06 -- ALL: Fixed x, y calculation in some setPosition() and arrangeMonitors() cases
                    MACOS: Fixed / Tested OK in multi-monitor setup
 0.3, 2023/09/02 -- ALL: Fixed arrangeMonitors()
 0.2, 2023/09/01 -- ALL: Added isSuspended property
