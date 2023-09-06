@@ -1,4 +1,6 @@
-0.3, 2023/09/02 -- WIN32: Fixed arrangeMonitors()
+0.5, 2023/09/02 -- ALL: Fixed x, y calculation in some setPosition() and arrangeMonitors() cases
+                   MACOS: Fixed / Tested OK in multi-monitor setup
+0.3, 2023/09/02 -- ALL: Fixed arrangeMonitors()
 0.2, 2023/09/01 -- ALL: Added isSuspended property
                    WIN32: Fixed setPosition() to avoid reseting other monitors to defaults
 0.1, 2023/08/25 -- ALL: Reorganized to avoid IDEs showing external and / or private elements

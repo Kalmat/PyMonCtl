@@ -132,9 +132,9 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     devmode.Position_y = 0
     devmode.Fields = win32con.DM_POSITION
     flags = win32con.CDS_SET_PRIMARY | win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
-    newPos[setAsPrimary] = {"x": 0, "y": 0}
 
     win32api.ChangeDisplaySettingsEx(setAsPrimary, devmode, flags)
+    newPos[setAsPrimary] = {"x": 0, "y": 0}
 
     for monName in arrangement.keys():
 
@@ -272,7 +272,6 @@ class Win32Monitor(BaseMonitor):
                                                          ctypes.byref(numPathArrayElements),
                                                          ctypes.byref(numModeInfoArrayElements))
 
-        flags = _QDC_ONLY_ACTIVE_PATHS
         paths = (_DISPLAYCONFIG_PATH_INFO * numPathArrayElements.value)()
         modes = (_DISPLAYCONFIG_MODE_INFO * numModeInfoArrayElements.value)()
         nullptr = ctypes.c_void_p()
@@ -289,10 +288,17 @@ class Win32Monitor(BaseMonitor):
                 sourceName.header.type = _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
                 sourceName.header.size = ctypes.sizeof(sourceName)
                 sourceName.header.adapterId = path.sourceInfo.adapterId
-                sourceName.header.id = path.sourceInfo.id
-                ret = ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(sourceName))
-                if ret == 0 and sourceName.viewGdiDeviceName == self.name:
-                    return path.sourceInfo.adapterId, path.sourceInfo.id
+                # There must be a more canonical way to find existing path.sourceInfo.sourceId... but HOW???
+                i = 0
+                while True:
+                    sourceName.header.id = i
+                    ret = ctypes.windll.user32.DisplayConfigGetDeviceInfo(ctypes.byref(sourceName))
+                    if ret == 0:
+                        if sourceName.viewGdiDeviceName == self.name:
+                            return path.sourceInfo.adapterId, i
+                    else:
+                        break
+                    i += 1
         return None, None
 
     def setScale(self, scale: Optional[Tuple[float, float]]):
@@ -399,7 +405,6 @@ class Win32Monitor(BaseMonitor):
             return currBright.value
         return None
 
-
     def setBrightness(self, brightness: Optional[int]):
         if brightness is not None:
             minBright = ctypes.c_uint()
@@ -415,9 +420,6 @@ class Win32Monitor(BaseMonitor):
                     brightness = maxBright.value
                 ctypes.windll.dxva2.SetMonitorBrightness(hDevice, brightness)
                 ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
-        # This fails with "wmi.x_wmi: <x_wmi: Unexpected COM Error (-2147217396, 'OLE error 0x8004100c', None, None)>"
-        # import wmi
-        # wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0].WmiSetBrightness(5, 0)
 
     @property
     def contrast(self) -> Optional[int]:
@@ -475,14 +477,12 @@ class Win32Monitor(BaseMonitor):
 
     @property
     def allModes(self) -> list[DisplayMode]:
-        i = 0
         modes: List[DisplayMode] = []
+        i = 0
         while True:
             try:
                 winSettings = win32api.EnumDisplaySettings(self.name, i)
-                mode = DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency)
-                if mode not in modes:
-                    modes.append(mode)
+                modes.append(DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency))
             except:
                 break
             i += 1
@@ -493,7 +493,8 @@ class Win32Monitor(BaseMonitor):
         return self.position == Point(0, 0)
 
     def setPrimary(self):
-        _setPrimary(self.name)
+        if not self.isPrimary:
+            _setPrimary(self.name)
 
     def turnOn(self):
         # https://stackoverflow.com/questions/16402672/control-screen-with-python
@@ -582,8 +583,7 @@ class Win32Monitor(BaseMonitor):
         return ret
 
     def attach(self):
-        dev = win32api.EnumDisplayDevices(self.name, 0, 0)
-        if dev and not dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
+        if not self.isAttached:
             # devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
@@ -591,8 +591,7 @@ class Win32Monitor(BaseMonitor):
             _findNewHandles()
 
     def detach(self, permanent: bool = False):
-        dev = win32api.EnumDisplayDevices(self.name, 0, 0)
-        if dev and dev.StateFlags & win32con.DISPLAY_DEVICE_ATTACHED_TO_DESKTOP:
+        if self.isAttached:
             # devmode = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.PelsWidth = 0
@@ -610,14 +609,14 @@ class Win32Monitor(BaseMonitor):
 
 
 def _setPrimary(name: str):
-
+    # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     monitors = _win32getAllMonitorsDict()
     if len(monitors.keys()) > 1:
         xOffset = 0
         yOffset = 0
         for monName in monitors.keys():
-            monInfo = monitors[monName]["monitor"]
             if monName == name:
+                monInfo = monitors[monName]["monitor"]
                 xOffset = monInfo["Monitor"][0]
                 yOffset = monInfo["Monitor"][1]
                 if monInfo.get("Flags", 0) == win32con.MONITORINFOF_PRIMARY:
@@ -634,8 +633,8 @@ def _setPrimary(name: str):
 
         flags = win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET
         for monName in monitors.keys():
-            monInfo = monitors[monName]["monitor"]
             if monName != name:
+                monInfo = monitors[monName]["monitor"]
                 # settings = win32api.EnumDisplaySettings(monName, win32con.ENUM_CURRENT_SETTINGS)
                 devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
                 x = monInfo["Monitor"][0] - xOffset
@@ -663,7 +662,7 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                 # settings = win32api.EnumDisplaySettings(monitor, win32con.ENUM_CURRENT_SETTINGS)
                 devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
 
-                if name == monitor:
+                if monitor == name:
                     targetMonInfo = monitors[name]["monitor"]
                     x, y, r, b = targetMonInfo["Monitor"]
                     w = abs(r - x)
@@ -679,19 +678,19 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                     x, y = _getRelativePosition(targetMon, relMon)
 
                     # Monitors can not overlap. Existing monitor must be re-positioned first
-                    # for monitor in monitorsKeys:
-                    #     mx, my, mr, mb = monitors[monitor]["monitor"]["Monitor"]
-                    #     if mx <= x <= mr and my <= y <= mb:
-                    #         return
+                    for monName in monitorsKeys:
+                        mx, my, mr, mb = monitors[monName]["monitor"]["Monitor"]
+                        if mx < x < mr or my < y < mb:
+                            return
                     devmode.Position_x = x
                     devmode.Position_y = y
                     devmode.Fields = win32con.DM_POSITION
 
-                else:
-                    pass
-                    # devmode.DisplayOrientation = settings.DisplayOrientation
-                    # devmode.PelsWidth, devmode.PelsHeight = settings.PelsWidth, settings.PelsHeight
-                    # devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
+                # It seems there is no need to fill in any value
+                # else:
+                #     devmode.DisplayOrientation = settings.DisplayOrientation
+                #     devmode.PelsWidth, devmode.PelsHeight = settings.PelsWidth, settings.PelsHeight
+                #     devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
 
                 win32api.ChangeDisplaySettingsEx(monitor, devmode, win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET)
 
@@ -790,6 +789,8 @@ def _findNewHandles():
             monName = monitorInfo.get("Device", "")
             if instance.name == monName:
                 instance.handle = hMon
+                instance._sourceAdapterId = None
+                instance._sourceId = None
                 break
 
 

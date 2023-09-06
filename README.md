@@ -4,8 +4,6 @@
 
 Cross-Platform module which provides a set of features to get info on and control monitors.
 
-**WARNING: macOS multi-monitor support is still experimental and not fully tested.**
-
 Additional tools/extensions/APIs used:
 - Linux:
   - Xlib's randr extension
@@ -54,13 +52,13 @@ the provided handle is not valid.
 |  setPosition   |    X    |   X   |   X   |
 |      box       |    X    |   X   |   X   |
 |      rect      |    X    |   X   |   X   |
-|     scale      |    X    |   X   |   X   |
-|    setScale    |    X    |   X   |   X   |
-|      dpi       |    X    |   X   |   X   |
-|  orientation   |    X    |   X   |   X   |
-| setOrientation |    X    |   X   | X (1) |
 |   frequency    |    X    |   X   |   X   |
 |   colordepth   |    X    |   X   |   X   |
+|      dpi       |    X    |   X   |   X   |
+|     scale      |    X    |   X   |   X   |
+|    setScale    |    X    |   X   |       |
+|  orientation   |    X    |   X   |   X   |
+| setOrientation |    X    |   X   | X (1) |
 |   brightness   |  X (2)  |   X   | X (1) |
 | setBrightness  |  X (2)  |   X   | X (1) |
 |    contrast    |  X (2)  | X (3) | X (3) |
@@ -70,12 +68,12 @@ the provided handle is not valid.
 |  defaultMode   |    X    |   X   |   X   |
 | setDefaultMode |    X    |   X   |   X   |
 |    allModes    |    X    |   X   |   X   |
-|   isPrimary    |    X    |   X   |   X   |
 |   setPrimary   |    X    |   X   |   X   |
+|   isPrimary    |    X    |   X   |   X   |
 |     turnOn     |    X    |   X   |       |
 |    turnOff     |  X (4)  |   X   |       |
-|    suspend     |  X (4)  | X (5) | X (5) |
-|      isOn      |  X (6)  |   X   |   X   |
+|      isOn      |  X (2)  |   X   |   X   |
+|    suspend     |  X (4)  | X (4) | X (4) |
 |  isSuspended   |  X (2)  |   X   |   X   |
 |     attach     |    X    |   X   |       |
 |     detach     |    X    |   X   |       |
@@ -88,14 +86,8 @@ the provided handle is not valid.
 
 (3) It doesn't exactly return / change contrast, but gamma values.
 
-(4) If monitor has no VCP MCCS support, it can not be addressed separately, 
-    so ALL monitors will be turned off / suspended.
+(4) Working on Windows with VCP MCCS support, otherwise, it will suspend ALL monitors.
     To address a specific monitor, try using turnOff() / turnOn() / detach() / attach() methods.
-
-(5) It will suspend ALL monitors.
-
-(6) Only if monitor has VCP MCCS support.
-
 
 #### WARNING: Most of these properties may return ''None'' in case the value can not be obtained
 

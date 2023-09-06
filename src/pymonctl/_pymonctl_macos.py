@@ -4,8 +4,7 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
-import ctypes
-import ctypes.wintypes
+import json
 import sys
 
 assert sys.platform == "darwin"
@@ -36,37 +35,6 @@ def _getAllMonitors() -> list[MacOSMonitor]:
     v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)
     v, ids, cnt = CG.CGGetActiveDisplayList(10, None, None)
     return monitors
-
-
-def _getScale(screen):
-
-    displayId = _NSgetDisplayId(screen.localizedName())
-    scale = None
-    if displayId:
-        mode = Quartz.CGDisplayCopyDisplayMode(displayId)
-        # Didn't find a better way to find out if mode is hidpi or not
-        highResModes = Quartz.CGDisplayCopyAllDisplayModes(displayId,
-                                        {Quartz.kCGDisplayShowDuplicateLowResolutionModes: Quartz.kCFBooleanTrue})
-        if mode in highResModes:
-            pxWidth = Quartz.CGDisplayModeGetPixelWidth(mode)
-            pxHeight = Quartz.CGDisplayModeGetPixelHeight(mode)
-            resWidth = Quartz.CGDisplayModeGetWidth(mode)
-            resHeight = Quartz.CGDisplayModeGetHeight(mode)
-            scale = (pxWidth / resWidth, pxHeight / resHeight)
-        else:
-            value = float(screen.backingScaleFactor() * 100)
-            scale = (value, value)
-    return scale
-
-
-def _getModeScale(mode):
-    # Didn't find a better way to find out if mode is hidpi or not
-    pxWidth = Quartz.CGDisplayModeGetPixelWidth(mode)
-    pxHeight = Quartz.CGDisplayModeGetPixelHeight(mode)
-    resWidth = Quartz.CGDisplayModeGetWidth(mode)
-    resHeight = Quartz.CGDisplayModeGetHeight(mode)
-    scale = (pxWidth / resWidth, pxHeight / resHeight)
-    return scale
 
 
 def _getAllMonitorsDict(forceUpdate: bool = True) -> dict[str, ScreenValue]:
@@ -131,6 +99,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         if monName not in arrangement.keys():
             return
     primaryPresent = False
+    setAsPrimary = ""
     for monName in arrangement.keys():
         relPos = arrangement[monName]["relativePos"]
         relMon = arrangement[monName]["relativeTo"]
@@ -138,12 +107,51 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
                 (not relMon and relPos != Position.PRIMARY):
             return
         elif relPos == Position.PRIMARY:
+            setAsPrimary = monName
             primaryPresent = True
     if not primaryPresent:
         return
 
+    newPos: dict[str, dict[str, int]] = {}
+    newPos[setAsPrimary] = {"x": 0, "y": 0}
+    commitChanges = True
+    ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+    if ret != 0:
+        return
+
+    x, y = 0, 0
+    ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[setAsPrimary]["displayId"], x, y)
+    if ret != 0:
+        commitChanges = False
+
     for monName in arrangement.keys():
-        _setPosition(cast(Position, arrangement[monName]["relativePos"]), str(arrangement[monName]["relativeTo"]), monName)
+        if monName != setAsPrimary:
+
+            relativePos = cast(Position, arrangement[monName]["relativePos"])
+            relativeTo = str(arrangement[monName]["relativeTo"])
+
+            frame = monitors[monName]["screen"].frame()
+            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                         "position": Point(frame.origin.x, frame.origin.y),
+                         "size": Size(frame.size.width, frame.size.height)}
+
+            frame = monitors[relativeTo]["screen"].frame()
+            if relativeTo in newPos.keys():
+                relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+            else:
+                relX, relY = x, y
+            relMon = {"position": Point(relX, relY), "size": Size(frame.size.width, frame.size.height)}
+
+            x, y = _getRelativePosition(targetMon, relMon)
+            ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[monName]["displayId"], x, y)
+            newPos[monName] = {"x": x, "y": y}
+            if ret != 0:
+                commitChanges = False
+
+    if commitChanges:
+        Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
+    else:
+        Quartz.CGCancelDisplayConfiguration(configRef)
 
 
 def _getMousePos(flipValues: bool = False) -> Point:
@@ -194,11 +202,7 @@ class MacOSMonitor(BaseMonitor):
                     self.screen = screen
                     break
         if self.screen is not None:
-            try:
-                self.name = self.screen.localizedName()
-            except:
-                # In older macOS, screen doesn't have localizedName() method
-                self.name = "Display" + "_" + str(self.handle)
+            self.name = _getName(self.handle, self.screen)
             self._dm = Display(self.handle)
         else:
             raise ValueError
@@ -241,60 +245,33 @@ class MacOSMonitor(BaseMonitor):
     @property
     def scale(self) -> Optional[Tuple[float, float]]:
         scale = _getScale(self.screen)
+        # mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
+        # w = Quartz.CGDisplayModeGetWidth(mode)
+        # pw = Quartz.CGDisplayModeGetPixelWidth(mode)
+        # h = Quartz.CGDisplayModeGetHeight(mode)
+        # ph = Quartz.CGDisplayModeGetPixelHeight(mode)
+        # f = Quartz.CGDisplayModeGetRefreshRate(mode)
+        # scale2 = ((pw / w) * 100, (ph / h) * 100)
         return scale
 
     def setScale(self, scale: Tuple[float, float]):
         # https://www.eizoglobal.com/support/compatibility/dpi_scaling_settings_mac_os_x/
-        # Where is scale stored or how to calculate?
-        # <CGDisplayMode 0x7fe8f44b2260> [{
-        #     BitsPerPixel = 32;
-        #     BitsPerSample = 8;
-        #     DepthFormat = 4;
-        #     Height = 1080;
-        #     IODisplayModeID = 100;
-        #     IOFlags = 15;
-        #     Mode = 0;
-        #     PixelEncoding = "--------RRRRRRRRGGGGGGGGBBBBBBBB";
-        #     RefreshRate = 0;
-        #     SamplesPerPixel = 3;
-        #     UsableForDesktopGUI = 1;
-        #     Width = 1920;
-        #     kCGDisplayBytesPerRow = 7680;
-        #     kCGDisplayHorizontalResolution = 72;
-        #     kCGDisplayModeIsInterlaced = 0;
-        #     kCGDisplayModeIsSafeForHardware = 1;
-        #     kCGDisplayModeIsStretched = 0;
-        #     kCGDisplayModeIsTelevisionOutput = 0;
-        #     kCGDisplayModeIsUnavailable = 0;
-        #     kCGDisplayModeSuitableForUI = 1;
-        #     kCGDisplayPixelsHigh = 1080;
-        #     kCGDisplayPixelsWide = 1920;
-        #     kCGDisplayResolution = 1;
-        #     kCGDisplayVerticalResolution = 72;
-        # }]
-        # displayId = __getDisplayId(name)
-        # if displayId:
-        #     screens = AppKit.NSScreen.screens()
-        #     for screen in screens:
-        #         desc = screen.deviceDescription()
-        #         if desc["NSScreenNumber"] == displayId:
-        #             allModes = _getAllowedModes(name)
-        #             for mode in allModes:
-        #                 # or kCGDisplayHorizontalResolution, kCGDisplayVerticalResolution?
-        #                 if len(mode) >= 1 and mode[0]["kCGDisplayResolution"] == (scale / 100):
-        #                     Quartz.CGDisplaySetDisplayMode(displayId, mode, None)
-        #                     return
-        if scale is not None:
-            scaleX, scaleY = scale
-            mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
-            for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {}):
-            # for m in Quartz.CGDisplayCopyAllDisplayModes(self.handle, {
-            #             Quartz.kCGDisplayShowDuplicateHighResolutionModes: Quartz.kCFBooleanTrue}):
-                if Quartz.CGDisplayModeGetWidth(mode) == Quartz.CGDisplayModeGetWidth(m) and \
-                        Quartz.CGDisplayModeGetHeight(mode) == Quartz.CGDisplayModeGetHeight(m) and \
-                        _getModeScale(m) == (scaleX, scaleY):
-                    self.setMode(m)
-                    break
+        # if scale is not None:
+        #     scaleX, scaleY = scale
+        #     currWidth, currHeight = self.size
+        #     currScaleX, currScaleY = self.scale
+        #     targetWidth = currScaleX / scaleX * currWidth
+        #     targetHeight = currScaleY / scaleY * currHeight
+        #     for mode in _CGgetAllModes(self.handle):
+        #         w = Quartz.CGDisplayModeGetWidth(mode)
+        #         pw = Quartz.CGDisplayModeGetPixelWidth(mode)
+        #         h = Quartz.CGDisplayModeGetHeight(mode)
+        #         ph = Quartz.CGDisplayModeGetPixelHeight(mode)
+        #         f = Quartz.CGDisplayModeGetRefreshRate(mode)
+        #         if targetWidth == pw or targetHeight == ph:
+        #             CG.CGDisplaySetDisplayMode(self.handle, mode, None)
+        #             break
+        pass
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -350,7 +327,6 @@ class MacOSMonitor(BaseMonitor):
     @property
     def contrast(self) -> Optional[int]:
         # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
-
         contrast = None
         try:
             ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
@@ -393,39 +369,35 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def mode(self) -> Optional[DisplayMode]:
-        res = None
-        try:
-            mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
-            w = Quartz.CGDisplayModeGetWidth(mode)
-            h = Quartz.CGDisplayModeGetHeight(mode)
-            r = Quartz.CGDisplayModeGetRefreshRate(mode)
-            res = DisplayMode(w, h, r)
-        except:
-            pass
-        return res
+        mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
+        w = Quartz.CGDisplayModeGetWidth(mode)
+        h = Quartz.CGDisplayModeGetHeight(mode)
+        r = Quartz.CGDisplayModeGetRefreshRate(mode)
+        return DisplayMode(w, h, r)
 
     def setMode(self, mode: Optional[DisplayMode]):
         # https://stackoverflow.com/questions/10596489/programmatically-change-resolution-os-x
         # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
         if mode is not None:
-            try:
-                ret, bestMode = CG.CGDisplayBestModeForParametersAndRefreshRate(
-                                    self.handle, self.colordepth, mode.width, mode.height, mode.frequency, None)
-                CG.CGDisplaySwitchToMode(self.handle, bestMode.get("Mode", 0))
-                # ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-                # ret = Quartz.CGConfigureDisplayWithDisplayMode(configRef, self.handle, bestMode, None)
-                # if not ret:
-                #     Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-                # else:
-                #     Quartz.CGCancelDisplayConfiguration(configRef)
-            except:
-                pass
+            allModes = _CGgetAllModes(self.handle)
+            for m in allModes:
+                if (mode.width == Quartz.CGDisplayModeGetWidth(m) and
+                        mode.height == Quartz.CGDisplayModeGetHeight(m) and
+                        mode.frequency == Quartz.CGDisplayModeGetRefreshRate(m)):
+                    CG.CGDisplaySetDisplayMode(self.handle, m, None)
+                    break
+            # Look for best mode to apply or stick to input?
+            #         return
+            # bestMode, ret = CG.CGDisplayBestModeForParametersAndRefreshRate(self.handle, self.colordepth,
+            #                                                                 mode.width, mode.height, mode.frequency,
+            #                                                                 None)
+            # CG.CGDisplaySwitchToMode(self.handle, bestMode)
+
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
         res: Optional[DisplayMode] = None
-        modes = Quartz.CGDisplayCopyAllDisplayModes(self.handle,
-                                                    {Quartz.kCGDisplayShowDuplicateLowResolutionModes: Quartz.kCFBooleanTrue})
+        modes = _CGgetAllModes(self.handle)
         for mode in modes:
             if bin(Quartz.CGDisplayModeGetIOFlags(mode))[-3] == '1':
                 w = Quartz.CGDisplayModeGetWidth(mode)
@@ -436,20 +408,22 @@ class MacOSMonitor(BaseMonitor):
         return res
 
     def setDefaultMode(self):
-        defMode = self.defaultMode
-        if defMode:
-            self.setMode(defMode)
+        modes = _CGgetAllModes(self.handle)
+        for mode in modes:
+            if bin(Quartz.CGDisplayModeGetIOFlags(mode))[-3] == '1':
+                CG.CGDisplaySetDisplayMode(self.handle, mode, None)
+                break
 
     @property
     def allModes(self) -> List[DisplayMode]:
         modes: List[DisplayMode] = []
-        allModes = Quartz.CGDisplayCopyAllDisplayModes(self.handle, None)
-        for mode in allModes:
+        for mode in _CGgetAllModes(self.handle):
             w = Quartz.CGDisplayModeGetWidth(mode)
             h = Quartz.CGDisplayModeGetHeight(mode)
             r = Quartz.CGDisplayModeGetRefreshRate(mode)
             modes.append(DisplayMode(w, h, r))
-        return modes
+        modesSet = set(modes)
+        return list(modesSet)
 
     @property
     def isPrimary(self):
@@ -499,7 +473,7 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def isOn(self) -> Optional[bool]:
-        return CG.CGDisplayIsActive(self.handle)
+        return bool(CG.CGDisplayIsActive(self.handle) == 1)
 
     def suspend(self):
         # Also injecting: Control–Shift–Media Eject
@@ -511,7 +485,7 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def isSuspended(self) -> Optional[bool]:
-        return CG.CGDisplayIsAsleep(self.handle)
+        return bool(CG.CGDisplayIsAsleep(self.handle) == 1)
 
     def attach(self, width: int = 0, height: int = 0):
         pass
@@ -526,33 +500,77 @@ class MacOSMonitor(BaseMonitor):
 
 
 def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str):
+    # https://apple.stackexchange.com/questions/249447/change-display-arrangement-in-os-x-macos-programmatically
     monitors = _NSgetAllMonitorsDict()
-    if name in monitors.keys() and relativeTo in monitors.keys():
+    if (name in monitors.keys() and
+            (relativePos == Position.PRIMARY or (relativePos != Position.PRIMARY and relativeTo in monitors.keys()))):
 
-        frame = monitors[name]["screen"].frame()
-        targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                     "pos": Point(frame.origin.x, frame.origin.y),
-                     "size": Point(frame.size.width, frame.size.height)}
+        if relativePos == Position.PRIMARY:
 
-        frame = monitors[relativeTo]["screen"].frame()
-        relMon = {"pos": Point(frame.origin.x, frame.origin.y),
-                  "size": Point(frame.size.width, frame.size.height)}
+            # If this display becomes primary (0, 0). MUST reposition primary monitor first!
+            commitChanges = True
+            ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+            if ret != 0:
+                return
+            relativePos = Position.LEFT_TOP
+            relativeTo = name
+            newPos: dict[str, dict[str, int]] = {}
+            for monitor in monitors.keys():
+                if monitor != name:
+                    frame = monitors[name]["screen"].frame()
+                    targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                                 "position": Point(frame.origin.x, frame.origin.y),
+                                 "size": Size(frame.size.width, frame.size.height)}
 
-        x, y = _getRelativePosition(targetMon, relMon)
-        ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-        # If this display becomes primary (0, 0). MUST reposition primary monitor first!
-        if not ret:
+                    frame = monitors[relativeTo]["screen"].frame()
+                    if relativeTo in newPos.keys():
+                        relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                    else:
+                        relX, relY = frame.origin.x, frame.origin.y
+                    relMon = {"position": Point(relX, relY),
+                              "size": Size(frame.size.width, frame.size.height)}
+
+                    x, y = _getRelativePosition(targetMon, relMon)
+                    ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[monitor]["displayId"], x, y)
+                    newPos[monitor] = {"x": x, "y": y}
+                    if ret != 0:
+                        commitChanges = False
+                    relativeTo = monitor
+
+            x, y = 0, 0
             ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
-            if not ret:
+            if ret != 0:
+                commitChanges = False
+
+            if commitChanges:
                 Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
             else:
                 Quartz.CGCancelDisplayConfiguration(configRef)
-        # https://apple.stackexchange.com/questions/249447/change-display-arrangement-in-os-x-macos-programmatically
-        # https://github.com/univ-of-utah-marriott-library-apple/display_manager/blob/stable/README.md
+
+        else:
+
+            frame = monitors[name]["screen"].frame()
+            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                         "position": Point(frame.origin.x, frame.origin.y),
+                         "size": Size(frame.size.width, frame.size.height)}
+
+            frame = monitors[relativeTo]["screen"].frame()
+            relMon = {"position": Point(frame.origin.x, frame.origin.y),
+                      "size": Size(frame.size.width, frame.size.height)}
+
+            x, y = _getRelativePosition(targetMon, relMon)
+            ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+            if ret == 0:
+                ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
+                if ret == 0:
+                    Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
+                else:
+                    Quartz.CGCancelDisplayConfiguration(configRef)
 
 
-def _getName(displayId: int):
-    screen = AppKit.NSScreen.mainScreen()
+def _getName(displayId: int, screen: Optional[AppKit.NSScreen] = None):
+    if not screen:
+        screen = AppKit.NSScreen.mainScreen()
     try:
         scrName = screen.localizedName() + "_" + str(displayId)
     except:
@@ -561,13 +579,27 @@ def _getName(displayId: int):
     return scrName
 
 
+def _getScale(screen):
+    value = float(screen.backingScaleFactor() * 100)
+    scale = (value, value)
+    return scale
+
+
+def _CGgetAllModes(handle, showHiDpi: bool = True):
+    # Test this with all combinations:
+    flags = {}
+    if showHiDpi:
+        flags[Quartz.kCGDisplayShowDuplicateLowResolutionModes] = Quartz.kCFBooleanTrue
+    return Quartz.CGDisplayCopyAllDisplayModes(handle, flags)
+
+
 def _NSgetAllMonitors():
     monitors = []
     screens = AppKit.NSScreen.screens()
     for screen in screens:
         desc = screen.deviceDescription()
         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-        scrName = _getName(displayId)
+        scrName = _getName(displayId, screen)
         monitors.append([screen, desc, displayId, scrName])
     return monitors
 
@@ -578,33 +610,9 @@ def _NSgetAllMonitorsDict():
     for screen in screens:
         desc = screen.deviceDescription()
         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-        scrName = _getName(displayId)
+        scrName = _getName(displayId, screen)
         monitors[scrName] = {"screen": screen, "desc": desc, "displayId": displayId}
     return monitors
-
-
-def _NSgetMonitor(name: str):
-    screens = AppKit.NSScreen.screens()
-    for screen in screens:
-        desc = screen.deviceDescription()
-        displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
-        scrName = _getName(displayId)
-
-        if scrName == name:
-            return [screen, desc, displayId, scrName]
-    return None
-
-
-def _NSgetDisplayId(name: str = ""):
-    displayId: int = 0
-    if name:
-        mon = _NSgetMonitor(name)
-        if mon:
-            screen, desc, displayId, scrName = mon
-            displayId = desc['NSScreenNumber']
-    else:
-        displayId = Quartz.CGMainDisplayID()
-    return int(displayId)
 
 
 def _eventLoop(kill: threading.Event, interval: float):
