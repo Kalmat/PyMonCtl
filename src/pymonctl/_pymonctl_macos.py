@@ -598,7 +598,7 @@ def _getName(displayId: int, screen: Optional[AppKit.NSScreen] = None):
     if not screen:
         screen = AppKit.NSScreen.mainScreen()
     try:
-        scrName = screen.localizedName() + "_" + str(displayId)
+        scrName = cast(AppKit.NSScreen, screen).localizedName() + "_" + str(displayId)
     except:
         # In older macOS, screen doesn't have localizedName() method
         scrName = "Display" + "_" + str(displayId)
