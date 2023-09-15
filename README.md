@@ -91,7 +91,13 @@ the provided handle is not valid.
 
 #### WARNING: Most of these properties may return ''None'' in case the value can not be obtained
 
-## Monitoring Monitor(s)
+### Important OS-dependent behaviors and limitations:
+
+  - On Windows, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. Besides, the monitors can not overlap. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
+  - On Linux, primary monitor can be anywhere, and even there can be no primary monitor. Monitors can overlap, so take this into account when setting a new monitor position. Also bear in mind that xrandr won't accept negative values, so the whole config will be referenced to (0, 0) coordinates.
+  - On macOS, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. The monitors can overlap, so take this into account when setting a new monitor position. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
+
+## Keep track of Monitor(s) changes
 
 You can activate a watchdog, running in a separate Thread, which will allow you to keep monitors 
 information updated, without negatively impacting your main process, and define hooks and its callbacks to be  
