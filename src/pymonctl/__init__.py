@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 __all__ = [
-    "getAllMonitors", "getAllMonitorsDict", "getMonitorsCount", "getPrimary", "findMonitor", "findMonitorInfo",
+    "getAllMonitors", "getAllMonitorsDict", "getMonitorsCount", "getPrimary", "findMonitorsAtPoint",
+    "findMonitorsAtPointInfo",
     "arrangeMonitors", "getMousePos", "version", "Monitor",
     "enableUpdateInfo", "disableUpdateInfo", "isUpdateInfoEnabled", "isWatchdogEnabled", "updateWatchdogInterval",
     "plugListenerRegister", "plugListenerUnregister", "isPlugListenerRegistered",
@@ -18,7 +19,8 @@ def version(numberOnly: bool = True) -> str:
     return ("" if numberOnly else "PyMonCtl-")+__version__
 
 
-from ._main import (getAllMonitors, getAllMonitorsDict, getMonitorsCount, getPrimary, findMonitor, findMonitorInfo,
+from ._main import (getAllMonitors, getAllMonitorsDict, getMonitorsCount, getPrimary,
+                    findMonitorsAtPoint, findMonitorsAtPointInfo, findMonitorWithName, findMonitorWithNameInfo,
                     arrangeMonitors, getMousePos, Monitor,
                     enableUpdateInfo, disableUpdateInfo, isUpdateInfoEnabled, isWatchdogEnabled, updateWatchdogInterval,
                     plugListenerRegister, plugListenerUnregister, isPlugListenerRegistered,

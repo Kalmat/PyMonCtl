@@ -49,7 +49,7 @@ def getAllMonitorsDict() -> dict[str, ScreenValue]:
         Values:
             "system_name":
                 display name as returned by the system (in macOS, the name can be duplicated!)
-            "handle":
+            "id":
                 display handle according to each platform/OS
             "is_primary":
                 ''True'' if monitor is primary (shows clock and notification area, sign in, lock, CTRL+ALT+DELETE screens...)
@@ -95,28 +95,62 @@ def getPrimary() -> Monitor:
     return _getPrimary()
 
 
-def findMonitor(x: int, y: int) -> List[Monitor]:
+def findMonitorsAtPoint(x: int, y: int) -> List[Monitor]:
     """
-    Get monitor instance in which given coordinates (x, y) are found.
+    Get all Monitor class instances in which given coordinates (x, y) are found.
 
-    :return: Monitor instance or None
+    :param x: target X coordinate
+    :param y: target Y coordinate
+    :return: List of Monitor instances or empty
     """
     return _findMonitor(x, y)
 
 
-def findMonitorInfo(x: int, y: int) -> dict[str, ScreenValue]:
+def findMonitorsAtPointInfo(x: int, y: int) -> List[dict[str, ScreenValue]]:
     """
-    Get monitor info in which given coordinates (x, y) are found.
+    Get all monitors info in which given coordinates (x, y) are found.
 
-    :return: monitor info (see getAllMonitorsDict() doc) as dictionary, or empty
+    :param x: target X coordinate
+    :param y: target Y coordinate
+    :return: list of monitor info (see getAllMonitorsDict() doc) as a list of dicts, or empty
     """
-    info: dict[str, ScreenValue] = {}
+    info: List[dict[str, ScreenValue]] = [{}]
     monitors = getAllMonitorsDict()
     for monitor in monitors.keys():
         pos = monitors[monitor]["position"]
         size = monitors[monitor]["size"]
         if _pointInBox(x, y, pos.x, pos.y, size.width, size.height):
+            info.append({monitor: monitors[monitor]})
+    return info
+
+
+def findMonitorWithName(name: str) -> Optional[Monitor]:
+    """
+    Get the Monitor class instance which name matches given name.
+
+    :param name: target monitor name
+    :return: Monitor or None if not found
+    """
+    monitors = getAllMonitorsDict()
+    for monitor in monitors.keys():
+        if monitor == name:
+            return Monitor(monitors[monitor]["id"])
+    return None
+
+
+def findMonitorWithNameInfo(name: str) -> dict[str, ScreenValue]:
+    """
+    Get monitor instance which name matches given name.
+
+    :param name: target monitor name
+    :return: monitor info (see getAllMonitorsDict() doc) as dict, or empty
+    """
+    info: dict[str, ScreenValue] = {}
+    monitors = getAllMonitorsDict()
+    for monitor in monitors.keys():
+        if monitor == name:
             info[monitor] = monitors[monitor]
+            break
     return info
 
 
