@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import time
-from typing import Union
+from typing import Union, Optional, List
 
 import pymonctl as pmc
-from pymonctl._structs import *
 
 
 def countChanged(names, screensInfo):
@@ -27,9 +26,15 @@ for mon in monDict:
     print(monDict[mon])
 print()
 
-monitorsPlugged = []
+monitorsPlugged: List[pmc.Monitor] = []
+setAsPrimary: Optional[pmc.Monitor] = None
+initArrangement: dict[str, dict[str, pmc.Point]] = {}
 for monitor in pmc.getAllMonitors():
     monitorsPlugged.append(monitor)
+    initArrangement[monitor.name] = {"relativePos": monitor.position}
+    if monitor.isPrimary:
+        setAsPrimary = monitor
+
     print("NAME", monitor.name)
     print("HANDLE/ID:", monitor.handle)
     print("IS PRIMARY:", monitor.isPrimary)
@@ -68,11 +73,11 @@ for monitor in pmc.getAllMonitors():
     targetMode = monitor.mode
     if monitor.size is not None and monitor.defaultMode is not None:
         if monitor.size.width == 5120:
-            targetMode = DisplayMode(3840, 1080, monitor.defaultMode.frequency)
+            targetMode = pmc.DisplayMode(3840, 1080, monitor.defaultMode.frequency)
         elif monitor.size.width == 1920:
-            targetMode = DisplayMode(1360, 768, monitor.defaultMode.frequency)
+            targetMode = pmc.DisplayMode(1360, 768, monitor.defaultMode.frequency)
         elif monitor.size.width == 1680:
-            targetMode = DisplayMode(1440, 900, monitor.defaultMode.frequency)
+            targetMode = pmc.DisplayMode(1440, 900, monitor.defaultMode.frequency)
         else:
             modes = monitor.allModes
             for mode in modes:
@@ -112,10 +117,10 @@ for monitor in pmc.getAllMonitors():
     print()
 
     print("CHANGE ORIENTATION")
-    monitor.setOrientation(Orientation.INVERTED)
+    monitor.setOrientation(pmc.Orientation.INVERTED)
     time.sleep(5)
     print("RESTORE ORIENTATION")
-    monitor.setOrientation(Orientation.NORMAL)
+    monitor.setOrientation(pmc.Orientation.NORMAL)
     time.sleep(3)
     print()
 
@@ -164,76 +169,71 @@ for monitor in pmc.getAllMonitors():
     pmc.plugListenerUnregister(pluggedCB)
     pmc.changeListenerUnregister(changedCB)
 
+print("MANAGING MONITORS")
 if len(monitorsPlugged) > 1:
     mon1 = monitorsPlugged[0]
+    priNum = "1"
     mon2 = monitorsPlugged[1]
+    secNum = "2"
+    if setAsPrimary and mon1.name != setAsPrimary.name:
+        mon1 = monitorsPlugged[1]
+        priNum = "2"
+        mon2 = monitorsPlugged[0]
+        secNum = "1"
 
-    print("MANAGING MONITORS")
-    print("MONITOR 1:", mon1.name)
-    print("MONITOR 2:", mon2.name)
+    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     print()
-    print("MONITOR 2 AS PRIMARY")
-    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MON 2:", mon2.isPrimary, mon2.position, mon2.size)
+    print("MONITOR %s AS PRIMARY" % secNum)
+    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     mon2.setPrimary()
     time.sleep(3)
-    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MON 2:", mon2.isPrimary, mon2.position, mon2.size)
-    print("MONITOR 1 AS PRIMARY")
+    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
+    print("MONITOR %s AS PRIMARY" % priNum)
     mon1.setPrimary()
     time.sleep(3)
-    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MON 2:", mon2.isPrimary, mon2.position, mon2.size)
+    print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     print()
 
-    print("MONITOR 1:", mon1.position, mon1.size, "MONITOR 2:", mon2.position, mon2.size)
-    print("CHANGE POSITION OF MONITOR 2 TO BELOW_LEFT")
-    mon2.setPosition(Position.BELOW_LEFT, mon1.name)
-    time.sleep(3)
-    print("MONITOR 1:", mon1.position, mon1.size, "MONITOR 2:", mon2.position, mon2.size)
+    print("POSITION MONITOR 2 AT FREE BELOW POSITION (200, -%s)" % mon1.size.height)
+    mon2.setPosition((200, mon1.size.height), None)
+    print("MONITOR 2 POSITIONED?", mon2.position)
     print()
 
-    print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
-
-    print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, MONITOR 1 AT LEFT_BOTTOM")
-    arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]] = {
-        str(mon2.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
-        str(mon1.name): {"relativePos": Position.LEFT_BOTTOM, "relativeTo": mon2.name}
+    print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, REST OF MONITORS AT LEFT_BOTTOM")
+    arrangement: dict[str, dict[str, Union[str, int, pmc.Position, pmc.Point, pmc.Size]]] = {
+        str(mon2.name): {"relativePos": pmc.Position.PRIMARY, "relativeTo": ""}
     }
+    relativeTo = mon2.name
+    for monitor in monitorsPlugged:
+        if monitor.name != mon2.name:
+            arrangement[str(monitor.name)] = {"relativePos": pmc.Position.LEFT_BOTTOM, "relativeTo": relativeTo}
+            relativeTo = monitor.name
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
     time.sleep(3)
+    for monitor in monitorsPlugged:
+        print("MONITOR", monitor.name, "IS PRIMARY", monitor.isPrimary, "POSITION", monitor.position, "SIZE", monitor.size)
+    print()
 
-    if mon1.size is not None and mon2.size is not None and mon1.position is not None and mon2.position is not None:
-        print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
+    print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, REST OF MONITORS AT RIGHT_TOP")
+    arrangement = {
+        str(mon1.name): {"relativePos": pmc.Position.PRIMARY, "relativeTo": ""}
+    }
+    relativeTo = mon1.name
+    for monitor in monitorsPlugged:
+        if monitor.name != mon1.name:
+            arrangement[str(monitor.name)] = {"relativePos": pmc.Position.RIGHT_TOP, "relativeTo": relativeTo}
+            relativeTo = monitor.name
+    print(arrangement)
+    pmc.arrangeMonitors(arrangement)
+    time.sleep(3)
+    for monitor in monitorsPlugged:
+        print("MONITOR", monitor.name, "IS PRIMARY", monitor.isPrimary, "POSITION", monitor.position, "SIZE", monitor.size)
+    print()
 
-        print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY (%s, %s), MONITOR 1 AT LEFT_BOTTOM (%s, %s)" % (0, 0, -mon1.size.width, mon2.size.height - mon1.size.height))
-        arrangement = {
-            str(mon2.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
-            str(mon1.name): {"relativePos": Position.LEFT_BOTTOM, "relativeTo": mon2.name}
-        }
-        print(arrangement)
-        pmc.arrangeMonitors(arrangement)
-        time.sleep(3)
-
-        print("MONITOR 1 POSITION:", mon1.position, "LEFT_BOTTOM:", mon1.position == Point(-mon1.size.width, mon2.size.height - mon1.size.height))
-        print("MONITOR 2 POSITION:", mon2.position, "PRIMARY:", mon2.isPrimary)
-        print()
-        time.sleep(5)
-
-        print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
-
-        print("CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY (%s, %s), MONITOR 2 AT RIGHT_TOP (%s, %s)" % (0, 0, mon1.size.width, 0))
-        arrangement = {
-            str(mon1.name): {"relativePos": Position.PRIMARY, "relativeTo": ""},
-            str(mon2.name): {"relativePos": Position.RIGHT_TOP, "relativeTo": mon1.name}
-        }
-        print(arrangement)
-        pmc.arrangeMonitors(arrangement)
-        time.sleep(3)
-
-        print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
-
-        print("MONITOR 1 POSITION:", mon1.position, "PRIMARY:", mon1.isPrimary)
-        print("MONITOR 2 POSITION:", mon2.position, "RIGHT_TOP:", mon2.position == Point(mon1.size.width, 0))
-
-        print("=========== size & pos", "MON1", mon1.size, mon1.position, "MON2", mon2.size, mon2.position)
-
-
+    if initArrangement:
+        print("RESTORE INITIAL MONITOR CONFIG")
+        print(initArrangement)
+        pmc.arrangeMonitors(initArrangement)
+        if setAsPrimary is not None:
+            setAsPrimary.setPrimary()

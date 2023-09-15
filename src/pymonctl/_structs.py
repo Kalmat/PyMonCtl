@@ -81,13 +81,17 @@ class DisplayMode(NamedTuple):
 class Position(IntEnum):
     PRIMARY = 0
     LEFT_TOP = 10
-    LEFT_BOTTOM = 15
+    LEFT_BOTTOM = 11
+    LEFT_CENTERED = 12
     ABOVE_LEFT = 20
-    ABOVE_RIGHT = 25
+    ABOVE_RIGHT = 21
+    ABOVE_CENTERED = 22
     RIGHT_TOP = 30
-    RIGHT_BOTTOM = 35
+    RIGHT_BOTTOM = 31
+    RIGHT_CENTERED = 32
     BELOW_LEFT = 40
-    BELOW_RIGHT = 45
+    BELOW_RIGHT = 41
+    BELOW_CENTERED = 42
 
 
 class Orientation(IntEnum):

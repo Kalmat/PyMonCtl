@@ -20,15 +20,15 @@ from Xlib.ext import randr
 
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-from ewmhlib import displaysCount, getDisplaysNames, defaultDisplay, defaultRoot, defaultScreen, defaultRootWindow, \
-                    getProperty, getPropertyValue, Props
+from ewmhlib import defaultEwmhRoot, getProperty, getPropertyValue, getRoots, getRootsInfo, Props
+
 
 # Check if randr extension is available
-if not defaultRootWindow.display.has_extension('RANDR'):
+if not defaultEwmhRoot.display.has_extension('RANDR'):
     sys.stderr.write('{}: server does not have the RANDR extension\n'.format(sys.argv[0]))
-    ext = defaultRootWindow.display.query_extension('RANDR')
+    ext = defaultEwmhRoot.display.query_extension('RANDR')
     print(ext)
-    sys.stderr.write("\n".join(defaultRootWindow.display.list_extensions()))
+    sys.stderr.write("\n".join(defaultEwmhRoot.display.list_extensions()))
     if ext is None:
         sys.exit(1)
 
@@ -38,39 +38,6 @@ p.communicate()
 if p.returncode != 0:
     sys.stderr.write('{}: Xorg is not available\n'.format(sys.argv[0]))
     sys.exit(1)
-
-
-def _XgetDisplays() -> List[Xlib.display.Display]:
-    displays: List[Xlib.display.Display] = []
-    if displaysCount > 1 or defaultDisplay.screen_count() > 1:
-        for name in getDisplaysNames():
-            try:
-                displays.append(Xlib.display.Display(name))
-            except:
-                pass
-    if not displays:
-        displays = [defaultDisplay]
-    return displays
-_displays = _XgetDisplays()
-
-
-def _XgetRoots():
-    roots = []
-    if displaysCount > 1 or defaultDisplay.screen_count() > 1:
-        global _displays
-        for display in _displays:
-            for i in range(display.screen_count()):
-                try:
-                    screen = display.screen(i)
-                    res = screen.root.xrandr_get_screen_resources()
-                    roots.append([display, screen, screen.root, res])
-                except:
-                    pass
-    if not roots:
-        res = defaultRoot.xrandr_get_screen_resources()
-        roots.append([defaultDisplay, defaultScreen, defaultRoot, res])
-    return roots
-_roots = _XgetRoots()
 
 
 def _getAllMonitors() -> list[LinuxMonitor]:
@@ -132,9 +99,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
 
 def _getMonitorsCount() -> int:
     count = 0
-    global _roots
-    for rootData in _roots:
-        display, screen, root, res = rootData
+    for root in getRoots():
         count += len(randr.get_monitors(root).monitors)
     return count
 
@@ -158,14 +123,17 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     for monName in monitors.keys():
         if monName not in arrangement.keys():
             return
+    setAsPrimary = ""
     primaryPresent = False
     for monName in arrangement.keys():
         relPos = arrangement[monName]["relativePos"]
-        relMon = arrangement[monName]["relativeTo"]
-        if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                (not relMon and relPos != Position.PRIMARY):
+        relMon = arrangement[monName].get("relativeTo", "")
+        if (monName not in monitors.keys() or
+                ((isinstance(relPos, Position) or isinstance(relPos, int)) and
+                 ((relMon and relMon not in monitors.keys()) or (not relMon and relPos != Position.PRIMARY)))):
             return
         elif relPos == Position.PRIMARY:
+            setAsPrimary = monName
             primaryPresent = True
     if not primaryPresent:
         return
@@ -173,30 +141,42 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     newArrangement: dict[str, dict[str, Union[int, bool]]] = {}
     newPos: dict[str, dict[str, int]] = {}
     xOffset = yOffset = 0
+
     for monName in arrangement.keys():
+
         arrInfo = arrangement[monName]
-
+        relativePos: Union[Position, Point] = arrInfo["relativePos"]
         targetMonInfo = monitors[monName]["monitor"]
-        relativePos: Position = arrInfo["relativePos"]
-        relativeTo: str = arrInfo["relativeTo"]
 
-        targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                     "position": Point(targetMonInfo.x, targetMonInfo.y),
-                     "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
-
-        if relativePos == Position.PRIMARY:
+        if monName == setAsPrimary:
+            setPrimary = True
             x, y = 0, 0
 
         else:
-            relMonInfo = monitors[relativeTo]["monitor"]
-            if relativeTo in newPos.keys():
-                relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
-            else:
-                relX, relY = relMonInfo.x, relMonInfo.y
-            relMon = {"position": Point(relX, relY),
-                      "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
 
-            x, y = _getRelativePosition(targetMon, relMon)
+            setPrimary = False
+
+            if isinstance(relativePos, Position) or isinstance(relativePos, int):
+
+                relativeTo: str = arrInfo["relativeTo"]
+
+                targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                             "position": Point(targetMonInfo.x, targetMonInfo.y),
+                             "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
+
+                relMonInfo = monitors[relativeTo]["monitor"]
+                if relativeTo in newPos.keys():
+                    relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                else:
+                    relX, relY = relMonInfo.x, relMonInfo.y
+                relMon = {"position": Point(relX, relY),
+                          "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
+
+                x, y = _getRelativePosition(targetMon, relMon)
+
+            else:
+                x, y = relativePos
+
             if x < 0:
                 xOffset += abs(x)
             if y < 0:
@@ -205,7 +185,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         w, h = targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels
 
         newArrangement[monName] = {
-            "setPrimary": relativePos == Position.PRIMARY,
+            "setPrimary": setPrimary,
             "x": x,
             "y": y,
             "w": w,
@@ -226,7 +206,7 @@ def _getMousePos() -> Point:
 
     :return: Point struct
     """
-    mp = defaultRootWindow.root.query_pointer()
+    mp = defaultEwmhRoot.root.query_pointer()
     return Point(mp.root_x, mp.root_y)
 
 
@@ -275,9 +255,9 @@ class LinuxMonitor(BaseMonitor):
             pos = Point(monitor.x, monitor.y)
         return pos
 
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
-        _setPosition(cast(Position, relativePos), relativeTo, self.name)
+        _setPosition(relativePos, relativeTo, self.name)
 
     @property
     def box(self) -> Optional[Box]:
@@ -462,8 +442,8 @@ class LinuxMonitor(BaseMonitor):
 
     def setMode(self, mode: Optional[DisplayMode]):
         # https://stackoverflow.com/questions/12706631/x11-change-resolution-and-make-window-fullscreen
-        # Xlib.ext.randr.set_screen_size(defaultRootWindow.root, mode.width, mode.height, 0, 0)
-        # Xlib.ext.randr.set_screen_config(defaultRootWindow.root, size_id, 0, 0, round(mode.frequency), 0)
+        # Xlib.ext.randr.set_screen_size(defaultEwmhRoot.root, mode.width, mode.height, 0, 0)
+        # Xlib.ext.randr.set_screen_config(defaultEwmhRoot.root, size_id, 0, 0, round(mode.frequency), 0)
         # Xlib.ext.randr.change_output_property()
         if mode is not None:
             cmd = "xrandr --output %s --mode %sx%s -r %s" % (self.name, mode.width, mode.height, round(mode.frequency, 2))
@@ -637,19 +617,31 @@ def _getPosition(name):
     return pos
 
 
-def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
+def _setPosition(relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str], name: str):
     if relativePos == Position.PRIMARY:
         _setPrimary(name)
 
     else:
         monitors = _XgetAllMonitorsDict()
+        monitorsKeys = list(monitors.keys())
         arrangement: dict[str, dict[str, Union[int, bool]]] = {}
         xOffset = yOffset = 0
-        if name in monitors.keys() and relativeTo in monitors.keys():
-            newPos: dict[str, dict[str, int]] = {}
-            for monitor in monitors.keys():
-                if name == monitor:
-                    targetMonInfo = monitors[monitor]["monitor"]
+
+        if (name not in monitorsKeys or
+                ((isinstance(relativePos, Position) or isinstance(relativePos, int)) and
+                 (not relativeTo or (relativeTo and relativeTo not in monitors.keys())))):
+            return
+
+        newPos: dict[str, dict[str, int]] = {}
+        for monitor in monitorsKeys:
+
+            targetMonInfo = monitors[monitor]["monitor"]
+            w, h = targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels
+            setPrimary = targetMonInfo.primary == 1
+
+            if name == monitor:
+
+                if isinstance(relativePos, Position) or isinstance(relativePos, int):
                     targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
                                  "position": Point(targetMonInfo.x, targetMonInfo.y),
                                  "size": Size(targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels)}
@@ -663,28 +655,27 @@ def _setPosition(relativePos: Position, relativeTo: Optional[str], name: str):
                               "size": Size(relMonInfo.width_in_pixels, relMonInfo.height_in_pixels)}
 
                     x, y = _getRelativePosition(targetMon, relMon)
-                    w, h = targetMonInfo.width_in_pixels, targetMonInfo.height_in_pixels
-                    setPrimary = targetMonInfo.primary == 1
-
-                    newPos[monitor] = {"x": x, "y": y, "w": w, "h": h}
 
                 else:
-                    monInfo = monitors[monitor]["monitor"]
-                    x, y = monInfo.x, monInfo.y
-                    w, h = monInfo.width_in_pixels, monInfo.height_in_pixels
-                    setPrimary = monInfo.primary == 1
-                if x < 0:
-                    xOffset += abs(x)
-                if y < 0:
-                    yOffset += abs(y)
+                    x, y = relativePos
 
-                arrangement[monitor] = {
-                    "setPrimary": setPrimary,
-                    "x": x,
-                    "y": y,
-                    "w": w,
-                    "h": h
-                }
+                newPos[monitor] = {"x": x, "y": y, "w": w, "h": h}
+
+            else:
+                x, y = targetMonInfo.x, targetMonInfo.y
+                setPrimary = targetMonInfo.primary == 1
+            if x < 0:
+                xOffset += abs(x)
+            if y < 0:
+                yOffset += abs(y)
+
+            arrangement[monitor] = {
+                "setPrimary": setPrimary,
+                "x": x,
+                "y": y,
+                "w": w,
+                "h": h
+            }
 
         if arrangement:
             cmd = _buildCommand(arrangement, xOffset, yOffset)
@@ -740,8 +731,7 @@ def _scale(name: str = "") -> Optional[Tuple[float, float]]:
 
 def _XgetAllOutputs(name: str = ""):
     outputs = []
-    global _roots
-    for rootData in _roots:
+    for rootData in getRootsInfo():
         display, screen, root, res = rootData
         if res:
             for output in res.outputs:
@@ -773,8 +763,7 @@ def _XgetAllCrtcs(name: str = ""):
 
 def _XgetAllMonitors(name: str = ""):
     monitors = []
-    global _roots
-    for rootData in _roots:
+    for rootData in getRootsInfo():
         display, screen, root, res = rootData
         for monitor in randr.get_monitors(root).monitors:
             monName = display.get_atom_name(monitor.name)
@@ -787,8 +776,7 @@ def _XgetAllMonitors(name: str = ""):
 
 def _XgetAllMonitorsDict():
     monitors = {}
-    global _roots
-    for rootData in _roots:
+    for rootData in getRootsInfo():
         display, screen, root, res = rootData
         for monitor in randr.get_monitors(root).monitors:
             monitors[display.get_atom_name(monitor.name)] = {"display": display, "root": root, "monitor": monitor}
@@ -797,8 +785,7 @@ def _XgetAllMonitorsDict():
 
 def _XgetAllMonitorsNames():
     monNames = []
-    global _roots
-    for rootData in _roots:
+    for rootData in getRootsInfo():
         display, screen, root, res = rootData
         for monitor in randr.get_monitors(root).monitors:
             monNames.append(display.get_atom_name(monitor.name))
@@ -839,7 +826,7 @@ def _XgetMonitorData(handle: Optional[int] = None):
 
 def _eventLoop(kill: threading.Event, interval: float):
 
-    randr.select_input(defaultRootWindow.root,
+    randr.select_input(defaultEwmhRoot.root,
                        randr.RRScreenChangeNotifyMask
                        | randr.RRCrtcChangeNotifyMask
                        | randr.RROutputChangeNotifyMask
@@ -848,33 +835,33 @@ def _eventLoop(kill: threading.Event, interval: float):
 
     while not kill.is_set():
 
-        count = defaultRootWindow.display.pending_events()
+        count = defaultEwmhRoot.display.pending_events()
         while count > 0 and not kill.is_set():
 
-            e = defaultRootWindow.display.next_event()
+            e = defaultEwmhRoot.display.next_event()
 
             if e.__class__.__name__ == randr.ScreenChangeNotify.__name__:
                 print('Screen change')
                 print(e._data)
 
             # check if we're getting one of the RandR event types with subcodes
-            elif e.type == defaultRootWindow.display.extension_event.CrtcChangeNotify[0]:
+            elif e.type == defaultEwmhRoot.display.extension_event.CrtcChangeNotify[0]:
                 # yes, check the subcodes
 
                 # CRTC information has changed
-                if (e.type, e.sub_code) == defaultRootWindow.display.extension_event.CrtcChangeNotify:
+                if (e.type, e.sub_code) == defaultEwmhRoot.display.extension_event.CrtcChangeNotify:
                     print('CRTC change')
                     # e = randr.CrtcChangeNotify(display=display.display, binarydata = e._binary)
                     print(e._data)
 
                 # Output information has changed
-                elif (e.type, e.sub_code) == defaultRootWindow.display.extension_event.OutputChangeNotify:
+                elif (e.type, e.sub_code) == defaultEwmhRoot.display.extension_event.OutputChangeNotify:
                     print('Output change')
                     # e = randr.OutputChangeNotify(display=display.display, binarydata = e._binary)
                     print(e._data)
 
                 # Output property information has changed
-                elif (e.type, e.sub_code) == defaultRootWindow.display.extension_event.OutputPropertyNotify:
+                elif (e.type, e.sub_code) == defaultEwmhRoot.display.extension_event.OutputPropertyNotify:
                     print('Output property change')
                     # e = randr.OutputPropertyNotify(display=display.display, binarydata = e._binary)
                     print(e._data)

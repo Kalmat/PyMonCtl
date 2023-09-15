@@ -115,11 +115,12 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     setAsPrimary = ""
     for monName in arrangement.keys():
         relPos = arrangement[monName]["relativePos"]
-        relMon = arrangement[monName]["relativeTo"]
-        if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                (not relMon and relPos != Position.PRIMARY):
+        relMon = arrangement[monName].get("relativeTo", "")
+        if (monName not in monitors.keys() or
+                ((isinstance(relPos, Position) or isinstance(relPos, int)) and
+                 ((relMon and relMon not in monitors.keys()) or (not relMon and relPos != Position.PRIMARY)))):
             return
-        elif relPos == Position.PRIMARY:
+        elif relPos == Position.PRIMARY or relPos == (0, 0) or relPos == Point(0, 0):
             setAsPrimary = monName
             primaryPresent = True
     if not primaryPresent:
@@ -141,25 +142,30 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         if monName != setAsPrimary:
 
             relativePos = cast(Position, arrangement[monName]["relativePos"])
-            relativeTo = str(arrangement[monName]["relativeTo"])
 
-            targetMonInfo = monitors[monName]["monitor"]
-            x, y, r, b = targetMonInfo["Monitor"]
-            w = abs(r - x)
-            h = abs(b - y)
-            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                         "position": Point(x, y), "size": Size(w, h)}
+            if isinstance(relativePos, Position) or isinstance(relativePos, int):
 
-            relMonInfo = monitors[relativeTo]["monitor"]
-            x, y, r, b = relMonInfo["Monitor"]
-            if relativeTo in newPos.keys():
-                relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                targetMonInfo = monitors[monName]["monitor"]
+                x, y, r, b = targetMonInfo["Monitor"]
+                w = abs(r - x)
+                h = abs(b - y)
+                relativeTo = str(arrangement[monName]["relativeTo"])
+                targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                             "position": Point(x, y), "size": Size(w, h)}
+
+                relMonInfo = monitors[relativeTo]["monitor"]
+                x, y, r, b = relMonInfo["Monitor"]
+                if relativeTo in newPos.keys():
+                    relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                else:
+                    relX, relY = x, y
+                w = abs(r - x)
+                h = abs(b - y)
+                relMon = {"position": Point(relX, relY), "size": Size(w, h)}
+                x, y = _getRelativePosition(targetMon, relMon)
+
             else:
-                relX, relY = x, y
-            w = abs(r - x)
-            h = abs(b - y)
-            relMon = {"position": Point(relX, relY), "size": Size(w, h)}
-            x, y = _getRelativePosition(targetMon, relMon)
+                x, y = relativePos
 
             devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
             devmode.Position_x = x
@@ -231,7 +237,7 @@ class Win32Monitor(BaseMonitor):
                 return Point(x, y)
         return None
 
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
         _setPosition(relativePos, relativeTo, self.name)
 
     @property
@@ -646,23 +652,30 @@ def _setPrimary(name: str):
         win32api.ChangeDisplaySettingsEx()
 
 
-def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str):
+def _setPosition(relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str], name: str):
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
-    if relativePos == Position.PRIMARY:
+
+    if relativePos == Position.PRIMARY or relativePos == Point(0, 0) or relativePos == (0, 0):
         _setPrimary(name)
 
     else:
         monitors = _win32getAllMonitorsDict()
         monitorsKeys = list(monitors.keys())
-        if name != relativeTo and name in monitorsKeys and relativeTo in monitorsKeys:
 
-            for monitor in monitorsKeys:
+        if (name not in monitorsKeys or
+            ((isinstance(relativePos, Position) or isinstance(relativePos, int)) and
+             (not relativeTo or (relativeTo and relativeTo not in monitors.keys())))):
+            return
 
-                # settings = win32api.EnumDisplaySettings(monitor, win32con.ENUM_CURRENT_SETTINGS)
-                devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+        for monitor in monitorsKeys:
 
-                if monitor == name:
+            # settings = win32api.EnumDisplaySettings(monitor, win32con.ENUM_CURRENT_SETTINGS)
+            devmode = pywintypes.DEVMODEType()  # type: ignore[attr-defined]
+
+            if monitor == name:
+
+                if isinstance(relativePos, Position) or isinstance(relativePos, int):
                     targetMonInfo = monitors[name]["monitor"]
                     x, y, r, b = targetMonInfo["Monitor"]
                     w = abs(r - x)
@@ -675,26 +688,31 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                     w = abs(r - x)
                     h = abs(b - y)
                     relMon = {"position": Point(x, y), "size": Size(w, h)}
+
                     x, y = _getRelativePosition(targetMon, relMon)
 
-                    # Monitors can not overlap. Existing monitor must be re-positioned first
-                    for monName in monitorsKeys:
+                else:
+                    x, y = relativePos
+
+                # Monitors can not overlap. Existing monitor must be re-positioned first
+                for monName in monitorsKeys:
+                    if monName != name:
                         mx, my, mr, mb = monitors[monName]["monitor"]["Monitor"]
-                        if mx < x < mr or my < y < mb:
+                        if mx < x < mr and my < y < mb:
                             return
-                    devmode.Position_x = x
-                    devmode.Position_y = y
-                    devmode.Fields = win32con.DM_POSITION
+                devmode.Position_x = x
+                devmode.Position_y = y
+                devmode.Fields = win32con.DM_POSITION
 
-                # It seems there is no need to fill in any value
-                # else:
-                #     devmode.DisplayOrientation = settings.DisplayOrientation
-                #     devmode.PelsWidth, devmode.PelsHeight = settings.PelsWidth, settings.PelsHeight
-                #     devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
+            # It seems there is no need to fill in any value
+            # else:
+            #     devmode.DisplayOrientation = settings.DisplayOrientation
+            #     devmode.PelsWidth, devmode.PelsHeight = settings.PelsWidth, settings.PelsHeight
+            #     devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
 
-                win32api.ChangeDisplaySettingsEx(monitor, devmode, win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET)
+            win32api.ChangeDisplaySettingsEx(monitor, devmode, win32con.CDS_UPDATEREGISTRY | win32con.CDS_NORESET)
 
-            win32api.ChangeDisplaySettingsEx()
+        win32api.ChangeDisplaySettingsEx()
 
 
 def _win32getAllMonitorsDict():

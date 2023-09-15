@@ -203,20 +203,23 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
+    def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
         """
         Change relative position of the current the monitor in relation to another existing monitor (e.g. primary monitor).
+
+        On Windows and macOS, setting position to (0, 0) will also mean setting the monitor as primary, and viceversa;
+        but not on Linux (on Linux, combine setPrimary() and setPosition() to get desired config).
 
         In general, it is HIGHLY recommendable to use arrangeMonitors() method instead of setPosition(), and most
         especially in complex arrangements or setups with more than 2 monitors.
 
-        Important issues:
+        Important OS-dependent behaviors and limitations:
 
-        - On Windows, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. Besides, the monitors can not overlap. In case the monitor you want to reposition is the primary or the unique one, it will have no effect. To do so, you must switch the primary monitor first, then reposition it.
+        - On Windows, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. Besides, the monitors can not overlap. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
 
-        - On Linux, primary monitor can be anywhere, monitors can overlap and even there can be no primary monitor
+        - On Linux, primary monitor can be anywhere, and even there can be no primary monitor. Monitors can overlap, so take this into account when setting a new monitor position. Also bear in mind that xranr won't accept negative values, so the whole config will be referenced to (0, 0) coordinates.
 
-        - On macOS, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. You will likely have to reposition primary monitor before setting a different monitor as primary. Monitors can overlap. Further tests in multi-monitor setups are still required to confirm these behaviors and produce a final version
+        - On macOS, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. The monitors can overlap. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
 
         :param relativePos: position in relation to another existing monitor (e.g. primary) as per Positions.*
         :param relativeTo: monitor in relation to which this monitor must be placed
@@ -814,11 +817,17 @@ def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
     elif relPos == Position.LEFT_BOTTOM:
         x = relativeTo["position"].x - monitor["size"].width
         y = relativeTo["position"].y + relativeTo["size"].height - monitor["size"].height
+    elif relPos == Position.LEFT_CENTERED:
+        x = relativeTo["position"].x - monitor["size"].width
+        y = relativeTo["position"].y + ((relativeTo["size"].height - monitor["size"].height) // 2)
     elif relPos == Position.ABOVE_LEFT:
         x = relativeTo["position"].x
         y = relativeTo["position"].y - monitor["size"].height
     elif relPos == Position.ABOVE_RIGHT:
         x = relativeTo["position"].x + relativeTo["size"].width - monitor["size"].width
+        y = relativeTo["position"].y - monitor["size"].height
+    elif relPos == Position.ABOVE_CENTERED:
+        x = relativeTo["position"].x + ((relativeTo["size"].width - monitor["size"].width) // 2)
         y = relativeTo["position"].y - monitor["size"].height
     elif relPos == Position.RIGHT_TOP:
         x = relativeTo["position"].x + relativeTo["size"].width
@@ -826,11 +835,17 @@ def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
     elif relPos == Position.RIGHT_BOTTOM:
         x = relativeTo["position"].x + relativeTo["size"].width
         y = relativeTo["position"].y + relativeTo["size"].height - monitor["size"].height
+    elif relPos == Position.RIGHT_CENTERED:
+        x = relativeTo["position"].x + relativeTo["size"].width
+        y = relativeTo["position"].y + ((relativeTo["size"].height - monitor["size"].height) // 2)
     elif relPos == Position.BELOW_LEFT:
         x = relativeTo["position"].x
         y = relativeTo["position"].y + relativeTo["size"].height
     elif relPos == Position.BELOW_RIGHT:
         x = relativeTo["position"].x + relativeTo["size"].width - monitor["size"].width
+        y = relativeTo["position"].y + relativeTo["size"].height
+    elif relPos == Position.BELOW_CENTERED:
+        x = relativeTo["position"].x + ((relativeTo["size"].width - monitor["size"].width) // 2)
         y = relativeTo["position"].y + relativeTo["size"].height
     else:
         x = y = monitor["position"]

@@ -102,9 +102,10 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     setAsPrimary = ""
     for monName in arrangement.keys():
         relPos = arrangement[monName]["relativePos"]
-        relMon = arrangement[monName]["relativeTo"]
-        if monName not in monitors.keys() or (relMon and relMon not in monitors.keys()) or \
-                (not relMon and relPos != Position.PRIMARY):
+        relMon = arrangement[monName].get("relativeTo", "")
+        if (monName not in monitors.keys() or
+                ((isinstance(relPos, Position) or isinstance(relPos, int)) and
+                 ((relMon and relMon not in monitors.keys()) or (not relMon and relPos != Position.PRIMARY)))):
             return
         elif relPos == Position.PRIMARY:
             setAsPrimary = monName
@@ -125,24 +126,32 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
         commitChanges = False
 
     for monName in arrangement.keys():
+
+        relativePos = cast(Position, arrangement[monName]["relativePos"])
+
         if monName != setAsPrimary:
 
-            relativePos = cast(Position, arrangement[monName]["relativePos"])
-            relativeTo = str(arrangement[monName]["relativeTo"])
+            if isinstance(relativePos, Position) or isinstance(relativePos, int):
 
-            frame = monitors[monName]["screen"].frame()
-            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                         "position": Point(frame.origin.x, frame.origin.y),
-                         "size": Size(frame.size.width, frame.size.height)}
+                relativeTo = str(arrangement[monName]["relativeTo"])
 
-            frame = monitors[relativeTo]["screen"].frame()
-            if relativeTo in newPos.keys():
-                relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                frame = monitors[monName]["screen"].frame()
+                targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
+                             "position": Point(frame.origin.x, frame.origin.y),
+                             "size": Size(frame.size.width, frame.size.height)}
+
+                frame = monitors[relativeTo]["screen"].frame()
+                if relativeTo in newPos.keys():
+                    relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
+                else:
+                    relX, relY = x, y
+                relMon = {"position": Point(relX, relY), "size": Size(frame.size.width, frame.size.height)}
+
+                x, y = _getRelativePosition(targetMon, relMon)
+
             else:
-                relX, relY = x, y
-            relMon = {"position": Point(relX, relY), "size": Size(frame.size.width, frame.size.height)}
+                x, y = relativePos
 
-            x, y = _getRelativePosition(targetMon, relMon)
             ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[monName]["displayId"], x, y)
             newPos[monName] = {"x": x, "y": y}
             if ret != 0:
@@ -226,8 +235,8 @@ class MacOSMonitor(BaseMonitor):
         res = Point(int(origin.x), int(origin.y))
         return res
 
-    def setPosition(self, relativePos: Union[int, Position], relativeTo: Optional[str]):
-        _setPosition(cast(Position, relativePos), relativeTo, self.name)
+    def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
+        _setPosition(relativePos, relativeTo, self.name)
 
     @property
     def box(self) -> Optional[Box]:
@@ -499,24 +508,32 @@ class MacOSMonitor(BaseMonitor):
         return CG.CGDisplayIsOnline(self.handle) == 1
 
 
-def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], name: str):
+def _setPosition(relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str], name: str):
     # https://apple.stackexchange.com/questions/249447/change-display-arrangement-in-os-x-macos-programmatically
     monitors = _NSgetAllMonitorsDict()
-    if (name in monitors.keys() and
-            (relativePos == Position.PRIMARY or (relativePos != Position.PRIMARY and relativeTo in monitors.keys()))):
+    monitorsKeys = list(monitors.keys())
 
-        if relativePos == Position.PRIMARY:
+    if (name not in monitorsKeys or
+            ((isinstance(relativePos, Position) or isinstance(relativePos, int)) and
+             (not relativeTo or (relativeTo and relativeTo not in monitors.keys())))):
+        return
 
-            # If this display becomes primary (0, 0). MUST reposition primary monitor first!
-            commitChanges = True
-            ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-            if ret != 0:
-                return
-            relativePos = Position.LEFT_TOP
-            relativeTo = name
-            newPos: dict[str, dict[str, int]] = {}
-            for monitor in monitors.keys():
-                if monitor != name:
+    if relativePos == Position.PRIMARY or relativePos == Point(0, 0) or relativePos == (0, 0):
+
+        # If this display becomes primary (0, 0). MUST reposition primary monitor first!
+        commitChanges = True
+        ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+        if ret != 0:
+            return
+        relativePos = Position.LEFT_TOP
+        relativeTo = name
+
+        newPos: dict[str, dict[str, int]] = {}
+        for monitor in monitorsKeys:
+
+            if monitor != name:
+
+                if isinstance(relativePos, Position) or isinstance(relativePos, int):
                     frame = monitors[name]["screen"].frame()
                     targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
                                  "position": Point(frame.origin.x, frame.origin.y),
@@ -531,24 +548,29 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                               "size": Size(frame.size.width, frame.size.height)}
 
                     x, y = _getRelativePosition(targetMon, relMon)
-                    ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[monitor]["displayId"], x, y)
-                    newPos[monitor] = {"x": x, "y": y}
-                    if ret != 0:
-                        commitChanges = False
-                    relativeTo = monitor
 
-            x, y = 0, 0
-            ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
-            if ret != 0:
-                commitChanges = False
+                else:
+                    x, y = relativePos
 
-            if commitChanges:
-                Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-            else:
-                Quartz.CGCancelDisplayConfiguration(configRef)
+                ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[monitor]["displayId"], x, y)
+                newPos[monitor] = {"x": x, "y": y}
+                if ret != 0:
+                    commitChanges = False
+                relativeTo = monitor
 
+        x, y = 0, 0
+        ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
+        if ret != 0:
+            commitChanges = False
+
+        if commitChanges:
+            Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
         else:
+            Quartz.CGCancelDisplayConfiguration(configRef)
 
+    else:
+
+        if isinstance(relativePos, Position) or isinstance(relativePos, int):
             frame = monitors[name]["screen"].frame()
             targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
                          "position": Point(frame.origin.x, frame.origin.y),
@@ -559,21 +581,24 @@ def _setPosition(relativePos: Union[int, Position], relativeTo: Optional[str], n
                       "size": Size(frame.size.width, frame.size.height)}
 
             x, y = _getRelativePosition(targetMon, relMon)
-            ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+
+        else:
+            x, y = relativePos
+
+        ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
+        if ret == 0:
+            ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
             if ret == 0:
-                ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
-                if ret == 0:
-                    Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-                else:
-                    Quartz.CGCancelDisplayConfiguration(configRef)
+                Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
+            else:
+                Quartz.CGCancelDisplayConfiguration(configRef)
 
 
 def _getName(displayId: int, screen: Optional[AppKit.NSScreen] = None):
     if not screen:
         screen = AppKit.NSScreen.mainScreen()
     try:
-        if screen is not None:
-            scrName = screen.localizedName() + "_" + str(displayId)
+        scrName = screen.localizedName() + "_" + str(displayId)
     except:
         # In older macOS, screen doesn't have localizedName() method
         scrName = "Display" + "_" + str(displayId)
