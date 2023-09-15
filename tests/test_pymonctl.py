@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Union, Optional, List
+from typing import Union, Optional, List, cast
 
 import pymonctl as pmc
 
@@ -28,10 +28,10 @@ print()
 
 monitorsPlugged: List[pmc.Monitor] = []
 setAsPrimary: Optional[pmc.Monitor] = None
-initArrangement: dict[str, dict[str, pmc.Point]] = {}
+initArrangement: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size]] = {}
 for monitor in pmc.getAllMonitors():
     monitorsPlugged.append(monitor)
-    initArrangement[monitor.name] = {"relativePos": monitor.position}
+    initArrangement[monitor.name] = {"relativePos": cast(pmc.Point, monitor.position)}
     if monitor.isPrimary:
         setAsPrimary = monitor
 
@@ -194,10 +194,12 @@ if len(monitorsPlugged) > 1:
     print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     print()
 
-    print("POSITION MONITOR 2 AT FREE BELOW POSITION (200, -%s)" % mon1.size.height)
-    mon2.setPosition((200, mon1.size.height), None)
-    print("MONITOR 2 POSITIONED?", mon2.position)
-    print()
+    size = mon1.size
+    if size:
+        print("POSITION MONITOR 2 AT FREE BELOW POSITION (200, -%s)" % size.height)
+        mon2.setPosition((200, size.height), None)
+        print("MONITOR 2 POSITIONED?", mon2.position)
+        print()
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, REST OF MONITORS AT LEFT_BOTTOM")
     arrangement: dict[str, dict[str, Union[str, int, pmc.Position, pmc.Point, pmc.Size]]] = {
