@@ -22,16 +22,18 @@ into PyMonCtl
 
 Functions to get monitor instances, get info and arrange monitors plugged to the system.
 
-| General functions: |
-|:------------------:|
-|   getAllMonitors   |
-| getAllMonitorsDict |
-|  getMonitorsCount  |
-|     getPrimary     |
-|    findMonitor     |
-|  findMonitorInfo   |
-|  arrangeMonitors   |
-|    getMousePos     |
+|   General functions:    |
+|:-----------------------:|
+|     getAllMonitors      |
+|   getAllMonitorsDict    |
+|    getMonitorsCount     |
+|       getPrimary        |
+|   findMonitorAtPoint    |
+| findMonitorAtPointInfo  |
+|   findMonitorWithName   |
+| findMonitorWithNameInfo |
+|     arrangeMonitors     |
+|       getMousePos       |
 
 
 ## Monitor Class
@@ -39,12 +41,14 @@ Functions to get monitor instances, get info and arrange monitors plugged to the
 Class to access all methods and functions to get info and control a given monitor plugged to the system.
 
 This class is not meant to be directly instantiated. Instead, use convenience functions like `getAllMonitors()`,
-`getPrimary()` or `findMonitor(x, y)`.
+`getPrimary()` or `findMonitorsAtPoint(x, y)`. Use [PyWinCtl](https://github.com/Kalmat/PyWinCtl) module in case you need to 
+find the monitor a given window is in, by using `getDisplay()` method which returns the name of the monitor that
+can directly be used to invoke `findMonitorWithName(name)` function.
 
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
 the provided handle is not valid.
 
-|                | Windows | Linux | macOS |
+|    Methods     | Windows | Linux | macOS |
 |:--------------:|:-------:|:-----:|:-----:|
 |      size      |    X    |   X   |   X   |
 |    workarea    |    X    |   X   |   X   |
@@ -94,8 +98,10 @@ the provided handle is not valid.
 ### Important OS-dependent behaviors and limitations:
 
   - On Windows, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. Besides, the monitors can not overlap. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
-  - On Linux, primary monitor can be anywhere, and even there can be no primary monitor. Monitors can overlap, so take this into account when setting a new monitor position. Also bear in mind that xrandr won't accept negative values, so the whole config will be referenced to (0, 0) coordinates.
+  - On Linux, primary monitor can be anywhere, and even there can be no primary monitor. Monitors can overlap, so take this into account when setting a new monitor position. Also bear in mind that xrandr won't accept negative values, so the whole setup will be referenced to (0, 0) coordinates.
   - On macOS, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. The monitors can overlap, so take this into account when setting a new monitor position. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
+
+It is highly recommended to use `arrangeMonitors()` function for complex setups or just in case there are two or more monitors.   
 
 ## Keep track of Monitor(s) changes
 
@@ -109,12 +115,12 @@ notified when monitors are plugged / unplugged or their properties change.
 | updateWatchdogInterval |
 
 The watchdog will automatically start while the update information is enabled and / or there are any listeners 
-registered, and will automatically stop otherwise.
+registered, and will automatically stop otherwise or if the script finishes.
 
 You can check if the watchdog is working (`isWatchdogEnabled()`) and also change its update interval 
 (`updateWatchdogInterval()`) in case you need a custom period (default is 0.5 seconds). Adjust this value to your needs, 
 but take into account that higher values will take longer to detect and notify changes; whilst lower values will 
-consume more CPU and may produce additional notifications for "intermediate" status.
+consume more CPU and may produce additional notifications for intermediate (non-final) status.
 
 ### Keep Monitors info updated
 
