@@ -37,13 +37,13 @@ setup(
     install_requires=[
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
-        "pyobjc>=8.1; sys_platform == 'darwin'"
+        "pyobjc>=8.1; sys_platform == 'darwin'",
+        "typing_extensions>=4.4.0"
     ],
     extras_require={
         'dev': [
             "types-setuptools>=65.5",
             "mypy>=0.990",
-            "typing_extensions>=4.4.0",
             "types-pywin32>=305.0.0.3",
             "types-python-xlib>=0.32"
         ]

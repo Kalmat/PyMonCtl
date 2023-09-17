@@ -583,6 +583,24 @@ class _UpdateScreens(threading.Thread):
 
         # _eventLoop(self._kill, self._interval)
 
+        """
+            id
+            is_primary
+            position
+            size
+            workarea
+            scale
+            dpi
+            orientation
+            frequency
+            colordepth
+
+            brightness
+            contrast
+            On / Off / Standby
+            Attach / Detach
+        """
+
         global _updateRequested
         global _plugListeners
         global _changeListeners
