@@ -4,9 +4,7 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
-import json
 import sys
-
 assert sys.platform == "darwin"
 
 import subprocess
@@ -32,8 +30,8 @@ def _getAllMonitors() -> list[MacOSMonitor]:
         displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
         monitors.append(MacOSMonitor(displayId))
     # Alternatives to test:
-    v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)
-    v, ids, cnt = CG.CGGetActiveDisplayList(10, None, None)
+    # v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)
+    # v, ids, cnt = CG.CGGetActiveDisplayList(10, None, None)
     return monitors
 
 
@@ -95,9 +93,6 @@ def _getPrimary() -> MacOSMonitor:
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
 
     monitors = _NSgetAllMonitorsDict()
-    for monName in monitors.keys():
-        if monName not in arrangement.keys():
-            return
     primaryPresent = False
     setAsPrimary = ""
     for monName in arrangement.keys():
@@ -488,7 +483,7 @@ class MacOSMonitor(BaseMonitor):
         # Also injecting: Control–Shift–Media Eject
         cmd = """pmset displaysleepnow"""
         try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
+            _ = subprocess.run(cmd, text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=1)
         except:
             pass
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-
 assert sys.platform == "win32"
 
 import gc
@@ -17,8 +16,8 @@ import win32con
 import win32evtlog
 import win32gui
 
-from ._main import BaseMonitor, _getRelativePosition, \
-                   DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
+from ._main import (BaseMonitor, _getRelativePosition,
+                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation)
 from pymonctl._structs import (_QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_INFO, _DISPLAYCONFIG_MODE_INFO, _LUID,
                                _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET, _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET, _DPI_VALUES,
                                _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE, _DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE,
@@ -108,9 +107,6 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
 
     monitors = _win32getAllMonitorsDict()
-    for monName in monitors.keys():
-        if monName not in arrangement.keys():
-            return
     primaryPresent = False
     setAsPrimary = ""
     for monName in arrangement.keys():

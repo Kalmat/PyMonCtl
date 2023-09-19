@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import sys
-
 assert sys.platform == "linux"
 
 import subprocess
 import threading
 
 import math
-from typing import Optional, List, Union, cast, Tuple
+from typing import Optional, List, Union, Tuple
 
 import Xlib.display
 import Xlib.X
@@ -21,23 +20,6 @@ from Xlib.ext import randr
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 from ewmhlib import defaultEwmhRoot, getProperty, getPropertyValue, getRoots, getRootsInfo, Props
-
-
-# Check if randr extension is available
-if not defaultEwmhRoot.display.has_extension('RANDR'):
-    sys.stderr.write('{}: server does not have the RANDR extension\n'.format(sys.argv[0]))
-    ext = defaultEwmhRoot.display.query_extension('RANDR')
-    print(ext)
-    sys.stderr.write("\n".join(defaultEwmhRoot.display.list_extensions()))
-    if ext is None:
-        sys.exit(1)
-
-# Check if Xorg is running (this all will not work on Wayland or alike)
-p = subprocess.Popen(["xset", "-q"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-p.communicate()
-if p.returncode != 0:
-    sys.stderr.write('{}: Xorg is not available\n'.format(sys.argv[0]))
-    sys.exit(1)
 
 
 def _getAllMonitors() -> list[LinuxMonitor]:
@@ -120,9 +102,6 @@ def _getPrimary() -> LinuxMonitor:
 def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
 
     monitors = _XgetAllMonitorsDict()
-    for monName in monitors.keys():
-        if monName not in arrangement.keys():
-            return
     setAsPrimary = ""
     primaryPresent = False
     for monName in arrangement.keys():
@@ -194,10 +173,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
 
     if newArrangement:
         cmd = _buildCommand(newArrangement, xOffset, yOffset)
-        try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-        except:
-            pass
+        _ = _runProc(cmd)
 
 
 def _getMousePos() -> Point:
@@ -287,13 +263,10 @@ class LinuxMonitor(BaseMonitor):
             scaleX, scaleY = round(100 / scale[0], 1), round(100 / scale[1], 1)
             if 0 < scaleX <= 1 and 0 < scaleY <= 1:
                 cmd = "xrandr --output %s --scale %sx%s --filter nearest" % (self.name, scaleX, scaleY)
-                try:
-                    ret = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-                    if ret and hasattr(ret, "returncode") and ret.returncode != 0:
-                        cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
-                        subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-                except:
-                    pass
+                ret = _runProc(cmd)
+                if not ret:
+                    cmd = "xrandr --output %s --scale %sx%s" % (self.name, scaleX, scaleY)
+                    _ = _runProc(cmd)
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -333,10 +306,7 @@ class LinuxMonitor(BaseMonitor):
             else:
                 direction = "normal"
             cmd = "xrandr --output %s --rotate %s" % (self.name, direction)
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-            except:
-                pass
+            _ = _runProc(cmd)
 
     @property
     def frequency(self) -> Optional[float]:
@@ -359,12 +329,9 @@ class LinuxMonitor(BaseMonitor):
         # https://manerosss.wordpress.com/2017/05/16/brightness-linux-xrandr/
         value = None
         cmd = "xrandr --verbose | grep %s -A 10 | grep Brightness | grep -o '[0-9].*'" % self.name
-        err, ret = subprocess.getstatusoutput(cmd)
-        if err == 0 and ret:
-            try:
-                value = int(float(ret)) * 100
-            except:
-                pass
+        ret = _runProc(cmd)
+        if ret:
+            value = int(float(ret)) * 100
         return value
 
         # Pointers to misc solutions
@@ -397,17 +364,14 @@ class LinuxMonitor(BaseMonitor):
             value = brightness / 100
             if 0 <= value <= 1:
                 cmd = "xrandr --output %s --brightness %s" % (self.name, str(value))
-                try:
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-                except:
-                    pass
+                _ = _runProc(cmd)
 
     @property
     def contrast(self) -> Optional[int]:
         value = None
         cmd = "xrandr --verbose | grep %s -A 10 | grep Gamma | grep -o '[0-9].*'" % self.name
-        err, ret = subprocess.getstatusoutput(cmd)
-        if err == 0 and ret:
+        ret = _runProc(cmd)
+        if ret:
             r, g, b = ret.split(":")
             value = int(((1 / (float(r) or 1)) + (1 / (float(g) or 1)) + (1 / (float(b) or 1))) / 3) * 100
         return value
@@ -419,17 +383,14 @@ class LinuxMonitor(BaseMonitor):
                 rgb = str(round(value, 1))
                 gamma = rgb + ":" + rgb + ":" + rgb
                 cmd = "xrandr --output %s --gamma %s" % (self.name, gamma)
-                try:
-                    subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-                except:
-                    pass
+                _ = _runProc(cmd)
 
     @property
     def mode(self) -> Optional[DisplayMode]:
         value = None
         cmd = "xrandr -q | grep %s -A 50 | grep '* \\|*+'" % self.name
-        err, ret = subprocess.getstatusoutput(cmd)
-        if err == 0 and ret:
+        ret = _runProc(cmd)
+        if ret:
             try:
                 res = ret.split(" ")
                 lines = list(filter(None, res))
@@ -447,17 +408,14 @@ class LinuxMonitor(BaseMonitor):
         # Xlib.ext.randr.change_output_property()
         if mode is not None:
             cmd = "xrandr --output %s --mode %sx%s -r %s" % (self.name, mode.width, mode.height, round(mode.frequency, 2))
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-            except:
-                pass
+            _ = _runProc(cmd)
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
         value = None
         cmd = "xrandr -q | grep %s -A 5 | grep ' +\\|*+'" % self.name
-        err, ret = subprocess.getstatusoutput(cmd)
-        if err == 0 and ret:
+        ret = _runProc(cmd)
+        if ret:
             try:
                 res = ret.split(" ")
                 lines = list(filter(None, res))
@@ -472,10 +430,7 @@ class LinuxMonitor(BaseMonitor):
 
     def setDefaultMode(self):
         cmd = "xrandr --output %s --auto" % self.name
-        try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-        except:
-            pass
+        _ = _runProc(cmd)
 
     @property
     def allModes(self) -> list[DisplayMode]:
@@ -503,69 +458,55 @@ class LinuxMonitor(BaseMonitor):
         _setPrimary(self.name)
 
     def turnOn(self):
-        if not self.isOn:
+        cmd = ""
+        if self.isSuspended:
+            cmd = "xset dpms force on"
+        elif not self.isOn:
             cmdPart = ""
             for monName in _XgetAllMonitorsNames():
                 if monName != self.name:
                     cmdPart = " --right-of %s" % monName
                     break
-            cmd = ("xrandr --output %s" % self.name) + cmdPart + " --auto"
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-            except:
-                pass
-        else:
-            if self.isSuspended:
-                cmd = "xset dpms force on"
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
+            # cmd = ("xrandr --output %s" % self.name) + cmdPart + " --auto"
+            cmd = ("xrandr --output %s --auto" % self.name)
+        if cmd:
+            _ = _runProc(cmd)
 
     def turnOff(self):
         if self.isOn:
             cmd = "xrandr --output %s --off" % self.name
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-            except:
-                pass
+            _ = _runProc(cmd)
 
     @property
     def isOn(self) -> Optional[bool]:
         # https://stackoverflow.com/questions/3433203/how-to-determine-if-lcd-monitor-is-turned-on-from-linux-command-line
         cmd = "xrandr --listactivemonitors"
-        ret: Optional[bool] = None
-        try:
-            err, res = subprocess.getstatusoutput(cmd)
-            if err == 0:
-                ret = self.name in res
-        except:
-            pass
+        res: Optional[bool] = None
+        ret = _runProc(cmd)
+        if ret:
+            res = self.name in ret
         isSuspended = self.isSuspended
-        return (ret and not isSuspended) if isSuspended is not None else ret
+        return (res and not isSuspended) if isSuspended is not None else res
 
     def suspend(self):
         # xrandr has no standby option. xset doesn't allow to target just one output (it works at display level)
         cmd = "xset dpms force standby"
-        try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-        except:
-            pass
+        _ = _runProc(cmd)
 
     @property
     def isSuspended(self) -> Optional[bool]:
         cmd = "xset -q | grep ' Monitor is ' | awk '{ print$4 }'"
-        try:
-            err, ret = subprocess.getstatusoutput(cmd)
-            if err == 0:
-                return ret == "Standby"
-        except:
-            pass
+        ret = _runProc(cmd)
+        if ret:
+            return ret == "Standby"
         return None
 
     def attach(self):
         # This produces the same effect, but requires to keep track of last mode used
         if self._crtc:
-            crtcCode: int = self._crtc["crtc"]
+            crtc: int = self._crtc["crtc"]
             crtcInfo: Xlib.ext.randr.GetCrtcInfo = self._crtc["crtc_info"]
-            randr.set_crtc_config(self.display, crtcCode, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, crtcInfo.mode, crtcInfo.rotation, crtcInfo.outputs)
+            randr.set_crtc_config(self.display, crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, crtcInfo.mode, crtcInfo.rotation, crtcInfo.outputs)
             self._crtc = {}
 
     def detach(self, permanent: bool = False):
@@ -577,7 +518,6 @@ class LinuxMonitor(BaseMonitor):
                 crtcInfo: Xlib.ext.randr.GetCrtcInfo = randr.get_crtc_info(display, outputInfo.crtc, Xlib.X.CurrentTime)
                 randr.set_crtc_config(display, outputInfo.crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
                 self._crtc = {"crtc": outputInfo.crtc, "crtc_info": crtcInfo}
-
 
     @property
     def isAttached(self) -> bool:
@@ -592,21 +532,9 @@ class LinuxMonitor(BaseMonitor):
         return False
 
 
-def _getPrimaryName():
-    for monitorData in _XgetAllMonitors():
-        display, root, monitor, monName = monitorData
-        if monitor.primary == 1:
-            return monName
-    return None
-
-
 def _setPrimary(name: str):
-    if name and name != _getPrimaryName():
-        cmd = "xrandr --output %s --primary" % name
-        try:
-            subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-        except:
-            pass
+    cmd = "xrandr --output %s --primary" % name
+    _ = _runProc(cmd)
 
 
 def _getPosition(name):
@@ -676,13 +604,9 @@ def _setPosition(relativePos: Union[int, Position, Point, Tuple[int, int]], rela
                 "w": w,
                 "h": h
             }
-
         if arrangement:
             cmd = _buildCommand(arrangement, xOffset, yOffset)
-            try:
-                subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-            except:
-                pass
+            _ = _runProc(cmd)
 
 
 def _buildCommand(arrangement: dict[str, dict[str, Union[int, bool]]], xOffset: int, yOffset: int):
@@ -702,8 +626,8 @@ def _buildCommand(arrangement: dict[str, dict[str, Union[int, bool]]], xOffset: 
 def _scale(name: str = "") -> Optional[Tuple[float, float]]:
     value = None
     cmd = "xrandr -q | grep %s -A 5 | grep ' +\\|*+'" % name
-    err, ret = subprocess.getstatusoutput(cmd)
-    if err == 0 and ret:
+    ret = _runProc(cmd)
+    if ret:
         try:
             res = ret.split(" ")
             lines = list(filter(None, res))
@@ -731,7 +655,7 @@ def _scale(name: str = "") -> Optional[Tuple[float, float]]:
 
 def _XgetAllOutputs(name: str = ""):
     outputs = []
-    for rootData in getRootsInfo():
+    for rootData in getRootsInfo(forceUpdate=True):
         display, screen, root, res = rootData
         if res:
             for output in res.outputs:
@@ -822,6 +746,43 @@ def _XgetMonitorData(handle: Optional[int] = None):
                     if monName == outputInfo.name and outputInfo.crtc:
                         return display, screen, root, res, output, outputInfo.name
     return None
+
+
+def _runProc(cmd: str, timeout: int = 1):
+    if timeout <= 0:
+        timeout = 1
+    proc = subprocess.run(cmd, text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    if proc.returncode == 0:
+        return proc.stdout
+    return None
+
+
+def _checkEnvironment():
+
+    # Check if randr extension is available
+    if not defaultEwmhRoot.display.has_extension('RANDR'):
+        sys.stderr.write('{}: server does not have the RANDR extension\n'.format(sys.argv[0]))
+        ext = defaultEwmhRoot.display.query_extension('RANDR')
+        print(ext)
+        sys.stderr.write("\n".join(defaultEwmhRoot.display.list_extensions()))
+        if ext is None:
+            sys.exit(1)
+
+    # Check if Xorg is running and xset is present (this will not work on Wayland or alike)
+    cmd = "xset -q"
+    ret = _runProc(cmd)
+    if not ret:
+        sys.stderr.write('{}: Xorg and/or xset are not available\n'.format(sys.argv[0]))
+        sys.exit(1)
+
+    # Check if xrandr is present (it will not in distributions like Arch or Manjaro)
+    cmd = "xrandr -q"
+    ret = _runProc(cmd)
+    if not ret:
+        sys.stderr.write(
+            '{}: Xorg and/or xrandr are not available\n'.format(sys.argv[0]))
+        sys.exit(1)
+_checkEnvironment()
 
 
 def _eventLoop(kill: threading.Event, interval: float):
