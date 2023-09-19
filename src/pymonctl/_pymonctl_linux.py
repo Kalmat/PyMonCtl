@@ -393,7 +393,7 @@ class LinuxMonitor(BaseMonitor):
         if ret:
             try:
                 res = ret.split(" ")
-                lines = list(filter(None, res))
+                lines: List[str] = list(filter(None, res))
                 w, h = lines[0].split("x")
                 r = float(lines[1].replace("+", "").replace("*", ""))
                 value = DisplayMode(int(w), int(h), r)
@@ -418,7 +418,7 @@ class LinuxMonitor(BaseMonitor):
         if ret:
             try:
                 res = ret.split(" ")
-                lines = list(filter(None, res))
+                lines: List[str] = list(filter(None, res))
                 a, b = lines[0].split("x")
                 w = int(a)
                 h = int(b)
@@ -498,7 +498,7 @@ class LinuxMonitor(BaseMonitor):
         cmd = "xset -q | grep ' Monitor is ' | awk '{ print$4 }'"
         ret = _runProc(cmd)
         if ret:
-            return ret == "Standby"
+            return bool(ret == "Standby")
         return None
 
     def attach(self):
@@ -630,7 +630,7 @@ def _scale(name: str = "") -> Optional[Tuple[float, float]]:
     if ret:
         try:
             res = ret.split(" ")
-            lines = list(filter(None, res))
+            lines: List[str] = list(filter(None, res))
             a, b = lines[0].split("x")
             w = int(a)
             h = int(b)
