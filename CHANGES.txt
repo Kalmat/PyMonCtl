@@ -1,3 +1,4 @@
+0.7, 2023/09/20 -- LINUX: Working in Manjaro/KDE. Avoid crashing in Wayland (though module won't likely work on it)
 0.6, 2023/09/15 -- ALL: Added *_CENTERED positions. Added coordinates (x, y) as input to setPosition() and arrangeMonitor()
                    LINUX: Improved performance thru ewmhlib features
 0.5, 2023/09/06 -- ALL: Fixed x, y calculation in some setPosition() and arrangeMonitors() cases

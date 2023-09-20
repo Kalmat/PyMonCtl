@@ -387,19 +387,18 @@ class LinuxMonitor(BaseMonitor):
 
     @property
     def mode(self) -> Optional[DisplayMode]:
-        value = None
-        cmd = "xrandr -q | grep %s -A 50 | grep '* \\|*+'" % self.name
-        ret = _runProc(cmd)
-        if ret:
-            try:
-                res = ret.split(" ")
-                lines: List[str] = list(filter(None, res))
-                w, h = lines[0].split("x")
-                r = float(lines[1].replace("+", "").replace("*", ""))
-                value = DisplayMode(int(w), int(h), r)
-            except:
-                pass
-        return value
+        for crtcData in _XgetAllCrtcs(self.name):
+            display, screen, root, res, output, outputInfo, crtc, crtcInfo = crtcData
+            if self.handle == output:
+                if outputInfo.crtc == crtc:
+                    print(crtcInfo)
+                    mode = crtcInfo.mode
+                    for resMode in res.modes:
+                        if resMode.id == mode:
+                            retMode = DisplayMode(resMode.width, resMode.height,
+                                                round(resMode.dot_clock / ((resMode.h_total * resMode.v_total) or 1), 2))
+                            return retMode
+        return None
 
     def setMode(self, mode: Optional[DisplayMode]):
         # https://stackoverflow.com/questions/12706631/x11-change-resolution-and-make-window-fullscreen
@@ -412,21 +411,16 @@ class LinuxMonitor(BaseMonitor):
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
-        value = None
-        cmd = "xrandr -q | grep %s -A 5 | grep ' +\\|*+'" % self.name
-        ret = _runProc(cmd)
-        if ret:
-            try:
-                res = ret.split(" ")
-                lines: List[str] = list(filter(None, res))
-                a, b = lines[0].split("x")
-                w = int(a)
-                h = int(b)
-                r = float(lines[1].replace("+", "").replace("*", ""))
-                value = DisplayMode(w, h, r)
-            except:
-                pass
-        return value
+        for outputData in _XgetAllOutputs(self.name):
+            display, screen, root, res, output, outputInfo = outputData
+            if self.handle == output:
+                for outMode in outputInfo.modes:
+                    for resMode in res.modes:
+                        if outMode == resMode.id:
+                            return DisplayMode(resMode.width, resMode.height,
+                                               round(resMode.dot_clock / ((resMode.h_total * resMode.v_total) or 1), 2))
+                break
+        return None
 
     def setDefaultMode(self):
         cmd = "xrandr --output %s --auto" % self.name
@@ -443,7 +437,6 @@ class LinuxMonitor(BaseMonitor):
                         if outMode == resMode.id:
                             modes.append(DisplayMode(resMode.width, resMode.height,
                                                      round(resMode.dot_clock / ((resMode.h_total * resMode.v_total) or 1), 2)))
-
                 break
         return modes
 
@@ -463,14 +456,15 @@ class LinuxMonitor(BaseMonitor):
             cmd = "xset dpms force on"
         elif not self.isOn:
             cmdPart = ""
+            relativeTo = self.name
             for monName in _XgetAllMonitorsNames():
                 if monName != self.name:
-                    cmdPart = " --right-of %s" % monName
-                    break
-            # cmd = ("xrandr --output %s" % self.name) + cmdPart + " --auto"
-            cmd = ("xrandr --output %s --auto" % self.name)
+                    cmdPart += " --output %s --left-of %s" % (monName, relativeTo)
+                    relativeTo = monName
+            cmd = str("xrandr --output %s --auto" % self.name) + cmdPart
         if cmd:
             _ = _runProc(cmd)
+
 
     def turnOff(self):
         if self.isOn:
@@ -495,10 +489,10 @@ class LinuxMonitor(BaseMonitor):
 
     @property
     def isSuspended(self) -> Optional[bool]:
-        cmd = "xset -q | grep ' Monitor is ' | awk '{ print$4 }'"
+        cmd = "xset -q | grep ' Monitor is '"
         ret = _runProc(cmd)
         if ret:
-            return bool(ret == "Standby")
+            return bool("Standby" in ret)
         return None
 
     def attach(self):
@@ -508,6 +502,15 @@ class LinuxMonitor(BaseMonitor):
             crtcInfo: Xlib.ext.randr.GetCrtcInfo = self._crtc["crtc_info"]
             randr.set_crtc_config(self.display, crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, crtcInfo.mode, crtcInfo.rotation, crtcInfo.outputs)
             self._crtc = {}
+            cmdPart = ""
+            relativeTo = self.name
+            for monName in _XgetAllMonitorsNames():
+                if monName != self.name:
+                    cmdPart += " --output %s --left-of %s" % (monName, relativeTo)
+                    relativeTo = monName
+            cmd = str("xrandr --output %s --auto" % self.name) + cmdPart
+            _ = _runProc(cmd)
+
 
     def detach(self, permanent: bool = False):
         # This produces the same effect, but requires to keep track of last mode used
@@ -745,6 +748,10 @@ def _XgetMonitorData(handle: Optional[int] = None):
                     display, screen, root, res, output, outputInfo = outputData
                     if monName == outputInfo.name and outputInfo.crtc:
                         return display, screen, root, res, output, outputInfo.name
+    for outputData in outputs:
+        display, screen, root, res, output, outputInfo = outputData
+        if root.id == defaultEwmhRoot.root.id:
+            return display, screen, root, res, output, outputInfo.name
     return None
 
 

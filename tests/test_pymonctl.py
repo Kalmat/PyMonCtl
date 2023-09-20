@@ -26,14 +26,17 @@ for mon in monDict:
     print(monDict[mon])
 print()
 
-monitorsPlugged: List[pmc.Monitor] = []
-setAsPrimary: Optional[pmc.Monitor] = None
+monitorsPlugged: List[pmc.Monitor] = pmc.getAllMonitors()
 initArrangement: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size]] = {}
-for monitor in pmc.getAllMonitors():
-    monitorsPlugged.append(monitor)
+setAsPrimary: Optional[pmc.Monitor] = None
+for monitor in monitorsPlugged:
     initArrangement[monitor.name] = {"relativePos": cast(pmc.Point, monitor.position)}
     if monitor.isPrimary:
         setAsPrimary = monitor
+print("INITIAL POSITIONS:", initArrangement)
+print()
+
+for monitor in monitorsPlugged:
 
     print("NAME", monitor.name)
     print("HANDLE/ID:", monitor.handle)
@@ -66,9 +69,9 @@ for monitor in pmc.getAllMonitors():
         print()
 
 
-    pmc.enableUpdateInfo()
-    pmc.plugListenerRegister(pluggedCB)
-    pmc.changeListenerRegister(changedCB)
+    #pmc.enableUpdateInfo()
+    #pmc.plugListenerRegister(pluggedCB)
+    #pmc.changeListenerRegister(changedCB)
     currMode = monitor.mode
     targetMode = monitor.mode
     if monitor.size is not None and monitor.defaultMode is not None:
@@ -128,9 +131,12 @@ for monitor in pmc.getAllMonitors():
     print("CHANGE SCALE. CURRENT:", currScale)
     monitor.setScale((200, 200))
     time.sleep(5)
+    print("SCALE CHANGED?:", monitor.scale)
     print("RESTORE SCALE")
     if currScale is not None:
         monitor.setScale(currScale)
+    time.sleep(2)
+    print("SCALE RESTORED?:", monitor.scale)
 
     print("IS ON?:", monitor.isOn)
     print("TURN OFF")
@@ -163,6 +169,7 @@ for monitor in pmc.getAllMonitors():
     print("ATTACH")
     monitor.attach()
     time.sleep(5)
+    monitor.setPosition(initArrangement[monitor.name]["relativePos"], None)
     print("IS ATTACHED?:", monitor.isAttached)
     print()
     pmc.disableUpdateInfo()
@@ -239,3 +246,140 @@ if len(monitorsPlugged) > 1:
         pmc.arrangeMonitors(initArrangement)
         if setAsPrimary is not None:
             setAsPrimary.setPrimary()
+
+"""
+MONITORS COUNT: 2
+PRIMARY MONITOR: DP-1
+
+{'system_name': 'DP-1', 'id': 66, 'is_primary': True, 'position': Point(x=0, y=0), 'size': Size(width=3840, height=1080), 'workarea': Rect(left=0, top=0, right=5520, bottom=1036), 'scale': (100.0, 100.0), 'dpi': (82, 81), 'orientation': 0, 'frequency': 119.97, 'colordepth': 24}
+{'system_name': 'HDMI-2', 'id': 69, 'is_primary': False, 'position': Point(x=3840, y=0), 'size': Size(width=1680, height=1050), 'workarea': Rect(left=0, top=0, right=5520, bottom=1036), 'scale': (100.0, 100.0), 'dpi': (90, 90), 'orientation': 0, 'frequency': 74.89, 'colordepth': 24}
+
+NAME DP-1
+HANDLE/ID: 66
+IS PRIMARY: True
+SIZE: Size(width=3840, height=1080)
+POSITION: Point(x=0, y=0)
+FREQUENCY: 119.97
+ORIENTATION: 0
+SCALE (100.0, 100.0)
+DPI: (82, 81)
+COLOR DEPTH: 24
+BRIGHTNESS: 100
+CONTRAST: 100
+CURRENT MODE: DisplayMode(width=3840, height=1080, frequency=119.97)
+DEFAULT MODE: DisplayMode(width=3840, height=1080, frequency=119.97)
+
+CHANGE MODE DisplayMode(width=5120, height=1440, frequency=120.0)
+MODE CHANGED?: DisplayMode(width=5120, height=1440, frequency=120.0)
+SET DEFAULT MODE DisplayMode(width=3840, height=1080, frequency=119.97)
+DEFAULT MODE SET?: DisplayMode(width=3840, height=1080, frequency=119.97)
+RESTORE MODE DisplayMode(width=3840, height=1080, frequency=119.97)
+MODE RESTORED?: DisplayMode(width=3840, height=1080, frequency=119.97)
+
+CHANGE BRIGHTNESS
+RESTORE BRIGHTNESS
+
+CHANGE CONTRAST
+RESTORE CONTRAST
+
+CHANGE ORIENTATION
+RESTORE ORIENTATION
+
+CHANGE SCALE. CURRENT: (100.0, 100.0)
+RESTORE SCALE
+IS ON?: True
+TURN OFF
+IS ON?: False
+TURN ON
+IS ON?: True
+IS SUSPENDED?: False
+STANDBY
+IS ON?: True
+IS SUSPENDED?: False
+WAKEUP
+IS ON?: True
+IS SUSPENDED?: False
+
+IS ATTACHED?: True
+DETACH
+IS ATTACHED?: False
+ATTACH
+IS ATTACHED?: True
+
+NAME HDMI-2
+HANDLE/ID: 69
+IS PRIMARY: False
+SIZE: Size(width=1680, height=1050)
+POSITION: Point(x=0, y=0)
+FREQUENCY: 74.89
+ORIENTATION: 0
+SCALE (100.0, 100.0)
+DPI: (90, 90)
+COLOR DEPTH: 24
+BRIGHTNESS: 100
+CONTRAST: 100
+CURRENT MODE: DisplayMode(width=1680, height=1050, frequency=59.95)
+DEFAULT MODE: DisplayMode(width=1680, height=1050, frequency=59.95)
+
+CHANGE MODE DisplayMode(width=1440, height=900, frequency=59.95)
+MODE CHANGED?: DisplayMode(width=1440, height=900, frequency=74.98)
+SET DEFAULT MODE DisplayMode(width=1680, height=1050, frequency=59.95)
+DEFAULT MODE SET?: DisplayMode(width=1680, height=1050, frequency=59.95)
+RESTORE MODE DisplayMode(width=1680, height=1050, frequency=59.95)
+MODE RESTORED?: DisplayMode(width=1680, height=1050, frequency=59.95)
+
+CHANGE BRIGHTNESS
+RESTORE BRIGHTNESS
+
+CHANGE CONTRAST
+RESTORE CONTRAST
+
+CHANGE ORIENTATION
+RESTORE ORIENTATION
+
+CHANGE SCALE. CURRENT: (100.0, 100.0)
+RESTORE SCALE
+IS ON?: True
+TURN OFF
+IS ON?: False
+TURN ON
+IS ON?: True
+IS SUSPENDED?: False
+STANDBY
+IS ON?: True
+IS SUSPENDED?: False
+WAKEUP
+IS ON?: True
+IS SUSPENDED?: False
+
+IS ATTACHED?: True
+DETACH
+IS ATTACHED?: False
+ATTACH
+IS ATTACHED?: True
+
+MANAGING MONITORS
+MONITOR 1: True Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: False Point(x=0, y=0) Size(width=1680, height=1050)
+
+MONITOR 2 AS PRIMARY
+MONITOR 1: True Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: False Point(x=0, y=0) Size(width=1680, height=1050)
+MONITOR 1: False Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: True Point(x=0, y=0) Size(width=1680, height=1050)
+MONITOR 1 AS PRIMARY
+MONITOR 1: True Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: False Point(x=0, y=0) Size(width=1680, height=1050)
+
+POSITION MONITOR 2 AT FREE BELOW POSITION (200, -1080)
+MONITOR 2 POSITIONED? Point(x=200, y=1080)
+
+CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, REST OF MONITORS AT LEFT_BOTTOM
+{'HDMI-2': {'relativePos': <Position.PRIMARY: 0>, 'relativeTo': ''}, 'DP-1': {'relativePos': <Position.LEFT_BOTTOM: 11>, 'relativeTo': 'HDMI-2'}}
+MONITOR DP-1 IS PRIMARY False POSITION Point(x=0, y=0) SIZE Size(width=3840, height=1080)
+MONITOR HDMI-2 IS PRIMARY True POSITION Point(x=3840, y=30) SIZE Size(width=1680, height=1050)
+
+CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, REST OF MONITORS AT RIGHT_TOP
+{'DP-1': {'relativePos': <Position.PRIMARY: 0>, 'relativeTo': ''}, 'HDMI-2': {'relativePos': <Position.RIGHT_TOP: 30>, 'relativeTo': 'DP-1'}}
+MONITOR DP-1 IS PRIMARY True POSITION Point(x=0, y=0) SIZE Size(width=3840, height=1080)
+MONITOR HDMI-2 IS PRIMARY False POSITION Point(x=3840, y=0) SIZE Size(width=1680, height=1050)
+
+RESTORE INITIAL MONITOR CONFIG
+{'DP-1': {'relativePos': Point(x=0, y=0)}, 'HDMI-2': {'relativePos': Point(x=0, y=0)}}
+"""

@@ -11,7 +11,7 @@ __all__ = [
     "DisplayMode", "ScreenValue", "Size", "Point", "Box", "Rect", "Position", "Orientation"
 ]
 
-__version__ = "0.6"
+__version__ = "0.7"
 
 
 def version(numberOnly: bool = True) -> str:
