@@ -391,7 +391,6 @@ class LinuxMonitor(BaseMonitor):
             display, screen, root, res, output, outputInfo, crtc, crtcInfo = crtcData
             if self.handle == output:
                 if outputInfo.crtc == crtc:
-                    print(crtcInfo)
                     mode = crtcInfo.mode
                     for resMode in res.modes:
                         if resMode.id == mode:

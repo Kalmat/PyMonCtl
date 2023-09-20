@@ -169,7 +169,6 @@ for monitor in monitorsPlugged:
     print("ATTACH")
     monitor.attach()
     time.sleep(5)
-    monitor.setPosition(initArrangement[monitor.name]["relativePos"], None)
     print("IS ATTACHED?:", monitor.isAttached)
     print()
     pmc.disableUpdateInfo()
