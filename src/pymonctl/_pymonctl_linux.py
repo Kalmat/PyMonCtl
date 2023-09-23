@@ -51,7 +51,10 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
                 x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
                 # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
                 wa: List[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA, display=display), display=display)
-                wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
+                if isinstance(wa, list) and len(wa) >= 4:
+                    wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
+                else:
+                    wx, wy, wr, wb = x, y, w, h
                 dpiX, dpiY = round((w * 25.4) / (monitor.width_in_millimeters or 1)), round((h * 25.4) / (monitor.height_in_millimeters or 1))
                 scaleX, scaleY = _scale(monitorName) or (0.0, 0.0)
                 rot = int(math.log(crtcInfo.rotation, 2))
