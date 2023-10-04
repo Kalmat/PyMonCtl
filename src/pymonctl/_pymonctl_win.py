@@ -25,7 +25,11 @@ from pymonctl._structs import (_QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_INFO,
                                )
 
 
-dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+try:
+    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+except AttributeError:  # Windows server does not implement GetAwarenessFromDpiAwarenessContext
+    dpiAware = 0
+
 if dpiAware == 0:
     # It seems that this can't be invoked twice. Setting it to 2 for apps having 0 (unaware) may have less impact
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
