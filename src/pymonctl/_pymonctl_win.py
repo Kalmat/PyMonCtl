@@ -24,8 +24,11 @@ from pymonctl._structs import (_QDC_ONLY_ACTIVE_PATHS, _DISPLAYCONFIG_PATH_INFO,
                                _DISPLAYCONFIG_SOURCE_DEVICE_NAME, _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME
                                )
 
+try:
+    dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
+except AttributeError:  # Windows server does not implement GetAwarenessFromDpiAwarenessContext
+    dpiAware == 0
 
-dpiAware = ctypes.windll.user32.GetAwarenessFromDpiAwarenessContext(ctypes.windll.user32.GetThreadDpiAwarenessContext())
 if dpiAware == 0:
     # It seems that this can't be invoked twice. Setting it to 2 for apps having 0 (unaware) may have less impact
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
@@ -35,6 +38,7 @@ def _getAllMonitors() -> list[Win32Monitor]:
     monitors: list[Win32Monitor] = []
     for monitor in win32api.EnumDisplayMonitors():
         monitors.append(Win32Monitor(monitor[0].handle))
+
     return monitors
 
 
