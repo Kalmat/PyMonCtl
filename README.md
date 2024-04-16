@@ -14,9 +14,6 @@ Additional tools/extensions/APIs used:
 - macOS:
   - pmset command-line tool
     
-My most sincere thanks and appreciation to the University of Utah Student Computing Labs for their awesome work on 
-the [display_manager_lib](https://github.com/univ-of-utah-marriott-library-apple/display_manager) module, for sharing it so generously, and most especially for allowing to be integrated 
-into PyMonCtl
 
 ## General Features
 
@@ -65,8 +62,8 @@ the provided handle is not valid.
 |    setScale    |    X    |   X   |   X   |
 |  orientation   |    X    |   X   |   X   |
 | setOrientation |    X    |   X   | X (1) |
-|   brightness   |  X (2)  |   X   | X (1) |
-| setBrightness  |  X (2)  |   X   | X (1) |
+|   brightness   |  X (2)  |   X   |   X   |
+| setBrightness  |  X (2)  |   X   |   X   |
 |    contrast    |  X (2)  | X (3) | X (3) |
 |  setContrast   |  X (2)  | X (3) | X (3) |
 |      mode      |    X    |   X   |   X   |
@@ -86,7 +83,7 @@ the provided handle is not valid.
 |   isAttached   |    X    |   X   |   X   |
 
 
-(1) Through display_manager_lib from University of Utah - Marriott Library - Apple Infrastructure (thank you, guys!).
+(1) Working only in versions older than Catalina
 
 (2) If monitor has no VCP MCCS support, these methods won't likely work.
 

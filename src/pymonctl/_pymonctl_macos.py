@@ -23,7 +23,6 @@ import CoreFoundation as CF
 
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-# from ._display_manager_lib import Display
 
 
 def _getAllMonitors() -> list[MacOSMonitor]:
