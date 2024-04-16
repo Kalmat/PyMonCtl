@@ -2,14 +2,6 @@
 /build/
 dist/
 /src/PyMonCtl.egg-info/
-/tests/multi_monitor_coords.py
 /make_wheel.bat
 /pip_make.bat
 /pip_upload.bat
-*.cpython-310.pyc
-/tests/source-shake.lua
-/tests/test.py
-/tests/test2.py
-/tests/test3.py
-/tests/test_cec.py
-/tests/_display_manager_lib.py

@@ -83,15 +83,17 @@ the provided handle is not valid.
 |   isAttached   |    X    |   X   |   X   |
 
 
-(1) Working only in versions older than Catalina
+(1) Working only in versions older than Catalina (thanks to University of Utah - Marriott Library - Apple Infrastructure)
 
 (2) If monitor has no VCP MCCS support, these methods won't likely work.
 
 (3) It doesn't exactly return / change contrast, but gamma values.
 
-(4) Windows: Working with VCP MCCS support only.
-    Linux: It will suspend ALL monitors. To address just one monitor, try using turnOff() / turnOn() / detach() / attach() methods.
-    macOS: It will suspend ALL monitors. Use turnOn() to wake them up again
+(4) Different behaviour according to OS:
+- Windows: Working with VCP MCCS support only.
+- Linux: It will suspend ALL monitors. To address just one monitor, try using turnOff() / turnOn() / detach() / attach() methods.
+- macOS: It will suspend ALL monitors. Use turnOn() to wake them up again
+
 
 #### WARNING: Most of these properties may return ''None'' in case the value can not be obtained
 

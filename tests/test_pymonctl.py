@@ -94,6 +94,8 @@ for monitor in monitorsPlugged:
             targetWidth = 1360
         elif monWidth == 1680:
             targetWidth = 1280
+        elif monWidth == 1470:
+            targetWidth = 1710
         for mode in monitor.allModes:
             if targetWidth == mode.width:
                 targetMode = mode

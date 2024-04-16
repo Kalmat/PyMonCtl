@@ -202,14 +202,9 @@ class MacOSMonitor(BaseMonitor):
                     break
         if self.screen is not None:
             self.name = _getName(self.handle, self.screen)
-            v = platform.mac_ver()[0].split(".")
-            self._ver = float(v[0] + "." + v[1])
-            # In Catalina display_manager_lib fails to load IOKit
-            # In Ventura setBrightness() method fails (it was OK in Big Sur)
-            # --> Display() class takes around 5 seconds to instantiate!!!
-            self._ds: Optional[Union[ctypes.CDLL, int]] = None
-            self._cd: Optional[Union[ctypes.CDLL, int]] = None
-            self._iokit: Optional[Union[ctypes.CDLL, int]] = None
+            self._ds: Union[ctypes.CDLL, int] = 0
+            self._cd: Union[ctypes.CDLL, int] = 0
+            self._iokit: Union[ctypes.CDLL, int] = 0
             self._ioservice: Optional[int] = None
         else:
             raise ValueError
@@ -394,9 +389,9 @@ class MacOSMonitor(BaseMonitor):
     def brightness(self) -> Optional[int]:
         res = None
         ret = 1
-        if self._ds is None and self._ds != -1:
+        if self._ds == 0:
             self._ds = _loadDisplayServices()
-        if self._ds is not None and self._ds != -1:
+        if self._ds not in (0, -1):
             value = ctypes.c_float()
             try:
                 ret = self._ds.DisplayServicesGetBrightness(self.handle, ctypes.byref(value))
@@ -405,9 +400,9 @@ class MacOSMonitor(BaseMonitor):
             if ret == 0:
                 res = value.value
         if ret != 0:
-            if self._cd is None and self._cd != -1:
+            if self._cd == 0:
                 self._cd = _loadCoreDisplay()
-            if self._cd is not None and self._cd != -1:
+            if self._cd not in (0, -1):
                 value = ctypes.c_double()
                 try:
                     ret = self._cd.CoreDisplay_Display_GetUserBrightness(self.handle, ctypes.byref(value))
@@ -416,9 +411,9 @@ class MacOSMonitor(BaseMonitor):
                 if ret == 0:
                     res = value.value
         if ret != 0:
-            if self._iokit is None and self._iokit != -1:
+            if self._iokit == 0:
                 self._iokit, self._ioservice = _loadIOKit(self.handle)
-            if self._iokit is not None  and self._iokit != -1 and self._ioservice is not None:
+            if self._iokit not in (0, -1) and self._ioservice is not None:
                 value = ctypes.c_float()
                 try:
                     ret = self._iokit.IODisplayGetFloatParameter(self._ioservice, 0, CF.CFSTR("brightness"), ctypes.byref(value))
@@ -434,9 +429,9 @@ class MacOSMonitor(BaseMonitor):
         # https://stackoverflow.com/questions/46885603/is-there-a-programmatic-way-to-check-if-brightness-is-at-max-or-min-value-on-osx
         if brightness is not None and 0 < brightness < 100:
             ret = 1
-            if self._ds is None and self._ds != -1:
+            if self._ds == 0:
                 self._ds = _loadDisplayServices()
-            if self._ds is not None and self._ds != -1:
+            if self._ds not in (0, -1):
                 value = ctypes.c_float(brightness / 100)
                 try:
                     if self._ds.DisplayServicesCanChangeBrightness(self.handle):
@@ -444,18 +439,18 @@ class MacOSMonitor(BaseMonitor):
                 except:
                     ret = 1
             if ret != 0:
-                if self._cd is None and self._cd != -1:
+                if self._cd == 0:
                     self._cd = _loadCoreDisplay()
-                if self._cd is not None and self._cd != -1:
+                if self._cd not in (0, -1):
                     value = ctypes.c_double(brightness / 100)
                     try:
                         ret = self._cd.CoreDisplay_Display_SetUserBrightness(self.handle, value)
                     except:
                         ret = 1
             if ret != 0:
-                if self._iokit is None and self._iokit != -1:
+                if self._iokit == 0:
                     self._iokit, self._ioservice = _loadIOKit(self.handle)
-                if self._iokit is not None and self._iokit != -1 and self._ioservice is not None:
+                if self._iokit not in (0, -1) and self._ioservice is not None:
                     value = ctypes.c_float(brightness / 100)
                     try:
                         ret = self._iokit.IODisplaySetFloatParameter(self._ioservice, 0, CF.CFSTR("brightness"), value)
@@ -514,21 +509,18 @@ class MacOSMonitor(BaseMonitor):
         # https://stackoverflow.com/questions/10596489/programmatically-change-resolution-os-x
         # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
         if mode is not None:
-            bestMode, ret = CG.CGDisplayBestModeForParametersAndRefreshRate(self.handle, self.colordepth,
-                                                                            mode.width, mode.height, mode.frequency,
-                                                                            None)
-            if bestMode:
-                bw = bestMode[Quartz.kCGDisplayWidth]
-                bh = bestMode[Quartz.kCGDisplayHeight]
-                br = bestMode[Quartz.kCGDisplayRefreshRate]
-                allModes = _CGgetAllModes(self.handle)
-                for m in allModes:
-                    w = Quartz.CGDisplayModeGetWidth(m)
-                    h = Quartz.CGDisplayModeGetHeight(m)
-                    r = Quartz.CGDisplayModeGetRefreshRate(m)
-                    if w == bw and h == bh and r == br:
-                        CG.CGDisplaySetDisplayMode(self.handle, m, None)
-                        break
+            # bestMode, ret = CG.CGDisplayBestModeForParametersAndRefreshRate(self.handle, self.colordepth,
+            #                                                                 mode.width, mode.height, mode.frequency,
+            #                                                                 None)
+            mw, mh, mr = mode.width, mode.height, mode.frequency
+            allModes = _CGgetAllModes(self.handle)
+            for m in allModes:
+                w = Quartz.CGDisplayModeGetWidth(mode)
+                h = Quartz.CGDisplayModeGetHeight(mode)
+                r = Quartz.CGDisplayModeGetRefreshRate(mode)
+                if w == mw and h == mh and r == mr:
+                    CG.CGDisplaySetDisplayMode(self.handle, m, None)
+                    break
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
