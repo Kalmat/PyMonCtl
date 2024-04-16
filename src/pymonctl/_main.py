@@ -6,7 +6,7 @@ import sys
 import threading
 from abc import abstractmethod, ABC
 from collections.abc import Callable
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, cast
 
 from ._structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
 
@@ -75,6 +75,16 @@ def getAllMonitorsDict() -> dict[str, ScreenValue]:
         return _getAllMonitorsDict()
     else:
         return _updateScreens.getScreens()
+
+
+def getMonitorsData(handle: Optional[int] = None):
+    # Linux ONLY since X11 is not thread-safe (randr crashes when querying in parallel from separate thread)
+    if sys.platform == "linux":
+        if _updateScreens is None:
+            return _getMonitorsData(handle)
+        else:
+            return _updateScreens.getMonitorsData(handle)
+    return []
 
 
 def getMonitorsCount() -> int:
@@ -154,7 +164,7 @@ def findMonitorWithNameInfo(name: str) -> dict[str, ScreenValue]:
     return info
 
 
-def arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
+def arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]]):
     """
     Arrange all monitors in a given shape.
 
@@ -193,7 +203,64 @@ def getMousePos() -> Point:
 
     :return: Point struct
     """
-    return _getMousePos()
+    return cast(Point, _getMousePos())
+
+
+def saveSetup() -> List[Tuple[Monitor, ScreenValue]]:
+    """
+    Save current monitors setup information to be restored afterward.
+
+    If you just need monitors information in dictionary format, use getAllMonitorsDict() instead.
+
+    If you need all monitors instances to access all methods, use getAllMonitors() instead.
+
+    :return: list of tuples containing all necessary info to restore saved setup as required by restoreSetup()
+    """
+    result: List[Tuple[Monitor, ScreenValue]] = []
+    monDict: dict[str, ScreenValue] = getAllMonitorsDict()
+    for monName in monDict.keys():
+        result.append((Monitor(monDict[monName]["id"]), monDict[monName]))
+    return result
+
+
+def restoreSetup(setup: List[Tuple[Monitor, ScreenValue]]):
+    """
+    Restore given monitors setup (position, mode, orientation, scale, etc.). The function will also
+    try to re-attach / turn on / wake monitors if needed.
+
+    In case you want to just reposition monitors without changing all other settings, use arrangeMonitors() instead.
+
+    :param setup: monitors info dictionary as returned by saveSetup()
+    """
+    arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]] = {}
+    for monData in setup:
+        monitor, monDict = monData
+        if not monitor.isAttached:
+            try:
+                monitor.attach()
+            except:
+                continue
+        if monitor.isAttached:
+            if monitor.isSuspended or not monitor.isOn:
+                monitor.turnOn()
+            if monDict["is_primary"]:
+                monitor.setPrimary()
+            mode = DisplayMode(monDict["size"].width, monDict["size"].height, monDict["frequency"])
+            if mode and monitor.mode != mode:
+                monitor.setMode(mode)
+            orientation = monDict["orientation"]
+            if orientation is not None and monitor.orientation != orientation:
+                monitor.setOrientation(orientation)
+            scale = monDict["scale"]
+            if monitor.scale != scale:
+                monitor.setScale(scale)
+            if monitor.isPrimary and sys.platform != "linux":
+                pos = Position.PRIMARY
+            else:
+                pos = monDict["position"]
+            arrangement[monitor.name] = {"relativePos": pos, "relativeTo": None}
+    if arrangement:
+        arrangeMonitors(arrangement)
 
 
 class BaseMonitor(ABC):
@@ -291,17 +358,20 @@ class BaseMonitor(ABC):
         Get scale for the monitor
 
         Note not all scales will be allowed for all monitors and/or modes
+
+        :return: tuple of float scale value in X, Y coordinates
         """
         raise NotImplementedError
 
     @abstractmethod
-    def setScale(self, scale: Tuple[float, float]):
+    def setScale(self, scale: Tuple[float, float], applyGlobally: bool = True):
         """
         Change scale for the monitor
 
         Note not all scales will be allowed for all monitors and/or modes
 
-        :param scale: target percentage as float value
+        :param scale: target percentage as tuple of float value
+        :param applyGlobally: (GNOME/X11 ONLY) Will affect all monitors (''True'', default) or selected one only (''False'')
         """
         raise NotImplementedError
 
@@ -312,6 +382,8 @@ class BaseMonitor(ABC):
         Get the dpi (dots/pixels per inch) value for the monitor
 
         This property can not be set
+
+        :return: tuple of dpi float value in X, Y coordinates
         """
         raise NotImplementedError
 
@@ -326,6 +398,8 @@ class BaseMonitor(ABC):
             1 - 90 degrees (right)
             2 - 180 degrees (inverted)
             3 - 270 degrees (left)
+
+        :return: current orientation value as int (or Orientation value)
         """
         raise NotImplementedError
 
@@ -352,6 +426,8 @@ class BaseMonitor(ABC):
 
         This property can not be set independently. To do so, choose an allowed mode (from monitor.allModes)
         and set the monitor mode property (monitor.mode = selectedMode)
+
+        :return: float
         """
         raise NotImplementedError
 
@@ -362,6 +438,8 @@ class BaseMonitor(ABC):
         Get the colordepth (bits per pixel to describe color) value for the monitor
 
         This property can not be set
+
+        :return: int
         """
         raise NotImplementedError
 
@@ -371,7 +449,7 @@ class BaseMonitor(ABC):
         """
         Get the brightness of monitor. The return value is normalized to 0-100 (as a percentage)
 
-        :return: brightness as float
+        :return: brightness as int (1-100)
         """
         raise NotImplementedError
 
@@ -379,6 +457,8 @@ class BaseMonitor(ABC):
     def setBrightness(self, brightness: Optional[int]):
         """
         Change the brightness of monitor. The input parameter must be defined as a percentage (0-100)
+
+        :param brightness: brightness value to be set (0-100)
         """
         raise NotImplementedError
 
@@ -390,7 +470,7 @@ class BaseMonitor(ABC):
 
         WARNING: In Linux and macOS contrast is calculated from Gamma RGB values.
 
-        :return: contrast as float
+        :return: contrast as int (1-100)
         """
         raise NotImplementedError
 
@@ -402,6 +482,8 @@ class BaseMonitor(ABC):
         WARNING: In Linux and macOS the change will apply to Gamma homogeneously for all color components (R, G, B).
 
         Example for Linux: A value of 50.0 (50%), will result in a Gamma of ''0.5:0.5:0.5''
+
+        :param contrast: contrast value to be set (0-100)
         """
         raise NotImplementedError
 
@@ -454,6 +536,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def isPrimary(self) -> bool:
         """
         Check if given monitor is primary.
@@ -495,6 +578,18 @@ class BaseMonitor(ABC):
         """
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def isOn(self) -> Optional[bool]:
+        """
+        Check if monitor is on
+
+        WARNING: not working in macOS (... yet?)
+
+        :return: ''True'' if monitor is on
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def suspend(self):
         """
@@ -516,11 +611,11 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def isOn(self) -> Optional[bool]:
+    def isSuspended(self) -> Optional[bool]:
         """
-        Check if monitor is on
+        Check if monitor is in standby mode
 
-        WARNING: not working in macOS (... yet?)
+        :return: ''True'' if monitor is in standby mode
         """
         raise NotImplementedError
 
@@ -529,8 +624,8 @@ class BaseMonitor(ABC):
         """
         Attach a previously detached monitor to system
 
-        All monitor IDs will change after detaching or attaching a monitor. The module will try to refresh them for
-        all existing instances
+        WARNING: In Windows, all IDs may change when attach / detach / plug / unplug a monitor. The module
+                 will try to refresh all IDs from all Monitor class instances... but take into account it may fail!
 
         WARNING: not working in macOS (... yet?)
         """
@@ -543,12 +638,14 @@ class BaseMonitor(ABC):
 
         Be aware that if you detach a monitor and the script ends, you will have to physically re-attach the monitor.
 
-        All monitor IDs will change after detaching or attaching a monitor. The module will try to refresh them for
-        all existing instances
-
         It will not likely work if system has just one monitor plugged.
 
+        WARNING: In Windows, all IDs may change when attach / detach / plug / unplug a monitor. The module
+                 will try to refresh all IDs from all Monitor class instances... but take into account it may fail!
+
         WARNING: not working in macOS (... yet?)
+
+        :param permanent: set to ''True'' to permanently detach the monitor from system
         """
         raise NotImplementedError
 
@@ -557,27 +654,39 @@ class BaseMonitor(ABC):
     def isAttached(self) -> Optional[bool]:
         """
         Check if monitor is attached (not necessarily ON) to system
+
+        :return: ''True'' if monitor is attached
         """
         raise NotImplementedError
 
 
 _updateRequested = False
 _plugListeners: List[Callable[[List[str], dict[str, ScreenValue]], None]] = []
-_lockPlug = threading.RLock()
 _changeListeners: List[Callable[[List[str], dict[str, ScreenValue]], None]] = []
-_lockChange = threading.RLock()
 _kill = threading.Event()
+_interval = 0.5
 
 
 class _UpdateScreens(threading.Thread):
 
-    def __init__(self, kill: threading.Event):
+    def __init__(self, kill: threading.Event, interval: float = 0.5):
         threading.Thread.__init__(self)
 
         self._kill = kill
-        self._interval = 0.5
-        self._screens: dict[str, ScreenValue] = _getAllMonitorsDict()
-        self._monitors: list[Monitor] = []
+        self._interval = interval
+        self._screens: dict[str, ScreenValue] = {}
+        if sys.platform == "linux":
+            import Xlib.display
+            from Xlib.ext import randr
+            from Xlib.protocol.rq import Struct
+            from Xlib.xobject.drawable import Window as XWindow
+            self._monitorsData: List[Tuple[Xlib.display.Display, Struct, XWindow,randr.GetScreenResourcesCurrent,
+                                                     randr.MonitorInfo, str, int, randr.GetOutputInfo,
+                                                     int, randr.GetCrtcInfo]] = []
+            self._screens, self._monitorsData = _getAllMonitorsDictThread()
+        else:
+            self._screens = _getAllMonitorsDict()
+            self._monitorsData = []  # type: ignore[var-annotated]
 
     def run(self):
 
@@ -600,33 +709,35 @@ class _UpdateScreens(threading.Thread):
             On / Off / Standby
             Attach / Detach
         """
-
         global _updateRequested
         global _plugListeners
         global _changeListeners
 
         while not self._kill.is_set():
 
-            if _updateRequested or _plugListeners or _changeListeners:
-
+            if sys.platform == "linux":
+                # Linux ONLY since X11 is not thread-safe (randr crashes when querying in parallel from separate thread)
+                screens, self._monitorsData = _getAllMonitorsDictThread()
+            else:
                 screens = _getAllMonitorsDict()
-                newScreens = list(screens.keys())
-                currentScreens = list(self._screens.keys())
 
-                if currentScreens != newScreens:
-                    names = [s for s in newScreens if s not in currentScreens] + \
-                            [s for s in currentScreens if s not in newScreens]
+            newScreens = list(screens.keys())
+            currentScreens = list(self._screens.keys())
+
+            if _plugListeners:
+                names = [s for s in newScreens if s not in currentScreens] + \
+                        [s for s in currentScreens if s not in newScreens]
+                if names:
                     for listener in _plugListeners:
                         listener(names, screens)
 
-                if self._screens != screens:
-                    names = [s for s in newScreens if s in currentScreens and screens[s] != self._screens[s]]
-                    self._screens = screens
-                    if names:
-                        for listener in _changeListeners:
-                            listener(names, screens)
+            if _changeListeners:
+                names = [s for s in newScreens if s in currentScreens and screens[s] != self._screens[s]]
+                if names:
+                    for listener in _changeListeners:
+                        listener(names, screens)
 
-                self._monitors = _getAllMonitors()
+            self._screens = screens
 
             self._kill.wait(self._interval)
 
@@ -637,11 +748,26 @@ class _UpdateScreens(threading.Thread):
         return self._screens
 
     def getMonitors(self) -> list[Monitor]:
-        return self._monitors
+        monitors: list[Monitor] = []
+        for screen in self._screens.keys():
+            try:
+                monitors.append(Monitor(self._screens[screen]["id"]))
+            except:
+                pass
+        return monitors
+
+    def getMonitorsData(self, handle):
+        # Linux ONLY to avoid randr crashing when querying from separate thread and/or too quickly in parallel
+        if handle:
+            for monitorData in self._monitorsData:
+                display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData
+                if handle == output:
+                    return [(display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo)]
+            return []
+        return self._monitorsData
 
 
 _updateScreens: Optional[_UpdateScreens] = None
-_lockUpdate = threading.RLock()
 
 
 def enableUpdateInfo():
@@ -659,8 +785,7 @@ def enableUpdateInfo():
     """
     global _updateRequested
     _updateRequested = True
-    if _updateScreens is None:
-        _startUpdateScreens()
+    _startUpdateScreens()
 
 
 def disableUpdateInfo():
@@ -672,7 +797,9 @@ def disableUpdateInfo():
     """
     global _updateRequested
     _updateRequested = False
-    if not _plugListeners and not _changeListeners and not _updateRequested:
+    global _plugListeners
+    global _changeListeners
+    if not _plugListeners and not _changeListeners:
         _killUpdateScreens()
 
 
@@ -692,11 +819,8 @@ def plugListenerRegister(monitorCountChanged: Callable[[List[str], dict[str, Scr
     :param monitorCountChanged: callback to be invoked in case the number of monitor connected changes
     """
     global _plugListeners
-    global _lockPlug
-    with _lockPlug:
-        if monitorCountChanged not in _plugListeners:
-            _plugListeners.append(monitorCountChanged)
-    if _updateScreens is None:
+    if monitorCountChanged not in _plugListeners:
+        _plugListeners.append(monitorCountChanged)
         _startUpdateScreens()
 
 
@@ -708,13 +832,13 @@ def plugListenerUnregister(monitorCountChanged: Callable[[List[str], dict[str, S
     :param monitorCountChanged: callback previously registered
     """
     global _plugListeners
-    global _lockPlug
-    with _lockPlug:
-        try:
-            objIndex = _plugListeners.index(monitorCountChanged)
-            _plugListeners.pop(objIndex)
-        except:
-            pass
+    try:
+        objIndex = _plugListeners.index(monitorCountChanged)
+        _plugListeners.pop(objIndex)
+    except:
+        pass
+    global _changeListeners
+    global _updateRequested
     if not _plugListeners and not _changeListeners and not _updateRequested:
         _killUpdateScreens()
 
@@ -735,11 +859,8 @@ def changeListenerRegister(monitorPropsChanged: Callable[[List[str], dict[str, S
     :param monitorPropsChanged: callback to be invoked in case the number of monitor properties change
     """
     global _changeListeners
-    global _lockChange
-    with _lockChange:
-        if monitorPropsChanged not in _changeListeners:
-            _changeListeners.append(monitorPropsChanged)
-    if _updateScreens is None:
+    if monitorPropsChanged not in _changeListeners:
+        _changeListeners.append(monitorPropsChanged)
         _startUpdateScreens()
 
 
@@ -751,52 +872,35 @@ def changeListenerUnregister(monitorPropsChanged: Callable[[List[str], dict[str,
     :param monitorPropsChanged: callback previously registered
     """
     global _changeListeners
-    global _lockChange
-    with _lockChange:
-        try:
-            objIndex = _plugListeners.index(monitorPropsChanged)
-            _plugListeners.pop(objIndex)
-        except:
-            pass
+    try:
+        objIndex = _changeListeners.index(monitorPropsChanged)
+        _changeListeners.pop(objIndex)
+    except:
+        pass
+    global _plugListeners
+    global _updateRequested
     if not _plugListeners and not _changeListeners and not _updateRequested:
         _killUpdateScreens()
 
 
 def _startUpdateScreens():
     global _updateScreens
-    global _lockUpdate
-    with _lockUpdate:
-        if _updateScreens is None:
-            _kill.clear()
-            _updateScreens = _UpdateScreens(_kill)
-            _updateScreens.daemon = True
-            _updateScreens.start()
+    if _updateScreens is None:
+        global _kill
+        _kill.clear()
+        global _interval
+        _updateScreens = _UpdateScreens(_kill, _interval)
+        _updateScreens.daemon = True
+        _updateScreens.start()
 
 
 def _killUpdateScreens():
     global _updateScreens
-    global _lockUpdate
-    global _kill
-    with _lockUpdate:
-        if _updateScreens is not None:
-            timer = threading.Timer(_updateScreens._interval * 2, _timerHandler)
-            timer.start()
-            try:
-                _kill.set()
-                _updateScreens.join(_updateScreens._interval * 3)
-            except:
-                pass
-            _updateScreens = None
-            timer.cancel()
-
-
-class _TimeOutException(Exception):
-    pass
-
-
-def _timerHandler():
-    global _updateScreens
-    raise _TimeOutException()
+    if _updateScreens is not None:
+        global _kill
+        _kill.set()
+        _updateScreens.join()
+        _updateScreens = None
 
 
 def isWatchdogEnabled() -> bool:
@@ -857,6 +961,8 @@ def updateWatchdogInterval(interval: float):
     global _updateScreens
     if interval > 0 and _updateScreens is not None:
         _updateScreens.updateInterval(interval)
+        global _interval
+        _interval = interval
 
 
 def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
@@ -913,8 +1019,9 @@ elif sys.platform == "win32":
                                 _findMonitor, _arrangeMonitors, _getMousePos, Win32Monitor as Monitor
                                 )
 elif sys.platform == "linux":
-    from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                  _findMonitor, _arrangeMonitors, _getMousePos, LinuxMonitor as Monitor
+    from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getAllMonitorsDictThread, _getMonitorsData,
+                                  _getMonitorsCount, _getPrimary, _findMonitor, _arrangeMonitors, _getMousePos,
+                                  LinuxMonitor as Monitor
                                   )
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')

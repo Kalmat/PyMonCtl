@@ -3,19 +3,26 @@
 from __future__ import annotations
 
 import time
-from typing import Union, Optional, List, cast
+from typing import Union, Optional, List, Tuple, cast
 
 import pymonctl as pmc
 
 
-def countChanged(names, screensInfo):
-    for name in names:
-        print("MONITORS COUNT CHANGED:", name, screensInfo[name])
+_TIMELAP = 5
 
 
-def propsChanged(names, screensInfo):
-    for name in names:
-        print("MONITORS PROPS CHANGED:", name, screensInfo[name])
+def pluggedCB(names: List[str], info: dict[str, pmc.ScreenValue]):
+    print("MONITOR (UN)PLUGGED!!!")
+    print(names)
+    print(info)
+    print()
+
+
+def changedCB(names: List[str], info: dict[str, pmc.ScreenValue]):
+    print("MONITOR CHANGED!!!")
+    print(names)
+    print(info)
+    print()
 
 
 print("MONITORS COUNT:", pmc.getMonitorsCount())
@@ -27,16 +34,25 @@ for mon in monDict:
 print()
 
 monitorsPlugged: List[pmc.Monitor] = pmc.getAllMonitors()
-initArrangement: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size]] = {}
+initArrangement = []
+initDict: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size]] = {}
 setAsPrimary: Optional[pmc.Monitor] = None
-for monitor in monitorsPlugged:
-    initArrangement[monitor.name] = {"relativePos": cast(pmc.Point, monitor.position)}
-    if monitor.isPrimary:
-        setAsPrimary = monitor
-print("INITIAL POSITIONS:", initArrangement)
+try:
+    initArrangement: List[Tuple[pmc.Monitor, pmc.ScreenValue]] = pmc.saveSetup()
+    print("INITIAL POSITIONS:", initArrangement)
+except:
+    for monitor in monitorsPlugged:
+        initDict[monitor.name] = {"relativePos": cast(pmc.Point, monitor.position)}
+        if monitor.isPrimary:
+            setAsPrimary = monitor
+    print("INITIAL POSITIONS:", initDict)
 print()
 
+
 for monitor in monitorsPlugged:
+
+    if monitor.isPrimary and setAsPrimary is None:
+        setAsPrimary = monitor
 
     print("NAME", monitor.name)
     print("HANDLE/ID:", monitor.handle)
@@ -52,111 +68,109 @@ for monitor in monitorsPlugged:
     print("CONTRAST:", monitor.contrast)
     print("CURRENT MODE:", monitor.mode)
     print("DEFAULT MODE:", monitor.defaultMode)
+    print("ALL MODES:", monitor.allModes)
     print()
 
+    print("WATCHDOG ENABLED", pmc.isWatchdogEnabled())
+    pmc.enableUpdateInfo()
+    print("UPDATE ENABLED", pmc.isUpdateInfoEnabled())
+    pmc.plugListenerRegister(pluggedCB)
+    print("PLUG LISTENER REGISTERED", pmc.isPlugListenerRegistered(pluggedCB))
+    pmc.changeListenerRegister(changedCB)
+    print("CHANGE LISTENER REGISTERED", pmc.isChangeListenerRegistered(changedCB))
+    print("WATCHDOG ENABLED", pmc.isWatchdogEnabled())
+    print()
 
-    def pluggedCB(names, info):
-        print("MONITOR (UN)PLUGGED!!!")
-        print(names)
-        print(info)
-        print()
-
-
-    def changedCB(names, info):
-        print("MONITOR CHANGED!!!")
-        print(names)
-        print(info)
-        print()
-
-
-    #pmc.enableUpdateInfo()
-    #pmc.plugListenerRegister(pluggedCB)
-    #pmc.changeListenerRegister(changedCB)
     currMode = monitor.mode
-    targetMode = monitor.mode
-    if monitor.size is not None and monitor.defaultMode is not None:
-        if monitor.size.width == 5120:
-            targetMode = pmc.DisplayMode(3840, 1080, monitor.defaultMode.frequency)
-        elif monitor.size.width == 1920:
-            targetMode = pmc.DisplayMode(1360, 768, monitor.defaultMode.frequency)
-        elif monitor.size.width == 1680:
-            targetMode = pmc.DisplayMode(1440, 900, monitor.defaultMode.frequency)
-        else:
-            modes = monitor.allModes
-            for mode in modes:
-                if monitor.mode and mode.width != monitor.mode.width:
-                    targetMode = mode
-                    break
-    print("CHANGE MODE", targetMode)
+    targetMode = None
+    if monitor.mode:
+        monWidth = currMode.width
+        targetWidth = monWidth
+        if monWidth == 5120:
+            targetWidth = 3840
+        elif monWidth == 3840:
+            targetWidth = 2560
+        elif monWidth == 1920:
+            targetWidth = 1360
+        elif monWidth == 1680:
+            targetWidth = 1280
+        for mode in monitor.allModes:
+            if targetWidth == mode.width:
+                targetMode = mode
+                break
+            elif (not targetMode or mode.width > targetMode.width) and mode.width != currMode.width:
+                targetMode = mode
+        if not targetMode:
+            targetMode = currMode
+    print("CHANGE MODE", "Current:", currMode, " / Target:", targetMode)
     monitor.setMode(targetMode)
-    time.sleep(3)
-    print("MODE CHANGED?:", monitor.mode)
-    print("SET DEFAULT MODE", monitor.defaultMode)
+    time.sleep(_TIMELAP)
+    print("MODE CHANGED?:", "Current:", monitor.mode)
+    print("SET DEFAULT MODE", "Target:", monitor.defaultMode)
     monitor.setDefaultMode()
-    time.sleep(3)
-    print("DEFAULT MODE SET?:", monitor.mode)
-    print("RESTORE MODE", currMode)
+    time.sleep(_TIMELAP)
+    print("DEFAULT MODE SET?:", "Current:", monitor.mode)
+    print("RESTORE MODE", "Target:", currMode)
     monitor.setMode(currMode)
-    time.sleep(3)
-    print("MODE RESTORED?:", monitor.mode)
+    time.sleep(_TIMELAP)
+    print("MODE RESTORED?:", "Current:", monitor.mode)
     print()
 
-    print("CHANGE BRIGHTNESS")
     currBright = monitor.brightness
+    print("CHANGE BRIGHTNESS", "Current:", currBright, "Target:", 50)
     monitor.setBrightness(50)
-    time.sleep(2)
-    print("RESTORE BRIGHTNESS")
+    time.sleep(_TIMELAP)
+    print("RESTORE BRIGHTNESS", "Current:", monitor.brightness, "Target:", currBright)
     monitor.setBrightness(currBright)
-    time.sleep(2)
+    time.sleep(_TIMELAP)
     print()
 
-    print("CHANGE CONTRAST")
     currContrast = monitor.contrast
+    print("CHANGE CONTRAST", "Current:", currContrast, "Target:", 50)
     monitor.setContrast(50)
-    time.sleep(2)
-    print("RESTORE CONTRAST")
+    time.sleep(_TIMELAP)
+    print("RESTORE CONTRAST", "Current:", monitor.contrast, "Target:", currContrast)
     monitor.setContrast(currContrast)
-    time.sleep(2)
+    time.sleep(_TIMELAP)
     print()
 
-    print("CHANGE ORIENTATION")
+    print("CHANGE ORIENTATION", "Current:", monitor.orientation, "Target:", pmc.Orientation.INVERTED)
     monitor.setOrientation(pmc.Orientation.INVERTED)
-    time.sleep(5)
-    print("RESTORE ORIENTATION")
+    time.sleep(_TIMELAP*2)
+    print("RESTORE ORIENTATION", "Current:", monitor.orientation, "Target:", pmc.Orientation.NORMAL)
     monitor.setOrientation(pmc.Orientation.NORMAL)
-    time.sleep(3)
+    time.sleep(_TIMELAP*2)
     print()
 
     currScale = monitor.scale
-    print("CHANGE SCALE. CURRENT:", currScale)
+    print("CHANGE SCALE", "Current:", currScale, "Target:", 200)
     monitor.setScale((200, 200))
-    time.sleep(5)
-    print("SCALE CHANGED?:", monitor.scale)
-    print("RESTORE SCALE")
+    time.sleep(_TIMELAP*2)
+    print("SCALE CHANGED (Not all scale values will be allowed, setting nearest)?:", "Current:", monitor.scale)
+    print("RESTORE SCALE", "Target:", currScale)
     if currScale is not None:
         monitor.setScale(currScale)
-    time.sleep(2)
-    print("SCALE RESTORED?:", monitor.scale)
+    time.sleep(_TIMELAP)
+    print("SCALE RESTORED?:", "Current:", monitor.scale)
 
     print("IS ON?:", monitor.isOn)
     print("TURN OFF")
     monitor.turnOff()
-    time.sleep(3)
+    time.sleep(_TIMELAP)
     print("IS ON?:", monitor.isOn)
     print("TURN ON")
     monitor.turnOn()
-    time.sleep(5)
+    time.sleep(_TIMELAP*2)
     print("IS ON?:", monitor.isOn)
     print("IS SUSPENDED?:", monitor.isSuspended)
-    time.sleep(3)
     print("STANDBY")
     monitor.suspend()
-    time.sleep(3)
+    time.sleep(_TIMELAP*2)
     print("IS ON?:", monitor.isOn)
     print("IS SUSPENDED?:", monitor.isSuspended)
     print("WAKEUP")
     monitor.turnOn()
-    time.sleep(5)
+    time.sleep(_TIMELAP*2)
     print("IS ON?:", monitor.isOn)
     print("IS SUSPENDED?:", monitor.isSuspended)
     print()
@@ -164,16 +178,20 @@ for monitor in monitorsPlugged:
     print("IS ATTACHED?:", monitor.isAttached)
     print("DETACH")
     monitor.detach()
-    time.sleep(3)
+    time.sleep(_TIMELAP)
     print("IS ATTACHED?:", monitor.isAttached)
     print("ATTACH")
     monitor.attach()
-    time.sleep(5)
+    time.sleep(_TIMELAP*2)
     print("IS ATTACHED?:", monitor.isAttached)
     print()
     pmc.disableUpdateInfo()
+    print("UPDATE ENABLED", pmc.isUpdateInfoEnabled())
     pmc.plugListenerUnregister(pluggedCB)
+    print("PLUG LISTENER REGISTERED", pmc.isPlugListenerRegistered(pluggedCB))
     pmc.changeListenerUnregister(changedCB)
+    print("CHANGE LISTENER REGISTERED", pmc.isChangeListenerRegistered(changedCB))
+    print("WATCHDOG ENABLED", pmc.isWatchdogEnabled())
 
 print("MANAGING MONITORS")
 if len(monitorsPlugged) > 1:
@@ -192,18 +210,19 @@ if len(monitorsPlugged) > 1:
     print("MONITOR %s AS PRIMARY" % secNum)
     print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     mon2.setPrimary()
-    time.sleep(3)
+    time.sleep(_TIMELAP)
     print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     print("MONITOR %s AS PRIMARY" % priNum)
     mon1.setPrimary()
-    time.sleep(3)
+    time.sleep(_TIMELAP)
     print("MONITOR 1:", mon1.isPrimary, mon1.position, mon1.size, "MONITOR 2:", mon2.isPrimary, mon2.position, mon2.size)
     print()
 
     size = mon1.size
     if size:
-        print("POSITION MONITOR 2 AT FREE BELOW POSITION (200, -%s)" % size.height)
+        print("POSITION MONITOR 2 AT FREE BELOW POSITION (200, %s)" % size.height)
         mon2.setPosition((200, size.height), None)
+        time.sleep(_TIMELAP)
         print("MONITOR 2 POSITIONED?", mon2.position)
         print()
 
@@ -218,7 +237,7 @@ if len(monitorsPlugged) > 1:
             relativeTo = monitor.name
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
-    time.sleep(3)
+    time.sleep(_TIMELAP)
     for monitor in monitorsPlugged:
         print("MONITOR", monitor.name, "IS PRIMARY", monitor.isPrimary, "POSITION", monitor.position, "SIZE", monitor.size)
     print()
@@ -234,7 +253,7 @@ if len(monitorsPlugged) > 1:
             relativeTo = monitor.name
     print(arrangement)
     pmc.arrangeMonitors(arrangement)
-    time.sleep(3)
+    time.sleep(_TIMELAP)
     for monitor in monitorsPlugged:
         print("MONITOR", monitor.name, "IS PRIMARY", monitor.isPrimary, "POSITION", monitor.position, "SIZE", monitor.size)
     print()
@@ -242,143 +261,10 @@ if len(monitorsPlugged) > 1:
     if initArrangement:
         print("RESTORE INITIAL MONITOR CONFIG")
         print(initArrangement)
-        pmc.arrangeMonitors(initArrangement)
+        pmc.restoreSetup(initArrangement)
+    elif initDict:
+        print("RESTORE INITIAL MONITOR CONFIG")
+        print(initDict)
+        pmc.arrangeMonitors(initDict)
         if setAsPrimary is not None:
             setAsPrimary.setPrimary()
-
-"""
-MONITORS COUNT: 2
-PRIMARY MONITOR: DP-1
-
-{'system_name': 'DP-1', 'id': 66, 'is_primary': True, 'position': Point(x=0, y=0), 'size': Size(width=3840, height=1080), 'workarea': Rect(left=0, top=0, right=5520, bottom=1036), 'scale': (100.0, 100.0), 'dpi': (82, 81), 'orientation': 0, 'frequency': 119.97, 'colordepth': 24}
-{'system_name': 'HDMI-2', 'id': 69, 'is_primary': False, 'position': Point(x=3840, y=0), 'size': Size(width=1680, height=1050), 'workarea': Rect(left=0, top=0, right=5520, bottom=1036), 'scale': (100.0, 100.0), 'dpi': (90, 90), 'orientation': 0, 'frequency': 74.89, 'colordepth': 24}
-
-NAME DP-1
-HANDLE/ID: 66
-IS PRIMARY: True
-SIZE: Size(width=3840, height=1080)
-POSITION: Point(x=0, y=0)
-FREQUENCY: 119.97
-ORIENTATION: 0
-SCALE (100.0, 100.0)
-DPI: (82, 81)
-COLOR DEPTH: 24
-BRIGHTNESS: 100
-CONTRAST: 100
-CURRENT MODE: DisplayMode(width=3840, height=1080, frequency=119.97)
-DEFAULT MODE: DisplayMode(width=3840, height=1080, frequency=119.97)
-
-CHANGE MODE DisplayMode(width=5120, height=1440, frequency=120.0)
-MODE CHANGED?: DisplayMode(width=5120, height=1440, frequency=120.0)
-SET DEFAULT MODE DisplayMode(width=3840, height=1080, frequency=119.97)
-DEFAULT MODE SET?: DisplayMode(width=3840, height=1080, frequency=119.97)
-RESTORE MODE DisplayMode(width=3840, height=1080, frequency=119.97)
-MODE RESTORED?: DisplayMode(width=3840, height=1080, frequency=119.97)
-
-CHANGE BRIGHTNESS
-RESTORE BRIGHTNESS
-
-CHANGE CONTRAST
-RESTORE CONTRAST
-
-CHANGE ORIENTATION
-RESTORE ORIENTATION
-
-CHANGE SCALE. CURRENT: (100.0, 100.0)
-RESTORE SCALE
-IS ON?: True
-TURN OFF
-IS ON?: False
-TURN ON
-IS ON?: True
-IS SUSPENDED?: False
-STANDBY
-IS ON?: True
-IS SUSPENDED?: False
-WAKEUP
-IS ON?: True
-IS SUSPENDED?: False
-
-IS ATTACHED?: True
-DETACH
-IS ATTACHED?: False
-ATTACH
-IS ATTACHED?: True
-
-NAME HDMI-2
-HANDLE/ID: 69
-IS PRIMARY: False
-SIZE: Size(width=1680, height=1050)
-POSITION: Point(x=0, y=0)
-FREQUENCY: 74.89
-ORIENTATION: 0
-SCALE (100.0, 100.0)
-DPI: (90, 90)
-COLOR DEPTH: 24
-BRIGHTNESS: 100
-CONTRAST: 100
-CURRENT MODE: DisplayMode(width=1680, height=1050, frequency=59.95)
-DEFAULT MODE: DisplayMode(width=1680, height=1050, frequency=59.95)
-
-CHANGE MODE DisplayMode(width=1440, height=900, frequency=59.95)
-MODE CHANGED?: DisplayMode(width=1440, height=900, frequency=74.98)
-SET DEFAULT MODE DisplayMode(width=1680, height=1050, frequency=59.95)
-DEFAULT MODE SET?: DisplayMode(width=1680, height=1050, frequency=59.95)
-RESTORE MODE DisplayMode(width=1680, height=1050, frequency=59.95)
-MODE RESTORED?: DisplayMode(width=1680, height=1050, frequency=59.95)
-
-CHANGE BRIGHTNESS
-RESTORE BRIGHTNESS
-
-CHANGE CONTRAST
-RESTORE CONTRAST
-
-CHANGE ORIENTATION
-RESTORE ORIENTATION
-
-CHANGE SCALE. CURRENT: (100.0, 100.0)
-RESTORE SCALE
-IS ON?: True
-TURN OFF
-IS ON?: False
-TURN ON
-IS ON?: True
-IS SUSPENDED?: False
-STANDBY
-IS ON?: True
-IS SUSPENDED?: False
-WAKEUP
-IS ON?: True
-IS SUSPENDED?: False
-
-IS ATTACHED?: True
-DETACH
-IS ATTACHED?: False
-ATTACH
-IS ATTACHED?: True
-
-MANAGING MONITORS
-MONITOR 1: True Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: False Point(x=0, y=0) Size(width=1680, height=1050)
-
-MONITOR 2 AS PRIMARY
-MONITOR 1: True Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: False Point(x=0, y=0) Size(width=1680, height=1050)
-MONITOR 1: False Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: True Point(x=0, y=0) Size(width=1680, height=1050)
-MONITOR 1 AS PRIMARY
-MONITOR 1: True Point(x=0, y=0) Size(width=3840, height=1080) MONITOR 2: False Point(x=0, y=0) Size(width=1680, height=1050)
-
-POSITION MONITOR 2 AT FREE BELOW POSITION (200, -1080)
-MONITOR 2 POSITIONED? Point(x=200, y=1080)
-
-CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, REST OF MONITORS AT LEFT_BOTTOM
-{'HDMI-2': {'relativePos': <Position.PRIMARY: 0>, 'relativeTo': ''}, 'DP-1': {'relativePos': <Position.LEFT_BOTTOM: 11>, 'relativeTo': 'HDMI-2'}}
-MONITOR DP-1 IS PRIMARY False POSITION Point(x=0, y=0) SIZE Size(width=3840, height=1080)
-MONITOR HDMI-2 IS PRIMARY True POSITION Point(x=3840, y=30) SIZE Size(width=1680, height=1050)
-
-CHANGE ARRANGEMENT: MONITOR 1 AS PRIMARY, REST OF MONITORS AT RIGHT_TOP
-{'DP-1': {'relativePos': <Position.PRIMARY: 0>, 'relativeTo': ''}, 'HDMI-2': {'relativePos': <Position.RIGHT_TOP: 30>, 'relativeTo': 'DP-1'}}
-MONITOR DP-1 IS PRIMARY True POSITION Point(x=0, y=0) SIZE Size(width=3840, height=1080)
-MONITOR HDMI-2 IS PRIMARY False POSITION Point(x=3840, y=0) SIZE Size(width=1680, height=1050)
-
-RESTORE INITIAL MONITOR CONFIG
-{'DP-1': {'relativePos': Point(x=0, y=0)}, 'HDMI-2': {'relativePos': Point(x=0, y=0)}}
-"""

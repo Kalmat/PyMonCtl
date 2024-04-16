@@ -28,10 +28,12 @@ Functions to get monitor instances, get info and arrange monitors plugged to the
 |   getAllMonitorsDict    |
 |    getMonitorsCount     |
 |       getPrimary        |
-|   findMonitorAtPoint    |
-| findMonitorAtPointInfo  |
+|   findMonitorsAtPoint   |
+| findMonitorsAtPointInfo |
 |   findMonitorWithName   |
 | findMonitorWithNameInfo |
+|        saveSetup        |
+|      restoreSetup       |
 |     arrangeMonitors     |
 |       getMousePos       |
 
@@ -60,7 +62,7 @@ the provided handle is not valid.
 |   colordepth   |    X    |   X   |   X   |
 |      dpi       |    X    |   X   |   X   |
 |     scale      |    X    |   X   |   X   |
-|    setScale    |    X    |   X   |       |
+|    setScale    |    X    |   X   |   X   |
 |  orientation   |    X    |   X   |   X   |
 | setOrientation |    X    |   X   | X (1) |
 |   brightness   |  X (2)  |   X   | X (1) |
@@ -74,8 +76,8 @@ the provided handle is not valid.
 |    allModes    |    X    |   X   |   X   |
 |   setPrimary   |    X    |   X   |   X   |
 |   isPrimary    |    X    |   X   |   X   |
-|     turnOn     |    X    |   X   |       |
-|    turnOff     |  X (4)  |   X   |       |
+|     turnOn     |  X (4)  |   X   | X (4) |
+|    turnOff     |  X (4)  |   X   | X (4) |
 |      isOn      |  X (2)  |   X   |   X   |
 |    suspend     |  X (4)  | X (4) | X (4) |
 |  isSuspended   |  X (2)  |   X   |   X   |
@@ -90,16 +92,29 @@ the provided handle is not valid.
 
 (3) It doesn't exactly return / change contrast, but gamma values.
 
-(4) Working on Windows with VCP MCCS support, otherwise, it will suspend ALL monitors.
-    To address a specific monitor, try using turnOff() / turnOn() / detach() / attach() methods.
+(4) Windows: Working with VCP MCCS support only.
+    Linux: It will suspend ALL monitors. To address just one monitor, try using turnOff() / turnOn() / detach() / attach() methods.
+    macOS: It will suspend ALL monitors. Use turnOn() to wake them up again
 
 #### WARNING: Most of these properties may return ''None'' in case the value can not be obtained
 
 ### Important OS-dependent behaviors and limitations:
 
-  - On Windows, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. Besides, the monitors can not overlap. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
-  - On Linux, primary monitor can be anywhere, and even there can be no primary monitor. Monitors can overlap, so take this into account when setting a new monitor position. Also bear in mind that xrandr won't accept negative values, so the whole setup will be referenced to (0, 0) coordinates.
-  - On macOS, primary monitor is mandatory, and it is always placed at (0, 0) coordinates. The monitors can overlap, so take this into account when setting a new monitor position. To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to LEFT.
+  - Windows:
+      - Primary monitor is mandatory, and it is always placed at (0, 0) coordinates. 
+      - Monitors can not overlap.
+      - To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to RIGHT_TOP.
+      - If you attach / detach / plug / unplug a monitor, all IDs may change. The module will try to refresh the IDs for all Monitor class instances, but take into account it may fail!
+  - Linux:
+      - Primary monitor can be anywhere, and even there can be no primary monitor. 
+      - Monitors can overlap, so take this into account when setting a new monitor position. 
+      - xrandr won't accept negative values, so the whole setup will be referenced to (0, 0) coordinates.
+      - xrandr will sort primary monitors first. Because of this and for homegeneity, when positioning a monitor as primary (only with setPosition() method), it will be placed at (0 ,0) and all the rest to RIGHT_TOP.
+  - macOS:
+      - Primary monitor is mandatory, and it is always placed at (0, 0) coordinates. 
+      - Monitors can overlap, so take this into account when setting a new monitor position. 
+      - To set a monitor as Primary, it is necessary to reposition primary monitor first, so the rest of monitors will sequentially be repositioned to RIGHT_TOP.
+      - setScale() method uses a workaround by applying the nearest monitor mode to magnify text to given value
 
 It is highly recommended to use `arrangeMonitors()` function for complex setups or just in case there are two or more monitors.   
 

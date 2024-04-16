@@ -2,16 +2,16 @@
 # -*- coding: utf-8 -*-
 
 __all__ = [
-    "getAllMonitors", "getAllMonitorsDict", "getMonitorsCount", "getPrimary", "findMonitorsAtPoint",
-    "findMonitorsAtPointInfo",
-    "arrangeMonitors", "getMousePos", "version", "Monitor",
+    "getAllMonitors", "getAllMonitorsDict", "getMonitorsCount", "getPrimary",
+    "findMonitorsAtPoint", "findMonitorsAtPointInfo", "findMonitorWithName", "findMonitorWithNameInfo",
+    "saveSetup", "restoreSetup", "arrangeMonitors", "getMousePos", "version", "Monitor",
     "enableUpdateInfo", "disableUpdateInfo", "isUpdateInfoEnabled", "isWatchdogEnabled", "updateWatchdogInterval",
     "plugListenerRegister", "plugListenerUnregister", "isPlugListenerRegistered",
     "changeListenerRegister", "changeListenerUnregister", "isChangeListenerRegistered",
     "DisplayMode", "ScreenValue", "Size", "Point", "Box", "Rect", "Position", "Orientation"
 ]
 
-__version__ = "0.7"
+__version__ = "0.8"
 
 
 def version(numberOnly: bool = True) -> str:
@@ -21,7 +21,7 @@ def version(numberOnly: bool = True) -> str:
 
 from ._main import (getAllMonitors, getAllMonitorsDict, getMonitorsCount, getPrimary,
                     findMonitorsAtPoint, findMonitorsAtPointInfo, findMonitorWithName, findMonitorWithNameInfo,
-                    arrangeMonitors, getMousePos, Monitor,
+                    saveSetup, restoreSetup, arrangeMonitors, getMousePos, Monitor,
                     enableUpdateInfo, disableUpdateInfo, isUpdateInfoEnabled, isWatchdogEnabled, updateWatchdogInterval,
                     plugListenerRegister, plugListenerUnregister, isPlugListenerRegistered,
                     changeListenerRegister, changeListenerUnregister, isChangeListenerRegistered,

@@ -4,38 +4,37 @@
 # mypy: disable_error_code = no-any-return
 from __future__ import annotations
 
+import ctypes
+from ctypes import util
+
 import sys
 assert sys.platform == "darwin"
 
+import platform
 import subprocess
 import threading
-import time
 
 from typing import Optional, List, Union, cast, Tuple
 
 import AppKit
 import Quartz
 import Quartz.CoreGraphics as CG
+import CoreFoundation as CF
 
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
-from ._display_manager_lib import Display
+# from ._display_manager_lib import Display
 
 
 def _getAllMonitors() -> list[MacOSMonitor]:
     monitors = []
-    screens = AppKit.NSScreen.screens()
-    for screen in screens:
-        desc = screen.deviceDescription()
-        displayId = desc['NSScreenNumber']  # Quartz.NSScreenNumber seems to be wrong
+    v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)  # --> How to get display name from this?
+    for displayId in ids:
         monitors.append(MacOSMonitor(displayId))
-    # Alternatives to test:
-    # v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)
-    # v, ids, cnt = CG.CGGetActiveDisplayList(10, None, None)
     return monitors
 
 
-def _getAllMonitorsDict(forceUpdate: bool = True) -> dict[str, ScreenValue]:
+def _getAllMonitorsDict() -> dict[str, ScreenValue]:
     result: dict[str, ScreenValue] = {}
     for mon in _NSgetAllMonitors():
         screen, desc, displayId, scrName = mon
@@ -45,17 +44,16 @@ def _getAllMonitorsDict(forceUpdate: bool = True) -> dict[str, ScreenValue]:
         except:
             # In older macOS, screen doesn't have localizedName() method
             name = "Display" + "_" + str(displayId)
-        display = displayId
-        is_primary = Quartz.CGDisplayIsMain(display) == 1
+        is_primary = Quartz.CGDisplayIsMain(displayId) == 1
         x, y, w, h = int(screen.frame().origin.x), int(screen.frame().origin.y), int(screen.frame().size.width), int(screen.frame().size.height)
         wa = screen.visibleFrame()
         wx, wy, wr, wb = int(wa.origin.x), int(wa.origin.y), int(wa.size.width), int(wa.size.height)
-        scale = _getScale(screen)
+        scale = _scale(displayId)
         dpi = desc[Quartz.NSDeviceResolution].sizeValue()
         dpiX, dpiY = int(dpi.width), int(dpi.height)
-        rot = int(Quartz.CGDisplayRotation(display))
-        freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(display))
-        depth = Quartz.CGDisplayBitsPerPixel(display)
+        rot = Orientation(int(Quartz.CGDisplayRotation(displayId) / 90))
+        freq = Quartz.CGDisplayModeGetRefreshRate(Quartz.CGDisplayCopyDisplayMode(displayId))
+        depth = Quartz.CGDisplayBitsPerPixel(displayId)
 
         result[scrName] = {
             'system_name': name,
@@ -74,23 +72,20 @@ def _getAllMonitorsDict(forceUpdate: bool = True) -> dict[str, ScreenValue]:
 
 
 def _getMonitorsCount() -> int:
-    return len(AppKit.NSScreen.screens())
+    v, ids, cnt = CG.CGGetOnlineDisplayList(10, None, None)
+    return cnt
 
 
 def _findMonitor(x: int, y: int) -> List[MacOSMonitor]:
-    ret, monIds, count = CG.CGGetDisplaysWithPoint((x, y), 10, None, None)
-    monitors = []
-    if ret == 0:
-        for i in range(count):
-            monitors.append(MacOSMonitor(monIds[i]))
-    return monitors
+    v, ids, cnt = CG.CGGetDisplaysWithPoint((x, y), 10, None, None)
+    return [MacOSMonitor(displayId) for displayId in ids]
 
 
 def _getPrimary() -> MacOSMonitor:
     return MacOSMonitor()
 
 
-def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, Point, Size]]]):
+def _arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]]):
 
     monitors = _NSgetAllMonitorsDict()
     primaryPresent = False
@@ -102,14 +97,13 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
                 ((isinstance(relPos, Position) or isinstance(relPos, int)) and
                  ((relMon and relMon not in monitors.keys()) or (not relMon and relPos != Position.PRIMARY)))):
             return
-        elif relPos == Position.PRIMARY:
+        elif relPos == Position.PRIMARY or relPos == (0, 0) or relPos == Point(0, 0):
             setAsPrimary = monName
             primaryPresent = True
     if not primaryPresent:
         return
 
-    newPos: dict[str, dict[str, int]] = {}
-    newPos[setAsPrimary] = {"x": 0, "y": 0}
+    newPos: dict[str, dict[str, int]] = {setAsPrimary: {"x": 0, "y": 0}}
     commitChanges = True
     ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
     if ret != 0:
@@ -118,11 +112,12 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
     x, y = 0, 0
     ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[setAsPrimary]["displayId"], x, y)
     if ret != 0:
-        commitChanges = False
+        Quartz.CGCancelDisplayConfiguration(configRef)
+        return
 
     for monName in arrangement.keys():
 
-        relativePos = cast(Position, arrangement[monName]["relativePos"])
+        relativePos: Union[Position, int, Point, Tuple[int, int]] = arrangement[monName]["relativePos"]
 
         if monName != setAsPrimary:
 
@@ -151,6 +146,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Union[str, int, Position, 
             newPos[monName] = {"x": x, "y": y}
             if ret != 0:
                 commitChanges = False
+                break
 
     if commitChanges:
         Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
@@ -207,7 +203,15 @@ class MacOSMonitor(BaseMonitor):
                     break
         if self.screen is not None:
             self.name = _getName(self.handle, self.screen)
-            self._dm = Display(self.handle)
+            v = platform.mac_ver()[0].split(".")
+            self._ver = float(v[0] + "." + v[1])
+            # In Catalina display_manager_lib fails to load IOKit
+            # In Ventura setBrightness() method fails (it was OK in Big Sur)
+            # --> Display() class takes around 5 seconds to instantiate!!!
+            self._ds: Optional[Union[ctypes.CDLL, int]] = None
+            self._cd: Optional[Union[ctypes.CDLL, int]] = None
+            self._iokit: Optional[Union[ctypes.CDLL, int]] = None
+            self._ioservice: Optional[int] = None
         else:
             raise ValueError
 
@@ -231,7 +235,44 @@ class MacOSMonitor(BaseMonitor):
         return res
 
     def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
-        _setPosition(relativePos, relativeTo, self.name)
+        # https://apple.stackexchange.com/questions/249447/change-display-arrangement-in-os-x-macos-programmatically
+        arrangement: dict[str, dict[str, Union[Optional[str], int, Position, Point]]] = {}
+        monitors = _NSgetAllMonitorsDict()
+        monKeys = list(monitors.keys())
+        if relativePos == Position.PRIMARY or relativePos == (0, 0):
+            if self.isPrimary:
+                return
+            # For homogeneity, placing PRIMARY at (0, 0) and all the rest to RIGHT_TOP
+            try:
+                index = monKeys.index(self.name)
+                monKeys.pop(index)
+            except:
+                return
+            arrangement[self.name] = {"relativePos": Position.PRIMARY, "relativeTo": None}
+            xOffset = self.screen.frame().size.width
+
+            for monName in monKeys:
+                relPos = Point(xOffset, 0)
+                arrangement[monName] = {"relativePos": relPos, "relativeTo": None}
+                xOffset += monitors[monName]["screen"].frame().size.width
+
+        else:
+
+            for monName in monKeys:
+                if monName == self.name:
+                    relPos = relativePos
+                    relTo = relativeTo
+                else:
+                    monitor = monitors[monName]["screen"]
+                    x, y = monitor.frame().origin
+                    if (x, y) == (0, 0):
+                        relPos = Position.PRIMARY
+                    else:
+                        relPos = Point(x, y)
+                    relTo = None
+                arrangement[monName] = {"relativePos": relPos, "relativeTo": relTo}
+
+        _arrangeMonitors(arrangement)
 
     @property
     def box(self) -> Optional[Box]:
@@ -248,34 +289,61 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def scale(self) -> Optional[Tuple[float, float]]:
-        scale = _getScale(self.screen)
-        # mode = Quartz.CGDisplayCopyDisplayMode(self.handle)
-        # w = Quartz.CGDisplayModeGetWidth(mode)
-        # pw = Quartz.CGDisplayModeGetPixelWidth(mode)
-        # h = Quartz.CGDisplayModeGetHeight(mode)
-        # ph = Quartz.CGDisplayModeGetPixelHeight(mode)
-        # f = Quartz.CGDisplayModeGetRefreshRate(mode)
-        # scale2 = ((pw / w) * 100, (ph / h) * 100)
-        return scale
+        return _scale(self.handle)
 
-    def setScale(self, scale: Tuple[float, float]):
+    def setScale(self, scale: Tuple[float, float], applyGlobally: bool = True):
         # https://www.eizoglobal.com/support/compatibility/dpi_scaling_settings_mac_os_x/
-        # if scale is not None:
-        #     scaleX, scaleY = scale
-        #     currWidth, currHeight = self.size
-        #     currScaleX, currScaleY = self.scale
-        #     targetWidth = currScaleX / scaleX * currWidth
-        #     targetHeight = currScaleY / scaleY * currHeight
-        #     for mode in _CGgetAllModes(self.handle):
-        #         w = Quartz.CGDisplayModeGetWidth(mode)
-        #         pw = Quartz.CGDisplayModeGetPixelWidth(mode)
-        #         h = Quartz.CGDisplayModeGetHeight(mode)
-        #         ph = Quartz.CGDisplayModeGetPixelHeight(mode)
-        #         f = Quartz.CGDisplayModeGetRefreshRate(mode)
-        #         if targetWidth == pw or targetHeight == ph:
-        #             CG.CGDisplaySetDisplayMode(self.handle, mode, None)
-        #             break
-        pass
+
+        if scale is not None and isinstance(scale, tuple) and scale[0] >= 100 and scale[1] >= 100:
+
+            scaleX, scaleY = scale
+
+            defaultMode = self.defaultMode
+            if defaultMode:
+                defaultHeight = defaultMode.height  # Taking default mode height as 100% scale
+                currMode = self.mode
+                if currMode:
+                    currHeight = currMode.height
+                    if currHeight:
+                        if defaultHeight / currHeight == scaleY:
+                            return
+                    currRate = currMode.frequency
+                else:
+                    return
+            else:
+                return
+
+            def filterValue(itemIn):
+                valueIn, freqIn, modeIn = itemIn
+                return valueIn, freqIn
+
+            # Retrieve all modes and their size ratio vs. default
+            modes = []
+            for mode in _CGgetAllModes(self.handle):
+                modeHeight = Quartz.CGDisplayModeGetHeight(mode)
+                ratio = int((defaultHeight / modeHeight) * 100)
+                freq = Quartz.CGDisplayModeGetRefreshRate(mode)
+                modes.append((ratio, freq, mode))
+            modes.sort(key=filterValue)
+            ratio, freq, targetMode = modes[len(modes) - 1]
+
+            # Find modes with target ratio and their refresh rate
+            if ratio > scaleY:
+                targetRatio = 0
+                for item in modes:
+                    ratio, freq, mode = item
+                    if ratio >= scaleY:
+                        targetMode = mode
+                        if targetRatio == 0:
+                            targetRatio = ratio
+                        if ratio == targetRatio:
+                            if freq >= currRate:
+                                break
+                        else:
+                            break
+
+            if targetMode != Quartz.CGDisplayCopyDisplayMode(self.handle):
+                CG.CGDisplaySetDisplayMode(self.handle, targetMode, None)
 
     @property
     def dpi(self) -> Optional[Tuple[float, float]]:
@@ -288,12 +356,30 @@ class MacOSMonitor(BaseMonitor):
     def orientation(self) -> Optional[Union[int, Orientation]]:
         orientation = int(Quartz.CGDisplayRotation(self.handle) / 90)
         if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
-            return orientation
+            return Orientation(orientation)
         return None
 
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
-        if orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
-            self._dm.setRotate(orientation * 90)
+        if self._iokit is None and self._iokit != -1:
+            self._iokit, self._ioservice = _loadIOKit(self.handle)
+        if (self._iokit is not None and self._iokit != -1
+                and orientation and orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT)):
+            swapAxes = 0x10
+            invertX = 0x20
+            invertY = 0x40
+            angleCodes = {
+                0: 0,
+                90: (swapAxes | invertX) << 16,
+                180: (invertX | invertY) << 16,
+                270: (swapAxes | invertY) << 16,
+            }
+            rotateCode = 0x400
+            options = rotateCode | angleCodes[orientation % 360]
+
+            try:
+                ret = self._iokit.IOServiceRequestProbe(self._ioservice, options)
+            except:
+                pass
 
     @property
     def frequency(self) -> Optional[float]:
@@ -307,26 +393,75 @@ class MacOSMonitor(BaseMonitor):
 
     @property
     def brightness(self) -> Optional[int]:
-        return self._dm.brightness
-        # https://stackoverflow.com/questions/46885603/is-there-a-programmatic-way-to-check-if-brightness-is-at-max-or-min-value-on-osx
-        # value = None
-        # cmd = """nvram backlight-level | awk '{print $2}'"""
-        # err, ret = subprocess.check_output(cmd, shell=True).decode(encoding="utf-8").replace("\n", "")
-        # if err == 0 and ret:
-        #     value = int(float(ret)) * 100
-        # return value
+        res = None
+        ret = 1
+        if self._ds is None and self._ds != -1:
+            self._ds = _loadDisplayServices()
+        if self._ds is not None and self._ds != -1:
+            value = ctypes.c_float()
+            try:
+                ret = self._ds.DisplayServicesGetBrightness(self.handle, ctypes.byref(value))
+            except:
+                ret = 1
+            if ret == 0:
+                res = value.value
+        if ret != 0:
+            if self._cd is None and self._cd != -1:
+                self._cd = _loadCoreDisplay()
+            if self._cd is not None and self._cd != -1:
+                value = ctypes.c_double()
+                try:
+                    ret = self._cd.CoreDisplay_Display_GetUserBrightness(self.handle, ctypes.byref(value))
+                except:
+                    ret = 1
+                if ret == 0:
+                    res = value.value
+        if ret != 0:
+            if self._iokit is None and self._iokit != -1:
+                self._iokit, self._ioservice = _loadIOKit(self.handle)
+            if self._iokit is not None  and self._iokit != -1 and self._ioservice is not None:
+                value = ctypes.c_float()
+                try:
+                    ret = self._iokit.IODisplayGetFloatParameter(self._ioservice, 0, CF.CFSTR("brightness"), ctypes.byref(value))
+                except:
+                    ret = 1
+                if ret == 0:
+                    res = value.value
+        if res is not None:
+            return int(res * 100)
+        return None
 
     def setBrightness(self, brightness: Optional[int]):
-        try:
-            self._dm.setBrightness(brightness)
-        except:
-            pass
-        # https://github.com/thevickypedia/pybrightness/blob/main/pybrightness/controller.py
-        # https://eastmanreference.com/complete-list-of-applescript-key-codes
-        # for _ in range(32):
-        #     os.system("""osascript -e 'tell application "System Events"' -e 'key code 145' -e ' end tell'""")
-        # for _ in range(round((32 * int(brightness)) / 100)):
-        #     os.system("""osascript -e 'tell application "System Events"' -e 'key code 144' -e ' end tell'""")
+        # https://stackoverflow.com/questions/46885603/is-there-a-programmatic-way-to-check-if-brightness-is-at-max-or-min-value-on-osx
+        if brightness is not None and 0 < brightness < 100:
+            ret = 1
+            if self._ds is None and self._ds != -1:
+                self._ds = _loadDisplayServices()
+            if self._ds is not None and self._ds != -1:
+                value = ctypes.c_float(brightness / 100)
+                try:
+                    if self._ds.DisplayServicesCanChangeBrightness(self.handle):
+                        ret = self._ds.DisplayServicesSetBrightness(self.handle, value)
+                except:
+                    ret = 1
+            if ret != 0:
+                if self._cd is None and self._cd != -1:
+                    self._cd = _loadCoreDisplay()
+                if self._cd is not None and self._cd != -1:
+                    value = ctypes.c_double(brightness / 100)
+                    try:
+                        ret = self._cd.CoreDisplay_Display_SetUserBrightness(self.handle, value)
+                    except:
+                        ret = 1
+            if ret != 0:
+                if self._iokit is None and self._iokit != -1:
+                    self._iokit, self._ioservice = _loadIOKit(self.handle)
+                if self._iokit is not None and self._iokit != -1 and self._ioservice is not None:
+                    value = ctypes.c_float(brightness / 100)
+                    try:
+                        ret = self._iokit.IODisplaySetFloatParameter(self._ioservice, 0, CF.CFSTR("brightness"), value)
+                    except:
+                        pass
 
     @property
     def contrast(self) -> Optional[int]:
@@ -336,40 +471,37 @@ class MacOSMonitor(BaseMonitor):
             ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
                 CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
             if ret == 0:
-                contrast = int(((1 / (float(redGamma) or 1)) + (1 / (float(greenGamma) or 1)) + (1 / (float(blueGamma) or 1))) / 3) * 100
+                contrast = int((float(redGamma) + float(greenGamma) + float(blueGamma)) / 3 * 100)
         except:
             pass
         return contrast
 
     def setContrast(self, contrast: Optional[int]):
         # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
-        if contrast is not None:
-            try:
-                ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
-                    CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
-                if ret == 0:
-                    newRedGamma = contrast / 100
-                    if newRedGamma < redMin:
-                        newRedGamma = redMin
-                    elif newRedGamma > redMax:
-                        newRedGamma = redMax
-                    newGreenGamma = contrast / 100
-                    if newGreenGamma < greenMin:
-                        newGreenGamma = greenMin
-                    elif newGreenGamma > greenMax:
-                        newGreenGamma = greenMax
-                    newBlueGamma = contrast / 100
-                    if newBlueGamma < blueMin:
-                        newBlueGamma = blueMin
-                    elif newBlueGamma > blueMax:
-                        newBlueGamma = blueMax
-                    ret = CG.CGSetDisplayTransferByFormula(self.handle,
-                                                           redMin, redMax, newRedGamma,
-                                                           greenMin, greenMax, newGreenGamma,
-                                                           blueMin, blueMax, newBlueGamma
-                                                           )
-            except:
-                pass
+        if contrast is not None and 0 <= contrast <= 100:
+            ret, redMin, redMax, redGamma, greenMin, greenMax, greenGamma, blueMin, blueMax, blueGamma = (
+                CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
+            if ret == 0:
+                newRedGamma = contrast / 100
+                if newRedGamma < redMin:
+                    newRedGamma = redMin
+                elif newRedGamma > redMax:
+                    newRedGamma = redMax
+                newGreenGamma = contrast / 100
+                if newGreenGamma < greenMin:
+                    newGreenGamma = greenMin
+                elif newGreenGamma > greenMax:
+                    newGreenGamma = greenMax
+                newBlueGamma = contrast / 100
+                if newBlueGamma < blueMin:
+                    newBlueGamma = blueMin
+                elif newBlueGamma > blueMax:
+                    newBlueGamma = blueMax
+                ret = CG.CGSetDisplayTransferByFormula(self.handle,
+                                                       redMin, redMax, newRedGamma,
+                                                       greenMin, greenMax, newGreenGamma,
+                                                       blueMin, blueMax, newBlueGamma
+                                                       )
 
     @property
     def mode(self) -> Optional[DisplayMode]:
@@ -383,20 +515,21 @@ class MacOSMonitor(BaseMonitor):
         # https://stackoverflow.com/questions/10596489/programmatically-change-resolution-os-x
         # https://searchcode.com/file/2207916/pyobjc-framework-Quartz/PyObjCTest/test_cgdirectdisplay.py/
         if mode is not None:
-            allModes = _CGgetAllModes(self.handle)
-            for m in allModes:
-                if (mode.width == Quartz.CGDisplayModeGetWidth(m) and
-                        mode.height == Quartz.CGDisplayModeGetHeight(m) and
-                        mode.frequency == Quartz.CGDisplayModeGetRefreshRate(m)):
-                    CG.CGDisplaySetDisplayMode(self.handle, m, None)
-                    break
-            # Look for best mode to apply or stick to input?
-            #         return
-            # bestMode, ret = CG.CGDisplayBestModeForParametersAndRefreshRate(self.handle, self.colordepth,
-            #                                                                 mode.width, mode.height, mode.frequency,
-            #                                                                 None)
-            # CG.CGDisplaySwitchToMode(self.handle, bestMode)
-
+            bestMode, ret = CG.CGDisplayBestModeForParametersAndRefreshRate(self.handle, self.colordepth,
+                                                                            mode.width, mode.height, mode.frequency,
+                                                                            None)
+            if bestMode:
+                bw = bestMode[Quartz.kCGDisplayWidth]
+                bh = bestMode[Quartz.kCGDisplayHeight]
+                br = bestMode[Quartz.kCGDisplayRefreshRate]
+                allModes = _CGgetAllModes(self.handle)
+                for m in allModes:
+                    w = Quartz.CGDisplayModeGetWidth(m)
+                    h = Quartz.CGDisplayModeGetHeight(m)
+                    r = Quartz.CGDisplayModeGetRefreshRate(m)
+                    if w == bw and h == bh and r == br:
+                        CG.CGDisplaySetDisplayMode(self.handle, m, None)
+                        break
 
     @property
     def defaultMode(self) -> Optional[DisplayMode]:
@@ -435,53 +568,26 @@ class MacOSMonitor(BaseMonitor):
 
     def setPrimary(self):
         # https://stackoverflow.com/questions/13722508/change-main-monitor-on-mac-programmatically#:~:text=To%20change%20the%20secondary%20monitor%20to%20be%20the,%28%29.%20A%20full%20sample%20can%20be%20found%20Here
-        self.setPosition(Position.PRIMARY, "")
+        if not self.isPrimary:
+            self.setPosition(Position.PRIMARY, "")
 
     def turnOn(self):
-        # This works, but won't wake up the display despite if the mouse is moving and/or clicking
-
-        def mouseEvent(eventType, posx, posy):
-            ev = CG.CGEventCreateMouseEvent(None, eventType, CG.CGPointMake(posx, posy), CG.kCGMouseButtonLeft)
-            CG.CGEventSetType(ev, eventType)
-            # or kCGSessionEventTap?
-            CG.CGEventPost(CG.kCGHIDEventTap, ev)
-            # CG.CFRelease(ev)   # Produces a Hardware error?!?!?!
-
-        def mousemove(posx, posy):
-            # Alternatives:
-            # mouseEvent(CG.kCGEventMouseMoved, posx, posy)
-            CG.CGDisplayMoveCursorToPoint(self.handle, (posx, posy))
-
-        def mouseclick(posx, posy):
-            # Not necessary to previously move the mouse to given location
-            # mouseEvent(CG.kCGEventMouseMoved, posx, posy)
-            mouseEvent(CG.kCGEventLeftMouseDown, posx, posy)
-            time.sleep(0.1)
-            mouseEvent(CG.kCGEventLeftMouseUp, posx, posy)
-
-        if CG.CGDisplayIsAsleep(self.handle):
-            mousemove(200, 200)
-            mouseclick(200, 200)
-            # This won't wake up monitor either (refers to the whole system)
-            # cmd = """pmset wake"""
-            # subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, timeout=1)
-
-        elif not CG.CGDisplayIsActive(self.handle):
-            # CG.CGDisplayRelease(self.handle)
+        cmd = "caffeinate -u -t 2"
+        try:
+            _ = subprocess.run(cmd, text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=1)
+        except:
             pass
 
     def turnOff(self):
-        # https://stackoverflow.com/questions/32319778/check-if-display-is-sleeping-in-applescript
-        # CG.CGDisplayCapture(self.handle)  # This turns display black, not off
-        pass
+        self.suspend()
 
     @property
     def isOn(self) -> Optional[bool]:
         return bool(CG.CGDisplayIsActive(self.handle) == 1)
 
     def suspend(self):
-        # Also injecting: Control–Shift–Media Eject
-        cmd = """pmset displaysleepnow"""
+        # Also injecting: Control–Shift–Media_Eject
+        cmd = "pmset displaysleepnow"
         try:
             _ = subprocess.run(cmd, text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=1)
         except:
@@ -491,107 +597,25 @@ class MacOSMonitor(BaseMonitor):
     def isSuspended(self) -> Optional[bool]:
         return bool(CG.CGDisplayIsAsleep(self.handle) == 1)
 
-    def attach(self, width: int = 0, height: int = 0):
+    def attach(self):
         pass
 
     def detach(self, permanent: bool = False):
-        # Maybe manipulating position, size and/or mode?
+        # Maybe manipulating brightness, contrast, position, size and/or mode?
         pass
 
     @property
     def isAttached(self) -> Optional[bool]:
-        return CG.CGDisplayIsOnline(self.handle) == 1
-
-
-def _setPosition(relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str], name: str):
-    # https://apple.stackexchange.com/questions/249447/change-display-arrangement-in-os-x-macos-programmatically
-    monitors = _NSgetAllMonitorsDict()
-    monitorsKeys = list(monitors.keys())
-
-    if (name not in monitorsKeys or
-            ((isinstance(relativePos, Position) or isinstance(relativePos, int)) and
-             (not relativeTo or (relativeTo and relativeTo not in monitors.keys())))):
-        return
-
-    if relativePos == Position.PRIMARY or relativePos == Point(0, 0) or relativePos == (0, 0):
-
-        # If this display becomes primary (0, 0). MUST reposition primary monitor first!
-        commitChanges = True
-        ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-        if ret != 0:
-            return
-        relativePos = Position.LEFT_TOP
-        relativeTo = name
-
-        newPos: dict[str, dict[str, int]] = {}
-        for monitor in monitorsKeys:
-
-            if monitor != name:
-
-                if isinstance(relativePos, Position) or isinstance(relativePos, int):
-                    frame = monitors[name]["screen"].frame()
-                    targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                                 "position": Point(frame.origin.x, frame.origin.y),
-                                 "size": Size(frame.size.width, frame.size.height)}
-
-                    frame = monitors[relativeTo]["screen"].frame()
-                    if relativeTo in newPos.keys():
-                        relX, relY = newPos[relativeTo]["x"], newPos[relativeTo]["y"]
-                    else:
-                        relX, relY = frame.origin.x, frame.origin.y
-                    relMon = {"position": Point(relX, relY),
-                              "size": Size(frame.size.width, frame.size.height)}
-
-                    x, y = _getRelativePosition(targetMon, relMon)
-
-                else:
-                    x, y = relativePos
-
-                ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[monitor]["displayId"], x, y)
-                newPos[monitor] = {"x": x, "y": y}
-                if ret != 0:
-                    commitChanges = False
-                relativeTo = monitor
-
-        x, y = 0, 0
-        ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
-        if ret != 0:
-            commitChanges = False
-
-        if commitChanges:
-            Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-        else:
-            Quartz.CGCancelDisplayConfiguration(configRef)
-
-    else:
-
-        if isinstance(relativePos, Position) or isinstance(relativePos, int):
-            frame = monitors[name]["screen"].frame()
-            targetMon = {"relativePos": relativePos, "relativeTo": relativeTo,
-                         "position": Point(frame.origin.x, frame.origin.y),
-                         "size": Size(frame.size.width, frame.size.height)}
-
-            frame = monitors[relativeTo]["screen"].frame()
-            relMon = {"position": Point(frame.origin.x, frame.origin.y),
-                      "size": Size(frame.size.width, frame.size.height)}
-
-            x, y = _getRelativePosition(targetMon, relMon)
-
-        else:
-            x, y = relativePos
-
-        ret, configRef = Quartz.CGBeginDisplayConfiguration(None)
-        if ret == 0:
-            ret = Quartz.CGConfigureDisplayOrigin(configRef, monitors[name]["displayId"], x, y)
-            if ret == 0:
-                Quartz.CGCompleteDisplayConfiguration(configRef, Quartz.kCGConfigurePermanently)
-            else:
-                Quartz.CGCancelDisplayConfiguration(configRef)
+        return bool(CG.CGDisplayIsOnline(self.handle) == 1)
 
 
 def _getName(displayId: int, screen: Optional[AppKit.NSScreen] = None):
     if not screen:
-        screen = AppKit.NSScreen.mainScreen()
+        for scr in AppKit.NSScreen.screens():
+            desc = scr.deviceDescription()
+            if desc['NSScreenNumber'] == displayId:
+                screen = scr
+                break
     try:
         scrName = cast(AppKit.NSScreen, screen).localizedName() + "_" + str(displayId)
     except:
@@ -600,8 +624,18 @@ def _getName(displayId: int, screen: Optional[AppKit.NSScreen] = None):
     return scrName
 
 
-def _getScale(screen):
-    value = float(screen.backingScaleFactor() * 100)
+def _scale(handle):
+    # value = float(screen.backingScaleFactor() * 100)
+    value = 0.0
+    dh = 0
+    for mode in _CGgetAllModes(handle):
+        if bin(Quartz.CGDisplayModeGetIOFlags(mode))[-3] == '1':
+            dh = Quartz.CGDisplayModeGetHeight(mode)
+            break
+    currMode = Quartz.CGDisplayCopyDisplayMode(handle)
+    ch = Quartz.CGDisplayModeGetHeight(currMode)
+    if ch:
+        value = float(int((dh / ch) * 100))
     scale = (value, value)
     return scale
 
@@ -634,6 +668,67 @@ def _NSgetAllMonitorsDict():
         scrName = _getName(displayId, screen)
         monitors[scrName] = {"screen": screen, "desc": desc, "displayId": displayId}
     return monitors
+
+
+# https://stackoverflow.com/questions/30816183/iokit-ioservicegetmatchingservices-broken-under-python3
+# https://stackoverflow.com/questions/65150131/iodisplayconnect-is-gone-in-big-sur-of-apple-silicon-what-is-the-replacement
+# https://alexdelorenzo.dev/programming/2018/08/16/reverse_engineering_private_apple_apis
+# https://github.com/nriley/brightness/blob/master/brightness.c
+
+def _loadDisplayServices():
+    # Display Services Framework can be used in modern systems. Takes A LOT to load
+    try:
+        ds: Optional[Union[ctypes.CDLL, int]] = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+    except:
+        ds = -1
+    return ds
+
+
+def _loadCoreDisplay():
+    # Another option is to use Core Display Services
+    try:
+        cd: Optional[Union[ctypes.CDLL, int]] = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreDisplay"))
+        cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
+        cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
+    except:
+        cd = -1
+    return cd
+
+
+def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
+    # In older systems, we can try to use IOKit
+    service: Optional[int] = None
+    try:
+        iokit: Optional[Union[ctypes.CDLL, int]] = ctypes.cdll.LoadLibrary(ctypes.util.find_library('IOKit'))
+        try:
+            service = Quartz.CGDisplayIOServicePort(displayID)
+        except:
+            service = None
+        if not service:
+            try:
+                # CGDisplayIOServicePort is deprecated in some systems, so we can try to use 'IODisplayConnect' Service
+                kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
+
+                iokit.IOServiceMatching.restype = ctypes.c_void_p
+                iokit.IOServiceGetMatchingServices.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+                iokit.IOServiceGetMatchingServices.restype = ctypes.c_void_p
+
+                serial_port_iterator = ctypes.c_void_p()
+
+                response = iokit.IOServiceGetMatchingServices(
+                    kIOMasterPortDefault,
+                    iokit.IOServiceMatching('IODisplayConnect'),
+                    ctypes.byref(serial_port_iterator)
+                )
+                service = iokit.IOIteratorNext(serial_port_iterator)
+            except:
+                service = None
+            if not service:
+                iokit = -1
+                service = None
+    except:
+        iokit = -1
+    return iokit, service
 
 
 def _eventLoop(kill: threading.Event, interval: float):

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import ctypes.wintypes
+import sys
 from enum import IntEnum
 from typing import NamedTuple, Tuple
 from typing_extensions import TypedDict
@@ -105,224 +105,228 @@ class Orientation(IntEnum):
     LEFT = 3
 
 
-# ==================================== QueryDisplayConfig =========================================
+if sys.platform == "win32":
+    import ctypes.wintypes
 
-# ==================================== PathsInfo
+    # ==================================== QueryDisplayConfig =========================================
 
-class _DUMMYSTRUCTNAME(ctypes.Structure):
-    _fields_ = [
-        ('cloneGroupId', ctypes.c_uint32),
-        ('sourceModeInfoIdx', ctypes.c_uint32)
-    ]
+    # ==================================== PathsInfo
 
-
-class _DUMMYUNIONNAME(ctypes.Union):
-    _fields_ = [
-        ('modeInfoIdx', ctypes.c_uint32),
-        ('dummyStructName', _DUMMYSTRUCTNAME)
-    ]
+    class _DUMMYSTRUCTNAME(ctypes.Structure):
+        _fields_ = [
+            ('cloneGroupId', ctypes.c_uint32),
+            ('sourceModeInfoIdx', ctypes.c_uint32)
+        ]
 
 
-class _LUID(ctypes.Structure):
-    _fields_ = [
-        ('lowPart', ctypes.wintypes.DWORD),
-        ('highPart', ctypes.wintypes.LONG)
-    ]
+    class _DUMMYUNIONNAME(ctypes.Union):
+        _fields_ = [
+            ('modeInfoIdx', ctypes.c_uint32),
+            ('dummyStructName', _DUMMYSTRUCTNAME)
+        ]
 
 
-class _DISPLAYCONFIG_PATH_SOURCE_INFO(ctypes.Structure):
-    _fields_ = [
-        ('adapterId', _LUID),
-        ('id', ctypes.c_uint32),
-        ('dummyUnionName', _DUMMYUNIONNAME),
-        ('statusFlags', ctypes.c_uint32)
-    ]
+
+    class _LUID(ctypes.Structure):
+        _fields_ = [
+            ('lowPart', ctypes.wintypes.DWORD),
+            ('highPart', ctypes.wintypes.LONG)
+        ]
 
 
-class _DISPLAYCONFIG_RATIONAL(ctypes.Structure):
-    _fields_ = [
-        ('numerator', ctypes.c_uint32),
-        ('denominator', ctypes.c_uint32)
-    ]
+    class _DISPLAYCONFIG_PATH_SOURCE_INFO(ctypes.Structure):
+        _fields_ = [
+            ('adapterId', _LUID),
+            ('id', ctypes.c_uint32),
+            ('dummyUnionName', _DUMMYUNIONNAME),
+            ('statusFlags', ctypes.c_uint32)
+        ]
 
 
-class _DISPLAYCONFIG_PATH_TARGET_INFO(ctypes.Structure):
-    _fields_ = [
-        ('adapterId', _LUID),
-        ('id', ctypes.c_uint32),
-        ('dummyUnionName', _DUMMYUNIONNAME),
-        ('outputTechnology', ctypes.c_uint32),
-        ('rotation', ctypes.c_uint32),
-        ('scaling', ctypes.c_uint32),
-        ('refreshRate', _DISPLAYCONFIG_RATIONAL),
-        ('scanLineOrdering', ctypes.c_uint32),
-        ('targetAvailable', ctypes.c_bool),
-        ('statusFlags', ctypes.c_uint32)
-    ]
+    class _DISPLAYCONFIG_RATIONAL(ctypes.Structure):
+        _fields_ = [
+            ('numerator', ctypes.c_uint32),
+            ('denominator', ctypes.c_uint32)
+        ]
 
 
-class _DISPLAYCONFIG_PATH_INFO(ctypes.Structure):
-    _fields_ = [
-        ('sourceInfo', _DISPLAYCONFIG_PATH_SOURCE_INFO),
-        ('targetInfo', _DISPLAYCONFIG_PATH_TARGET_INFO),
-        ('flags', ctypes.c_uint32)
-    ]
+    class _DISPLAYCONFIG_PATH_TARGET_INFO(ctypes.Structure):
+        _fields_ = [
+            ('adapterId', _LUID),
+            ('id', ctypes.c_uint32),
+            ('dummyUnionName', _DUMMYUNIONNAME),
+            ('outputTechnology', ctypes.c_uint32),
+            ('rotation', ctypes.c_uint32),
+            ('scaling', ctypes.c_uint32),
+            ('refreshRate', _DISPLAYCONFIG_RATIONAL),
+            ('scanLineOrdering', ctypes.c_uint32),
+            ('targetAvailable', ctypes.c_bool),
+            ('statusFlags', ctypes.c_uint32)
+        ]
 
 
-# ==================================== ModesInfo
-
-class _DISPLAYCONFIG_2DREGION(ctypes.Structure):
-    _fields_ = [
-        ('cx', ctypes.c_uint32),
-        ('cy', ctypes.c_uint32)
-    ]
-
-
-class _ADDITIONAL_SIGNAL_INFO(ctypes.Structure):
-    _fields_ = [
-        ('videoStandard', ctypes.c_uint32),
-        ('vSyncFreqDivider', ctypes.c_uint32),
-        ('reserved', ctypes.c_uint32)
-    ]
+    class _DISPLAYCONFIG_PATH_INFO(ctypes.Structure):
+        _fields_ = [
+            ('sourceInfo', _DISPLAYCONFIG_PATH_SOURCE_INFO),
+            ('targetInfo', _DISPLAYCONFIG_PATH_TARGET_INFO),
+            ('flags', ctypes.c_uint32)
+        ]
 
 
-class _DUMMYUNIONNAME_MODE_SIGNAL(ctypes.Union):
-    _fields_ = [
-        ('additionalSignalInfo', _ADDITIONAL_SIGNAL_INFO),
-        ('videoStandard', ctypes.c_uint32)
-    ]
+    # ==================================== ModesInfo
+
+    class _DISPLAYCONFIG_2DREGION(ctypes.Structure):
+        _fields_ = [
+            ('cx', ctypes.c_uint32),
+            ('cy', ctypes.c_uint32)
+        ]
 
 
-class _DISPLAYCONFIG_VIDEO_SIGNAL_INFO(ctypes.Structure):
-    _fields_ = [
-        ('pixelRate', ctypes.c_uint64),
-        ('hSyncFreq', _DISPLAYCONFIG_RATIONAL),
-        ('vSyncFreq', _DISPLAYCONFIG_RATIONAL),
-        ('activeSize', _DISPLAYCONFIG_2DREGION),
-        ('totalSize', _DISPLAYCONFIG_2DREGION),
-        ('dummyUnionName', _DUMMYUNIONNAME_MODE_SIGNAL),
-        ('scanLineOrdering', ctypes.c_uint32)
-    ]
+    class _ADDITIONAL_SIGNAL_INFO(ctypes.Structure):
+        _fields_ = [
+            ('videoStandard', ctypes.c_uint32),
+            ('vSyncFreqDivider', ctypes.c_uint32),
+            ('reserved', ctypes.c_uint32)
+        ]
 
 
-class _DISPLAYCONFIG_TARGET_MODE(ctypes.Structure):
-    _fields_ = [
-        ('targetVideoSignalInfo', _DISPLAYCONFIG_VIDEO_SIGNAL_INFO)
-    ]
+    class _DUMMYUNIONNAME_MODE_SIGNAL(ctypes.Union):
+        _fields_ = [
+            ('additionalSignalInfo', _ADDITIONAL_SIGNAL_INFO),
+            ('videoStandard', ctypes.c_uint32)
+        ]
 
 
-class _POINTL(ctypes.Structure):
-    _fields_ = [
-        ('x', ctypes.wintypes.LONG),
-        ('y', ctypes.wintypes.LONG)
-    ]
+    class _DISPLAYCONFIG_VIDEO_SIGNAL_INFO(ctypes.Structure):
+        _fields_ = [
+            ('pixelRate', ctypes.c_uint64),
+            ('hSyncFreq', _DISPLAYCONFIG_RATIONAL),
+            ('vSyncFreq', _DISPLAYCONFIG_RATIONAL),
+            ('activeSize', _DISPLAYCONFIG_2DREGION),
+            ('totalSize', _DISPLAYCONFIG_2DREGION),
+            ('dummyUnionName', _DUMMYUNIONNAME_MODE_SIGNAL),
+            ('scanLineOrdering', ctypes.c_uint32)
+        ]
 
 
-class _DISPLAYCONFIG_SOURCE_MODE(ctypes.Structure):
-    _fields_ = [
-        ('width', ctypes.c_uint32),
-        ('height', ctypes.c_uint32),
-        ('pixelFormat', ctypes.c_uint32),
-        ('position', _POINTL)
-    ]
+    class _DISPLAYCONFIG_TARGET_MODE(ctypes.Structure):
+        _fields_ = [
+            ('targetVideoSignalInfo', _DISPLAYCONFIG_VIDEO_SIGNAL_INFO)
+        ]
 
 
-class _RECTL(ctypes.Structure):
-    _fields_ = [
-        ('left', ctypes.c_uint32),
-        ('top', ctypes.c_uint32),
-        ('right', ctypes.c_uint32),
-        ('bottom', ctypes.c_uint32)
-    ]
+    class _POINTL(ctypes.Structure):
+        _fields_ = [
+            ('x', ctypes.wintypes.LONG),
+            ('y', ctypes.wintypes.LONG)
+        ]
 
 
-class _DISPLAYCONFIG_DESKTOP_IMAGE_INFO(ctypes.Structure):
-    _fields_ = [
-        ('pathSourceSize', _POINTL),
-        ('desktopImageRegion', _RECTL),
-        ('desktopImageClip', _RECTL)
-    ]
+    class _DISPLAYCONFIG_SOURCE_MODE(ctypes.Structure):
+        _fields_ = [
+            ('width', ctypes.c_uint32),
+            ('height', ctypes.c_uint32),
+            ('pixelFormat', ctypes.c_uint32),
+            ('position', _POINTL)
+        ]
 
 
-class _DUMMYUNIONNAME_MODE(ctypes.Union):
-    _fields_ = [
-        ('targetMode', _DISPLAYCONFIG_TARGET_MODE),
-        ('sourceMode', _DISPLAYCONFIG_SOURCE_MODE),
-        ('desktopImageInfo', _DISPLAYCONFIG_DESKTOP_IMAGE_INFO)
-    ]
+    class _RECTL(ctypes.Structure):
+        _fields_ = [
+            ('left', ctypes.c_uint32),
+            ('top', ctypes.c_uint32),
+            ('right', ctypes.c_uint32),
+            ('bottom', ctypes.c_uint32)
+        ]
 
 
-class _DISPLAYCONFIG_MODE_INFO(ctypes.Structure):
-    _fields_ = [
-        ('infoType', ctypes.c_uint32),
-        ('id', ctypes.c_uint32),
-        ('adapterId', _LUID),
-        ('dummyUnionName', _DUMMYUNIONNAME_MODE)
-    ]
+    class _DISPLAYCONFIG_DESKTOP_IMAGE_INFO(ctypes.Structure):
+        _fields_ = [
+            ('pathSourceSize', _POINTL),
+            ('desktopImageRegion', _RECTL),
+            ('desktopImageClip', _RECTL)
+        ]
 
 
-_QDC_ONLY_ACTIVE_PATHS = 2
-_DISPLAYCONFIG_PATH_ACTIVE = 1
+    class _DUMMYUNIONNAME_MODE(ctypes.Union):
+        _fields_ = [
+            ('targetMode', _DISPLAYCONFIG_TARGET_MODE),
+            ('sourceMode', _DISPLAYCONFIG_SOURCE_MODE),
+            ('desktopImageInfo', _DISPLAYCONFIG_DESKTOP_IMAGE_INFO)
+        ]
 
 
-# ==================================== DisplayConfig[Get/Set]DeviceInfo =========================================
+    class _DISPLAYCONFIG_MODE_INFO(ctypes.Structure):
+        _fields_ = [
+            ('infoType', ctypes.c_uint32),
+            ('id', ctypes.c_uint32),
+            ('adapterId', _LUID),
+            ('dummyUnionName', _DUMMYUNIONNAME_MODE)
+        ]
 
 
-_DPI_VALUES = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500]
+    _QDC_ONLY_ACTIVE_PATHS = 2
+    _DISPLAYCONFIG_PATH_ACTIVE = 1
 
 
-class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
-    _fields_ = [
-        ('type', ctypes.c_uint32),
-        ('size', ctypes.c_uint32),
-        ('adapterId', _LUID),
-        ('id', ctypes.c_uint32)
-    ]
+    # ==================================== DisplayConfig[Get/Set]DeviceInfo =========================================
 
 
-_DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3  # returns min, max, and currently applied DPI scaling values
+    _DPI_VALUES = [100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 450, 500]
 
 
-class _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET(ctypes.Structure):
-    _fields_ = [
-        ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
-        ('minScaleRel', ctypes.c_uint32),
-        ('curScaleRel', ctypes.c_uint32),
-        ('maxScaleRel', ctypes.c_uint32)
-    ]
+    class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
+        _fields_ = [
+            ('type', ctypes.c_uint32),
+            ('size', ctypes.c_uint32),
+            ('adapterId', _LUID),
+            ('id', ctypes.c_uint32)
+        ]
 
 
-_DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE = -4  # set current dpi scaling value for a display
+    _DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE = -3  # returns min, max, and currently applied DPI scaling values
 
 
-class _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET(ctypes.Structure):
-    _fields_ = [
-        ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
-        ('scaleRel', ctypes.c_uint32)
-    ]
+    class _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET(ctypes.Structure):
+        _fields_ = [
+            ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+            ('minScaleRel', ctypes.c_uint32),
+            ('curScaleRel', ctypes.c_uint32),
+            ('maxScaleRel', ctypes.c_uint32)
+        ]
 
 
-_DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2
+    _DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE = -4  # set current dpi scaling value for a display
 
 
-class _DISPLAY_CONFIG_TARGET_DEVICE_NAME(ctypes.Structure):
-    _fields_ = [
-        ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
-        ('flags', ctypes.c_uint32),
-        ('outputTechnology', ctypes.c_uint32),
-        ('edidManufactureId', ctypes.c_uint16),
-        ('edidProductCodeId', ctypes.c_uint16),
-        ('connectorInstance', ctypes.c_uint32),
-        ('monitorFriendlyDeviceName', ctypes.wintypes.WCHAR * 64),
-        ('monitorDevicePath', ctypes.wintypes.WCHAR * 128)
-    ]
+    class _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET(ctypes.Structure):
+        _fields_ = [
+            ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+            ('scaleRel', ctypes.c_uint32)
+        ]
 
 
-_DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1
+    _DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME = 2
 
 
-class _DISPLAYCONFIG_SOURCE_DEVICE_NAME(ctypes.Structure):
-    _fields_ = [
-        ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
-        ('viewGdiDeviceName', ctypes.wintypes.WCHAR * 32)
-    ]
+    class _DISPLAY_CONFIG_TARGET_DEVICE_NAME(ctypes.Structure):
+        _fields_ = [
+            ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+            ('flags', ctypes.c_uint32),
+            ('outputTechnology', ctypes.c_uint32),
+            ('edidManufactureId', ctypes.c_uint16),
+            ('edidProductCodeId', ctypes.c_uint16),
+            ('connectorInstance', ctypes.c_uint32),
+            ('monitorFriendlyDeviceName', ctypes.wintypes.WCHAR * 64),
+            ('monitorDevicePath', ctypes.wintypes.WCHAR * 128)
+        ]
+
+
+    _DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1
+
+
+    class _DISPLAYCONFIG_SOURCE_DEVICE_NAME(ctypes.Structure):
+        _fields_ = [
+            ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
+            ('viewGdiDeviceName', ctypes.wintypes.WCHAR * 32)
+        ]

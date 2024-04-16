@@ -1,3 +1,7 @@
+0.8, 2023/10/11 -- ALL: Added saveSetup() and restoreSetup(). Fixed / Improved watchdog (especially in Linux). Fixed / improved setPosition() method
+                   LINUX: Added ewmhlib as separate module. Fixed watchdog (freezing randomly invoking screen_resources and get_output_info), fixed workarea crash (some apps/environments do not set it), improved to work almost fine in Manjaro/KDE, avoid crashing in Wayland for "fake" :1 display (though module won't likely work)
+                   WIN32: Fixed dev.StateFlags returning weird values for multi-monitor. Fixed GetAwarenessFromDpiAwarenessContext not supported on Windows Server
+                   MACOS: Replaced display-manager-lib by other alternatives which seem to work in several macOS versions (brightness only) Added setScale() method (using a workaround). Added wakeup feature to turnOn() method
 0.7, 2023/09/20 -- LINUX: Working in Manjaro/KDE. Avoid crashing in Wayland (though module won't likely work on it)
 0.6, 2023/09/15 -- ALL: Added *_CENTERED positions. Added coordinates (x, y) as input to setPosition() and arrangeMonitor()
                    LINUX: Improved performance thru ewmhlib features
