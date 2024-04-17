@@ -879,7 +879,8 @@ def _XgetAllMonitors(name: str = ""):
                 monitors.append((display, screen, root, monitor, monName))
     else:
         stopSearching = False
-        for rootData in getRoots():
+        roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
+        for rootData in roots:
             display, screen, root = rootData
             try:
                 mons = randr.get_monitors(root).monitors
@@ -946,7 +947,8 @@ def _RgetMonitorsInfo(activeOnly: bool = True):
 def _XgetAllOutputs(name: str = ""):
     outputs: List[Tuple[Xlib.display.Display, Xlib.protocol.rq.Struct, Xlib.xobject.drawable.Window,
                         int, GetOutputInfo]] = []
-    for rootData in getRoots():
+    roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
+    for rootData in roots:
         display, screen, root = rootData
         res = randr.get_screen_resources_current(root)
         for output in res.outputs:
