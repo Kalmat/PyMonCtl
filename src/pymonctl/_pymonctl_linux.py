@@ -840,7 +840,9 @@ def _getMonitorsData(handle: Optional[int] = None) -> (
                          MonitorInfo, str, int, GetOutputInfo, int, GetCrtcInfo]] = []
     stopSearching = False
     for rootData in getRoots():
-        display, screen, root = rootData
+        display: Xlib.display.Display = rootData[0]
+        screen: Struct = rootData[1]
+        root: XWindow = rootData[2]
         try:
             mons = randr.get_monitors(root).monitors
         except:
