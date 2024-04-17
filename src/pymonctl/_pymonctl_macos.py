@@ -705,7 +705,7 @@ def _NSgetAllMonitorsDict():
 def _loadDisplayServices():
     # Display Services Framework can be used in modern systems. It takes A LOT to load
     try:
-        ds: Optional[ctypes.CDLL] = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+        ds: ctypes.CDLL = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
     except:
         ds = None
     return ds
@@ -716,7 +716,7 @@ def _loadCoreDisplay():
     try:
         lib = ctypes.util.find_library("CoreDisplay")
         if lib is not None:
-            cd: Optional[ctypes.CDLL] = ctypes.cdll.LoadLibrary(lib)
+            cd: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
             cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
             cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
         else:
@@ -732,7 +732,7 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
     try:
         lib = ctypes.util.find_library('IOKit')
         if lib is not None:
-            iokit: Optional[ctypes.CDLL] = ctypes.cdll.LoadLibrary(lib)
+            iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
             try:
                 service = Quartz.CGDisplayIOServicePort(displayID)
             except:
