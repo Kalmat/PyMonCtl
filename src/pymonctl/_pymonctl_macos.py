@@ -234,7 +234,7 @@ class MacOSMonitor(BaseMonitor):
 
     def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
         # https://apple.stackexchange.com/questions/249447/change-display-arrangement-in-os-x-macos-programmatically
-        arrangement: dict[str, dict[str, Union[Optional[str], int, Position, Point]]] = {}
+        arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]] = {}
         monitors = _NSgetAllMonitorsDict()
         monKeys = list(monitors.keys())
         if relativePos == Position.PRIMARY or relativePos == (0, 0):
@@ -705,7 +705,7 @@ def _NSgetAllMonitorsDict():
 def _loadDisplayServices():
     # Display Services Framework can be used in modern systems. It takes A LOT to load
     try:
-        ds: Optional[Union[ctypes.CDLL, int]] = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+        ds: Optional[ctypes.CDLL] = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
     except:
         ds = None
     return ds
@@ -714,9 +714,13 @@ def _loadDisplayServices():
 def _loadCoreDisplay():
     # Another option is to use Core Display Services
     try:
-        cd: Optional[Union[ctypes.CDLL, int]] = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreDisplay"))
-        cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
-        cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
+        lib = ctypes.util.find_library("CoreDisplay")
+        if lib is not None:
+            cd: Optional[ctypes.CDLL] = ctypes.cdll.LoadLibrary(lib)
+            cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
+            cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
+        else:
+            cd = None
     except:
         cd = None
     return cd
@@ -726,33 +730,37 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
     # In older systems, we can try to use IOKit
     service: Optional[int] = None
     try:
-        iokit: Optional[Union[ctypes.CDLL, int]] = ctypes.cdll.LoadLibrary(ctypes.util.find_library('IOKit'))
-        try:
-            service = Quartz.CGDisplayIOServicePort(displayID)
-        except:
-            service = None
-        if not service:
-            # CGDisplayIOServicePort is deprecated in some systems
-            # We can try to use 'IODisplayConnect' Service, but it won't work on M1 and above systems either
-            iokit.IOServiceMatching.restype = ctypes.c_void_p
-            iokit.IOServiceGetMatchingServices.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-            iokit.IOServiceGetMatchingServices.restype = ctypes.c_void_p
-
-            kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
-            serial_port_iterator = ctypes.c_void_p()
+        lib = ctypes.util.find_library('IOKit')
+        if lib is not None:
+            iokit: Optional[ctypes.CDLL] = ctypes.cdll.LoadLibrary(lib)
             try:
-                iokit.IOServiceGetMatchingServices(
-                    kIOMasterPortDefault,
-                    iokit.IOServiceMatching(b'IODisplayConnect'),
-                    ctypes.byref(serial_port_iterator)
-                )
-                # How to find the service corresponding to displayID???
-                service = iokit.IOIteratorNext(serial_port_iterator)
+                service = Quartz.CGDisplayIOServicePort(displayID)
             except:
                 service = None
             if not service:
-                iokit = None
-                service = None
+                # CGDisplayIOServicePort is deprecated in some systems
+                # We can try to use 'IODisplayConnect' Service, but it won't work on M1 and above systems either
+                iokit.IOServiceMatching.restype = ctypes.c_void_p
+                iokit.IOServiceGetMatchingServices.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+                iokit.IOServiceGetMatchingServices.restype = ctypes.c_void_p
+
+                kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
+                serial_port_iterator = ctypes.c_void_p()
+                try:
+                    iokit.IOServiceGetMatchingServices(
+                        kIOMasterPortDefault,
+                        iokit.IOServiceMatching(b'IODisplayConnect'),
+                        ctypes.byref(serial_port_iterator)
+                    )
+                    # How to find the service corresponding to displayID???
+                    service = iokit.IOIteratorNext(serial_port_iterator)
+                except:
+                    service = None
+                if not service:
+                    iokit = None
+                    service = None
+        else:
+            iokit = None
     except:
         iokit = None
     return iokit, service

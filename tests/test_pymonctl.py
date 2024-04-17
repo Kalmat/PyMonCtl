@@ -34,11 +34,11 @@ for mon in monDict:
 print()
 
 monitorsPlugged: List[pmc.Monitor] = pmc.getAllMonitors()
-initArrangement = []
+initArrangement: List[Tuple[pmc.Monitor, pmc.ScreenValue]] = []
 initDict: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size]] = {}
 setAsPrimary: Optional[pmc.Monitor] = None
 try:
-    initArrangement: List[Tuple[pmc.Monitor, pmc.ScreenValue]] = pmc.saveSetup()
+    initArrangement = pmc.saveSetup()
     print("INITIAL POSITIONS:", initArrangement)
 except:
     for monitor in monitorsPlugged:
@@ -83,7 +83,7 @@ for monitor in monitorsPlugged:
 
     currMode = monitor.mode
     targetMode = None
-    if monitor.mode:
+    if monitor.mode is not None:
         monWidth = currMode.width
         targetWidth = monWidth
         if monWidth == 5120:
@@ -229,7 +229,7 @@ if len(monitorsPlugged) > 1:
         print()
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, REST OF MONITORS AT LEFT_BOTTOM")
-    arrangement: dict[str, dict[str, Union[str, int, pmc.Position, pmc.Point, pmc.Size]]] = {
+    arrangement: dict[str, dict[str, Union[str, int, pmc.Position, pmc.Point, pmc.Size, None]]] = {
         str(mon2.name): {"relativePos": pmc.Position.PRIMARY, "relativeTo": ""}
     }
     relativeTo = mon2.name
