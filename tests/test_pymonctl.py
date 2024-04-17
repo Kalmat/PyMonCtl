@@ -35,7 +35,7 @@ print()
 
 monitorsPlugged: List[pmc.Monitor] = pmc.getAllMonitors()
 initArrangement: List[Tuple[pmc.Monitor, pmc.ScreenValue]] = []
-initDict: dict[str, dict[str, Optional[Union[str, int, pmc.Position, pmc.Point, pmc.Size,]]] = {}
+initDict: dict[str, dict[str, Optional[Union[str, int, pmc.Position, pmc.Point, pmc.Size]]]] = {}
 setAsPrimary: Optional[pmc.Monitor] = None
 try:
     initArrangement = pmc.saveSetup()
