@@ -737,7 +737,7 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
         #     iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
         #     iokit.IODisplayGetFloatParameter.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
         #     iokit.IODisplayGetFloatParameter.restype = ctypes.py_object
-        import objc  # type: ignore[import-untyped]
+        import objc  # type: ignore[import-untyped, import-not-found]
         iokit = AppKit.NSBundle.bundleWithIdentifier_("com.apple.framework.IOKit")
         functions = [
             ("IOServiceGetMatchingService", b"II@"),
