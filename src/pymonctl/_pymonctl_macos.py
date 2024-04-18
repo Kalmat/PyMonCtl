@@ -379,7 +379,7 @@ class MacOSMonitor(BaseMonitor):
                 options = rotateCode | angleCodes[(orientation*90) % 360]
 
                 try:
-                    ret = IOServiceRequestProbe(self._ioservice, options)
+                    ret = globals()["IOServiceRequestProbe"](self._ioservice, options)
                 except:
                     ret = 1
                 if ret != 0:
@@ -436,7 +436,7 @@ class MacOSMonitor(BaseMonitor):
                 self._ioservice = _loadIOKit(self.handle)
             if self._ioservice is not None:
                 try:
-                    (ret, value) = IODisplayGetFloatParameter(self._ioservice, 0, kIODisplayBrightnessKey, None)
+                    (ret, value) = globals()["IODisplayGetFloatParameter"](self._ioservice, 0, globals()["kIODisplayBrightnessKey"], None)
                 except:
                     ret = 1
                 if ret == 0:
@@ -487,7 +487,7 @@ class MacOSMonitor(BaseMonitor):
                 if self._ioservice is not None:
                     value = ctypes.c_float(brightness / 100)
                     try:
-                        ret = IODisplaySetFloatParameter(self._ioservice, 0, kIODisplayBrightnessKey, value)
+                        ret = globals()["IODisplaySetFloatParameter"](self._ioservice, 0, globals()["kIODisplayBrightnessKey"], value)
                     except:
                         ret = 1
                     if ret != 0:
@@ -755,14 +755,14 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
         globals()['kIODisplayBrightnessKey'] = CF.CFSTR("brightness")
 
         try:
-            service = Quartz.CGDisplayIOServicePort(displayID)
+            service: Optional[int] = Quartz.CGDisplayIOServicePort(displayID)
         except:
-            service: Optional[int] = None
+            service = None
 
         if not service:
-            err, service = IOServiceGetMatchingService(
-                kIOMasterPortDefault,
-                IOServiceMatching(b'IODisplayConnect')
+            err, service = globals()["IOServiceGetMatchingService"](
+                globals()["kIOMasterPortDefault"],
+                globals()["IOServiceMatching"](b'IODisplayConnect')
             )
             if err != 0 or not service:
                 service = None
