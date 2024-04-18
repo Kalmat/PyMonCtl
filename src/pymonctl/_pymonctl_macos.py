@@ -206,10 +206,13 @@ class MacOSMonitor(BaseMonitor):
             self._useDS = True
             self._cd: Optional[ctypes.CDLL] = None
             self._useCD = True
-            self._iokit: Optional[ctypes.CDLL] = None
+            # self._iokit: Optional[ctypes.CDLL] = None
             self._useIOBrightness = True
             self._useIOOrientation = True
             self._ioservice: Optional[int] = None
+            # In Catalina and above IOKit.IODisplayGetFloatParameter fails
+            v = platform.mac_ver()[0].split(".")
+            self._ver = float(v[0] + "." + v[1])
         else:
             raise ValueError
 
@@ -360,9 +363,9 @@ class MacOSMonitor(BaseMonitor):
     def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
         if (self._useIOOrientation
                 and orientation and orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT)):
-            if self._iokit is None:
-                self._iokit, self._ioservice = _loadIOKit(self.handle)
-            if self._iokit is not None and self._ioservice is not None:
+            if self._ioservice is None:
+                self._ioservice = _loadIOKit(self.handle)
+            if self._ioservice is not None:
                 swapAxes = 0x10
                 invertX = 0x20
                 invertY = 0x40
@@ -373,10 +376,10 @@ class MacOSMonitor(BaseMonitor):
                     270: (swapAxes | invertY) << 16,
                 }
                 rotateCode = 0x400
-                options = rotateCode | angleCodes[orientation % 360]
+                options = rotateCode | angleCodes[(orientation*90) % 360]
 
                 try:
-                    ret = self._iokit.IOServiceRequestProbe(self._ioservice, options)
+                    ret = IOServiceRequestProbe(self._ioservice, options)
                 except:
                     ret = 1
                 if ret != 0:
@@ -428,17 +431,16 @@ class MacOSMonitor(BaseMonitor):
                     self._useCD = False
             else:
                 self._useCD = False
-        if ret != 0 and self._useIOBrightness:
-            if self._iokit is None:
-                self._iokit, self._ioservice = _loadIOKit(self.handle)
-            if self._iokit is not None and self._ioservice is not None:
-                value = ctypes.c_float()
+        if ret != 0 and self._useIOBrightness: # and self._ver > 10.15:
+            if self._ioservice is None:
+                self._ioservice = _loadIOKit(self.handle)
+            if self._ioservice is not None:
                 try:
-                    ret = self._iokit.IODisplayGetFloatParameter(self._ioservice, 0, CF.CFSTR("brightness"), ctypes.byref(value))
+                    (ret, value) = IODisplayGetFloatParameter(self._ioservice, 0, kIODisplayBrightnessKey, None)
                 except:
                     ret = 1
                 if ret == 0:
-                    res = value.value
+                    res = value
                 else:
                     self._useIOBrightness = False
             else:
@@ -479,13 +481,13 @@ class MacOSMonitor(BaseMonitor):
                         self._useCD = False
                 else:
                     self._useCD = False
-            if ret != 0 and self._useIOBrightness:
-                if self._iokit is None:
-                    self._iokit, self._ioservice = _loadIOKit(self.handle)
-                if self._iokit is not None and self._ioservice is not None:
+            if ret != 0 and self._useIOBrightness and self._ver > 10.15:
+                if self._ioservice is None:
+                    self._ioservice = _loadIOKit(self.handle)
+                if self._ioservice is not None:
                     value = ctypes.c_float(brightness / 100)
                     try:
-                        ret = self._iokit.IODisplaySetFloatParameter(self._ioservice, 0, CF.CFSTR("brightness"), value)
+                        ret = IODisplaySetFloatParameter(self._ioservice, 0, kIODisplayBrightnessKey, value)
                     except:
                         ret = 1
                     if ret != 0:
@@ -551,9 +553,9 @@ class MacOSMonitor(BaseMonitor):
             mw, mh, mr = mode.width, mode.height, mode.frequency
             allModes = _CGgetAllModes(self.handle)
             for m in allModes:
-                w = Quartz.CGDisplayModeGetWidth(mode)
-                h = Quartz.CGDisplayModeGetHeight(mode)
-                r = Quartz.CGDisplayModeGetRefreshRate(mode)
+                w = Quartz.CGDisplayModeGetWidth(m)
+                h = Quartz.CGDisplayModeGetHeight(m)
+                r = Quartz.CGDisplayModeGetRefreshRate(m)
                 if w == mw and h == mh and r == mr:
                     CG.CGDisplaySetDisplayMode(self.handle, m, None)
                     break
@@ -707,7 +709,7 @@ def _loadDisplayServices():
     try:
         ds: ctypes.CDLL = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
     except:
-        ds = None
+        return None
     return ds
 
 
@@ -715,55 +717,58 @@ def _loadCoreDisplay():
     # Another option is to use Core Display Services
     try:
         lib = ctypes.util.find_library("CoreDisplay")
-        if lib is not None:
+        if lib:
             cd: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
             cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
             cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
         else:
-            cd = None
+            return None
     except:
-        cd = None
+        return None
     return cd
 
 
 def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
-    # In older systems, we can try to use IOKit
-    service: Optional[int] = None
+    # https://gist.github.com/wadimw/4ac972d07ed1f3b6f22a101375ecac41?permalink_comment_id=4932162
+    # In other systems, we can try to use IOKit
     try:
-        lib = ctypes.util.find_library('IOKit')
-        if lib is not None:
-            iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
-            try:
-                service = Quartz.CGDisplayIOServicePort(displayID)
-            except:
-                service = None
-            if not service:
-                # CGDisplayIOServicePort is deprecated in some systems
-                # We can try to use 'IODisplayConnect' Service, but it won't work on M1 and above systems either
-                iokit.IOServiceMatching.restype = ctypes.c_void_p
-                iokit.IOServiceGetMatchingServices.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-                iokit.IOServiceGetMatchingServices.restype = ctypes.c_void_p
+        # lib = ctypes.util.find_library('IOKit')
+        # if lib:
+        #     iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
+        #     iokit.IODisplayGetFloatParameter.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
+        #     iokit.IODisplayGetFloatParameter.restype = ctypes.py_object
+        import objc
+        iokit = AppKit.NSBundle.bundleWithIdentifier_("com.apple.framework.IOKit")
+        functions = [
+            ("IOServiceGetMatchingService", b"II@"),
+            ("IOServiceMatching", b"@*"),
+            ("IODisplayGetFloatParameter", b"iII@o^f"),
+            ("IODisplaySetFloatParameter", b"iII@f"),
+            ("IOServiceRequestProbe", b"iII"),
+            ("IOObjectRelease", b"iI")
+        ]
+        objc.loadBundleFunctions(iokit, globals(), functions)
+        variables = [
+            ("kIOMasterPortDefault", b"I")
+        ]
+        objc.loadBundleVariables(iokit, globals(), variables)
+        globals()['kIODisplayBrightnessKey'] = CF.CFSTR("brightness")
 
-                kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
-                serial_port_iterator = ctypes.c_void_p()
-                try:
-                    iokit.IOServiceGetMatchingServices(
-                        kIOMasterPortDefault,
-                        iokit.IOServiceMatching(b'IODisplayConnect'),
-                        ctypes.byref(serial_port_iterator)
-                    )
-                    # How to find the service corresponding to displayID???
-                    service = iokit.IOIteratorNext(serial_port_iterator)
-                except:
-                    service = None
-                if not service:
-                    iokit = None
-                    service = None
-        else:
-            iokit = None
+        try:
+            service = Quartz.CGDisplayIOServicePort(displayID)
+        except:
+            service: Optional[int] = None
+
+        if not service:
+            err, service = IOServiceGetMatchingService(
+                kIOMasterPortDefault,
+                IOServiceMatching(b'IODisplayConnect')
+            )
+            if err != 0 or not service:
+                service = None
     except:
-        iokit = None
-    return iokit, service
+        service = None
+    return service
 
 
 def _eventLoop(kill: threading.Event, interval: float):
