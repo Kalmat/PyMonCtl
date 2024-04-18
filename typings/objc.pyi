@@ -7,6 +7,7 @@ class loadBundleFunctions(str):
 
     @overload
     def __new__(cls, object: object = ...) -> loadBundleFunctions: ...
+    @overload
     def __new__(cls, object: Buffer, encoding: str = ..., errors: str = ...) -> loadBundleFunctions: ...
 
 class loadBundleVariables(str):
@@ -14,5 +15,6 @@ class loadBundleVariables(str):
 
     @overload
     def __new__(cls, object: object = ...) -> loadBundleVariables: ...
+    @overload
     def __new__(cls, object: Buffer, encoding: str = ..., errors: str = ...) -> loadBundleVariables: ...
 
