@@ -720,7 +720,10 @@ def _loadDisplayServices():
 def _loadCoreDisplay():
     # Another option is to use Core Display Services
     try:
-        cd: ctypes.CDLL = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreDisplay"))
+        lib = ctypes.util.find_library("CoreDisplay")
+        if not lib:
+            return None
+        cd: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
         cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
         cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
     except:
@@ -738,11 +741,17 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
 
         CFStringRef = ctypes.POINTER(_CFString)
 
-        CF: ctypes.CDLL = ctypes.cdll.LoadLibrary(ctypes.util.find_library("CoreFoundation"))
+        lib = ctypes.util.find_library("CoreFoundation")
+        if not lib:
+            return None, None, None
+        CF: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
         CF.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
         CF.CFStringCreateWithCString.restype = CFStringRef
 
-        iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(ctypes.util.find_library('IOKit'))
+        lib = ctypes.util.find_library('IOKit')
+        if not lib:
+            return None, None, None
+        iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
         iokit.IODisplayGetFloatParameter.argtypes = [ctypes.c_void_p, ctypes.c_uint, CFStringRef, ctypes.POINTER(ctypes.c_float)]
         iokit.IODisplayGetFloatParameter.restype = ctypes.c_int
         iokit.IODisplaySetFloatParameter.argtypes = [ctypes.c_void_p, ctypes.c_uint, CFStringRef, ctypes.c_float]
