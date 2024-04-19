@@ -41,7 +41,7 @@ Class to access all methods and functions to get info and control a given monito
 
 This class is not meant to be directly instantiated. Instead, use convenience functions like `getAllMonitors()`,
 `getPrimary()` or `findMonitorsAtPoint(x, y)`. Use [PyWinCtl](https://github.com/Kalmat/PyWinCtl) module in case you need to 
-find the monitor a given window is in, by using `getDisplay()` method which returns the name of the monitor that
+find the monitor a given window is in, by using `getMonitor()` method which returns the name of the monitor that
 can directly be used to invoke `findMonitorWithName(name)` function.
 
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
@@ -62,8 +62,8 @@ the provided handle is not valid.
 |    setScale    |    X    |   X   |   X   |
 |  orientation   |    X    |   X   |   X   |
 | setOrientation |    X    |   X   | X (1) |
-|   brightness   |  X (2)  |   X   |   X   |
-| setBrightness  |  X (2)  |   X   |   X   |
+|   brightness   |  X (2)  |   X   | X (1) |
+| setBrightness  |  X (2)  |   X   | X (1) |
 |    contrast    |  X (2)  | X (3) | X (3) |
 |  setContrast   |  X (2)  | X (3) | X (3) |
 |      mode      |    X    |   X   |   X   |
@@ -83,7 +83,7 @@ the provided handle is not valid.
 |   isAttached   |    X    |   X   |   X   |
 
 
-(1) Working only in versions older than Catalina (thanks to University of Utah - Marriott Library - Apple Infrastructure)
+(1) Maybe not working in all macOS versions and/or architectures (thanks to University of [Utah - Marriott Library - Apple Infrastructure](https://github.com/univ-of-utah-marriott-library-apple/privacy_services_manager), [eryksun](https://stackoverflow.com/questions/22841741/calling-functions-with-arguments-from-corefoundation-using-ctypes) and [nriley](https://github.com/nriley/brightness/blob/master/brightness.c) for pointing me to the solution)
 
 (2) If monitor has no VCP MCCS support, these methods won't likely work.
 
