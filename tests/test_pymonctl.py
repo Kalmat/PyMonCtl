@@ -136,10 +136,12 @@ for monitor in monitorsPlugged:
     time.sleep(_TIMELAP)
     print()
 
-    print("CHANGE ORIENTATION", "Current:", monitor.orientation*90, "Target:", pmc.Orientation.INVERTED*90)
+    orientation = monitor.orientation
+    print("CHANGE ORIENTATION", "Current:", orientation*90 if orientation is not None else None, "Target:", pmc.Orientation.INVERTED*90)
     monitor.setOrientation(pmc.Orientation.INVERTED)
     time.sleep(_TIMELAP*2)
-    print("RESTORE ORIENTATION", "Current:", monitor.orientation*90, "Target:", pmc.Orientation.NORMAL)
+    orientation = monitor.orientation
+    print("RESTORE ORIENTATION", "Current:", orientation*90 if orientation is not None else None, "Target:", pmc.Orientation.NORMAL)
     monitor.setOrientation(pmc.Orientation.NORMAL)
     time.sleep(_TIMELAP*2)
     print()
