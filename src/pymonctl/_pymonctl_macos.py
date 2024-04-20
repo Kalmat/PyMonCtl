@@ -10,7 +10,6 @@ from ctypes import util
 import sys
 assert sys.platform == "darwin"
 
-import platform
 import subprocess
 import threading
 
@@ -19,7 +18,6 @@ from typing import Optional, List, Union, cast, Tuple
 import AppKit
 import Quartz
 import Quartz.CoreGraphics as CG
-import CoreFoundation as CF
 
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
@@ -436,7 +434,7 @@ class MacOSMonitor(BaseMonitor):
             if self._iokit is None:
                 self._iokit, self._cf, self._ioservice = _loadIOKit(self.handle)
             if self._iokit is not None and self._cf is not None and self._ioservice is not None:
-                kDisplayBrightnessKey = CF.CFStringCreateWithCString(None, b"brightness", 0)
+                kDisplayBrightnessKey = self._cf.CFStringCreateWithCString(None, b"brightness", 0)
                 value = ctypes.c_float()
                 try:
                     ret = self._iokit.IODisplayGetFloatParameter(self._ioservice, 0, kDisplayBrightnessKey, ctypes.byref(value))
@@ -488,7 +486,7 @@ class MacOSMonitor(BaseMonitor):
                 if self._iokit is None:
                     self._iokit, self._cf, self._ioservice = _loadIOKit(self.handle)
                 if self._iokit is not None and self._cf is not None and self._ioservice is not None:
-                    kDisplayBrightnessKey = CF.CFStringCreateWithCString(None, b"brightness", 0)
+                    kDisplayBrightnessKey = self._cf.CFStringCreateWithCString(None, b"brightness", 0)
                     value = ctypes.c_float(brightness / 100)
                     try:
                         ret = self._iokit.IODisplaySetFloatParameter(self._ioservice, 0, kDisplayBrightnessKey, value)
@@ -735,68 +733,73 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
     # https://github.com/nriley/brightness/blob/master/brightness.c
     # https://stackoverflow.com/questions/22841741/calling-functions-with-arguments-from-corefoundation-using-ctypes
 
-    class _CFString(ctypes.Structure):
-        pass
-
-    CFStringRef = ctypes.POINTER(_CFString)
-
-    lib = ctypes.util.find_library("CoreFoundation")
-    if not lib:
-        return None, None, None
-    CF: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
-    CF.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
-    CF.CFStringCreateWithCString.restype = CFStringRef
-    CF.CFDictionaryGetValue.argtypes = [ctypes.c_void_p, CFStringRef]
-    CF.CFDictionaryGetValue.restype = ctypes.c_void_p
-
-    lib = ctypes.util.find_library('IOKit')
-    if not lib:
-        return None, None, None
-    iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
-    iokit.IODisplayGetFloatParameter.argtypes = [ctypes.c_void_p, ctypes.c_uint, CFStringRef, ctypes.POINTER(ctypes.c_float)]
-    iokit.IODisplayGetFloatParameter.restype = ctypes.c_int
-    iokit.IODisplaySetFloatParameter.argtypes = [ctypes.c_void_p, ctypes.c_uint, CFStringRef, ctypes.c_float]
-    iokit.IODisplaySetFloatParameter.restype = ctypes.c_int
-    iokit.IOServiceRequestProbe.argtypes = [ctypes.c_void_p, ctypes.c_uint]
-    iokit.IOServiceRequestProbe.restype = ctypes.c_int
-    # iokit.IODisplayCreateInfoDictionary.argtypes = [ctypes.c_void_p, ctypes.c_uint]
-    # iokit.IODisplayCreateInfoDictionary.restype = ctypes.Structure
-
     try:
-        # CGDisplayIOServicePort is deprecated as of 10.9
-        service: int = Quartz.CGDisplayIOServicePort(displayID)
+        class _CFString(ctypes.Structure):
+            pass
+
+        CFStringRef = ctypes.POINTER(_CFString)
+
+        lib = ctypes.util.find_library("CoreFoundation")
+        if not lib:
+            return None, None, None
+        CF: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
+        CF.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
+        CF.CFStringCreateWithCString.restype = CFStringRef
+        CF.CFRelease.argtypes = [ctypes.c_void_p]
+
+        lib = ctypes.util.find_library('IOKit')
+        if not lib:
+            return None, None, None
+        iokit: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
+        iokit.IODisplayGetFloatParameter.argtypes = [ctypes.c_void_p, ctypes.c_uint, CFStringRef, ctypes.POINTER(ctypes.c_float)]
+        iokit.IODisplayGetFloatParameter.restype = ctypes.c_int
+        iokit.IODisplaySetFloatParameter.argtypes = [ctypes.c_void_p, ctypes.c_uint, CFStringRef, ctypes.c_float]
+        iokit.IODisplaySetFloatParameter.restype = ctypes.c_int
+        iokit.IOServiceRequestProbe.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        iokit.IOServiceRequestProbe.restype = ctypes.c_int
+
+        try:
+            service: int = Quartz.CGDisplayIOServicePort(displayID)
+        except:
+            service = 0
+
+        # Check if this works in an actual macOS (preferably in several versions)
+        if not service:
+            # CGDisplayIOServicePort may not work in all versions/architectures
+
+            iokit.IOServiceMatching.restype = ctypes.c_void_p
+            iokit.IOServiceGetMatchingServices.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+            iokit.IOServiceGetMatchingServices.restype = ctypes.c_void_p
+            iokit.IODisplayCreateInfoDictionary.restype = ctypes.c_void_p
+
+            CF.CFDictionaryGetValue.argtypes = [ctypes.c_void_p, CFStringRef]
+            CF.CFDictionaryGetValue.restype = ctypes.c_void_p
+
+            kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
+
+            iterator = ctypes.c_void_p()
+            ret = iokit.IOServiceGetMatchingServices(
+                kIOMasterPortDefault,
+                iokit.IOServiceMatching(b'IODisplayConnect'),
+                ctypes.byref(iterator)
+            )
+
+            kIODisplayNoProductName = 0x00000400
+            kDisplaySerialNumber = CF.CFStringCreateWithCString(None, b"DisplaySerialNumber", 0)
+            while True:
+                service = iokit.IOIteratorNext(iterator)
+                if not service:
+                    break
+                info = iokit.IODisplayCreateInfoDictionary(service, kIODisplayNoProductName)
+                serialNumber = CF.CFDictionaryGetValue(info, kDisplaySerialNumber)
+                CF.CFRelease(info)
+                if serialNumber == Quartz.CGDisplaySerialNumber(displayID):
+                    break
+
+        if service:
+            return iokit, CF, service
     except:
-        service = 0
-
-    # Check if this works in an actual macOS (preferably in several versions)
-    if not service:
-
-        iokit.IOServiceMatching.restype = ctypes.c_void_p
-        iokit.IOServiceGetMatchingServices.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-        iokit.IOServiceGetMatchingServices.restype = ctypes.c_void_p
-        iokit.IODisplayCreateInfoDictionary.restype = ctypes.c_void_p
-
-        kIOMasterPortDefault = ctypes.c_void_p.in_dll(iokit, "kIOMasterPortDefault")
-        iterator = ctypes.c_void_p()
-        ret = iokit.IOServiceGetMatchingServices(
-            kIOMasterPortDefault,
-            iokit.IOServiceMatching(b'IODisplayConnect'),
-            ctypes.byref(iterator)
-        )
-
-        kIODisplayNoProductName = 0x00000400
-        kDisplaySerialNumber = CF.CFStringCreateWithCString(None, b"DisplaySerialNumber", 0)
-        while True:
-            service = iokit.IOIteratorNext(iterator)
-            if not service:
-                break
-            info = iokit.IODisplayCreateInfoDictionary(service, kIODisplayNoProductName)
-            serialNumber = CF.CFDictionaryGetValue(info, kDisplaySerialNumber)
-            if serialNumber == Quartz.CGDisplaySerialNumber(displayID):
-                break
-
-    if service:
-        return iokit, CF, service
+        pass
 
     return None, None, None
 
