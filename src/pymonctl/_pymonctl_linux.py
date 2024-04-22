@@ -840,9 +840,7 @@ def _getMonitorsData(handle: Optional[int] = None) -> (
     stopSearching = False
     roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
     for rootData in roots:
-        display: Xlib.display.Display = rootData[0]
-        screen: Struct = rootData[1]
-        root: XWindow = rootData[2]
+        display, screen, root = rootData
         try:
             mons = randr.get_monitors(root).monitors
         except:
@@ -882,9 +880,7 @@ def _XgetAllMonitors(name: str = ""):
         stopSearching = False
         roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
         for rootData in roots:
-            display: Xlib.display.Display = rootData[0]
-            screen: Struct = rootData[1]
-            root: XWindow = rootData[2]
+            display, screen, root = rootData
             try:
                 mons = randr.get_monitors(root).monitors
             except:
@@ -952,9 +948,7 @@ def _XgetAllOutputs(name: str = ""):
                         int, randr.GetOutputInfo]] = []
     roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
     for rootData in roots:
-        display: Xlib.display.Display = rootData[0]
-        screen: Struct = rootData[1]
-        root: XWindow = rootData[2]
+        display, screen, root = rootData
         res = randr.get_screen_resources_current(root)
         for output in res.outputs:
             outputInfo = randr.get_output_info(display, output, res.config_timestamp)
