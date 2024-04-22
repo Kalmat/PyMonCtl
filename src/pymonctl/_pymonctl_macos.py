@@ -384,6 +384,7 @@ class MacOSMonitor(BaseMonitor):
                 if ret != 0:
                     self._useIOOrientation = False
             else:
+                self._useIOBrightness = False
                 self._useIOOrientation = False
 
     @property
@@ -446,6 +447,7 @@ class MacOSMonitor(BaseMonitor):
                     self._useIOBrightness = False
             else:
                 self._useIOBrightness = False
+                self._useIOOrientation = False
         if res is not None:
             return int(res * 100)
         return None
