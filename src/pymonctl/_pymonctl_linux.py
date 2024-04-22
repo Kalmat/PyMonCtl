@@ -20,7 +20,6 @@ import Xlib.xobject
 from Xlib.protocol.rq import Struct
 from Xlib.xobject.drawable import Window as XWindow
 from Xlib.ext import randr
-from Xlib.ext.randr import GetScreenResourcesCurrent, MonitorInfo, GetOutputInfo, GetCrtcInfo
 
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, getMonitorsData, isWatchdogEnabled, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
@@ -43,12 +42,12 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
 
 
 def _getAllMonitorsDictThread() -> (Tuple[dict[str, ScreenValue],
-                                          List[Tuple[Xlib.display.Display, Struct, XWindow, GetScreenResourcesCurrent,
-                                                     MonitorInfo, str, int, GetOutputInfo, int, GetCrtcInfo]]]):
+                                          List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+                                                     randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]]]):
     # display connections seem to fail when shared amongst threads and/or queried too quickly in parallel
     monitorsDict: dict[str, ScreenValue] = {}
-    monitorsData: List[Tuple[Xlib.display.Display, Struct, XWindow, GetScreenResourcesCurrent,
-                             MonitorInfo, str, int, GetOutputInfo, int, GetCrtcInfo]] = []
+    monitorsData: List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+                             randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]] = []
     for monitorData in _getMonitorsData():
         display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData
         monitorsDict[monName] = _buildMonitorsDict(display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo)
@@ -260,7 +259,7 @@ class LinuxMonitor(BaseMonitor):
     def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
         arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]] = {}
-        monitors: dict[str, dict[str, MonitorInfo]] = _XgetMonitorsDict()
+        monitors: dict[str, dict[str, randr.MonitorInfo]] = _XgetMonitorsDict()
         monKeys = list(monitors.keys())
         if relativePos == Position.PRIMARY:
             monitor = monitors[self.name]["monitor"]
@@ -834,14 +833,16 @@ class _Monitor(NamedTuple):
 
 
 def _getMonitorsData(handle: Optional[int] = None) -> (
-                        List[Tuple[Xlib.display.Display, Struct, XWindow, GetScreenResourcesCurrent,
-                        MonitorInfo, str, int, GetOutputInfo, int, GetCrtcInfo]]):
-    monitors: List[Tuple[Xlib.display.Display, Struct, XWindow, GetScreenResourcesCurrent,
-                         MonitorInfo, str, int, GetOutputInfo, int, GetCrtcInfo]] = []
+                        List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+                        randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]]):
+    monitors: List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+                         randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]] = []
     stopSearching = False
     roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
     for rootData in roots:
-        display, screen, root = rootData
+        display: Xlib.display.Display = rootData[0]
+        screen: Struct = rootData[1]
+        root: XWindow = rootData[2]
         try:
             mons = randr.get_monitors(root).monitors
         except:
@@ -881,7 +882,9 @@ def _XgetAllMonitors(name: str = ""):
         stopSearching = False
         roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
         for rootData in roots:
-            display, screen, root = rootData
+            display: Xlib.display.Display = rootData[0]
+            screen: Struct = rootData[1]
+            root: XWindow = rootData[2]
             try:
                 mons = randr.get_monitors(root).monitors
             except:
@@ -946,10 +949,12 @@ def _RgetMonitorsInfo(activeOnly: bool = True):
 
 def _XgetAllOutputs(name: str = ""):
     outputs: List[Tuple[Xlib.display.Display, Xlib.protocol.rq.Struct, Xlib.xobject.drawable.Window,
-                        int, GetOutputInfo]] = []
+                        int, randr.GetOutputInfo]] = []
     roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
     for rootData in roots:
-        display, screen, root = rootData
+        display: Xlib.display.Display = rootData[0]
+        screen: Struct = rootData[1]
+        root: XWindow = rootData[2]
         res = randr.get_screen_resources_current(root)
         for output in res.outputs:
             outputInfo = randr.get_output_info(display, output, res.config_timestamp)
@@ -995,7 +1000,7 @@ def _XgetMonitorsDict():
     return monitors
 
 
-def _XgetMonitorData(handle: Optional[int] = None) -> Optional[Tuple[Xlib.display.Display, Struct, XWindow, MonitorInfo, int, str]]:
+def _XgetMonitorData(handle: Optional[int] = None) -> Optional[Tuple[Xlib.display.Display, Struct, XWindow, randr.MonitorInfo, int, str]]:
     for monitorData in _XgetAllMonitors():
         display, screen, root, monitor, monName = monitorData
         output = monitor.crtcs[0]
