@@ -44,11 +44,11 @@ myst_heading_anchors = 7
 # https://stackoverflow.com/questions/66495200/is-it-possible-to-include-external-rst-files-in-my-documentation
 from urllib.request import urlretrieve
 
-# urlretrieve(
-#     "https://raw.githubusercontent.com/kalmat/pymonctl/master/README.md",
-#     "index.md"
-# )
-# urlretrieve(
-#     "https://raw.githubusercontent.com/kalmat/pymonctl/master/docstrings.md",
-#     "docstrings.md"
-# )
+urlretrieve(
+    "https://raw.githubusercontent.com/kalmat/pymonctl/master/README.md",
+    "index.md"
+)
+urlretrieve(
+    "https://raw.githubusercontent.com/kalmat/pymonctl/master/docstrings.md",
+    "docstrings.md"
+)
