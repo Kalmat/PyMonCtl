@@ -37,7 +37,7 @@ setup(
     install_requires=[
         "pywin32>=302; sys_platform == 'win32'",
         "python-xlib>=0.21; sys_platform == 'linux'",
-        "ewmhlib>=0.2",
+        "ewmhlib>=0.2; sys_platform == 'linux'",
         "pyobjc>=8.1; sys_platform == 'darwin'",
         "typing_extensions>=4.4.0"
     ],
@@ -48,7 +48,8 @@ setup(
             "types-pywin32>=305.0.0.3",
             "types-python-xlib>=0.32",
             "myst-parser",
-            "pywinctl>=0.3"
+            "pywinctl>=0.3",
+            "ewmhlib>=0.2"
         ]
     },
     keywords="screen display monitor control geometry size position frequency scale orientation "

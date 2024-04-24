@@ -202,7 +202,7 @@ Example:
     pmc.changeListenerUnregister(propsChanged)
 
 
-## INSTALL <a name="install"></a>
+## Install <a name="install"></a>
 
 To install this module on your system, you can use pip: 
 
@@ -222,11 +222,11 @@ Then, you can use it on your own projects just importing it:
 
     import pymonctl
 
-## SUPPORT <a name="support"></a>
+## Support <a name="support"></a>
 
 In case you have a problem, comments or suggestions, do not hesitate to [open issues](https://github.com/Kalmat/PyMonCtl/issues) on the [project homepage](https://github.com/Kalmat/PyMonCtl)
 
-## USING THIS CODE <a name="using"></a>
+## Using this code <a name="using"></a>
 
 If you want to use this code or contribute, you can either:
 
@@ -237,7 +237,7 @@ Be sure you install all dependencies described on `requirements.txt` by using pi
     
     python3 -m pip install -r requirements.txt
 
-## TEST <a name="test"></a>
+## Test <a name="test"></a>
 
 To test this module on your own system, cd to `tests` folder and run:
 
