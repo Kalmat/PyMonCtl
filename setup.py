@@ -47,6 +47,7 @@ setup(
             "mypy>=0.990",
             "types-pywin32>=305.0.0.3",
             "types-python-xlib>=0.32",
+            "myst-parser",
             "pywinctl>=0.3"
         ]
     },
