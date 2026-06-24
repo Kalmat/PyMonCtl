@@ -65,22 +65,23 @@ jobs:
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
-      # - name: Install Linux Packages
-      #   if: ${{ startsWith(matrix.os, 'ubuntu') }}
-      #   run: |
-      #     sudo apt update
-      #     sudo apt install gedit xvfb x11-xserver-utils openbox dbus-x11
+      - name: Install Linux Packages
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          # xvfb+openbox: headless X server and WM
+          # x11-xserver-utils (xrandr/xset): required by tests for window geometry
+          sudo apt install -y xvfb openbox x11-xserver-utils
       - uses: astral-sh/setup-uv@v8.2.0
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
       - run: uv sync --locked
-      # - name: Run tests (Linux)
-      #   if: ${{ startsWith(matrix.os, 'ubuntu') }}
-      #   working-directory: tests
-      #   run: xvfb-run --server-args="-screen 0 1280x1024x24" bash -c "openbox & sleep 1 && dbus-launch --exit-with-session python test_pymonctl.py"
-      - name: Run tests # (Windows & macOS)
-        # if: ${{ !startsWith(matrix.os, 'ubuntu') }}
+      - name: Run tests (Linux)
+        if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        working-directory: tests
+        run: xvfb-run --server-args="-screen 0 1280x1024x24" bash -c "openbox & sleep 1 && python test_pymonctl.py"
+      - name: Run tests (Windows & macOS)
+        if: ${{ !startsWith(matrix.os, 'ubuntu') }}
         working-directory: tests
         run: python test_pymonctl.py
 
