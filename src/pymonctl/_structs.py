@@ -1,10 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import sys
 from enum import IntEnum
-from typing import NamedTuple, Tuple
+from typing import NamedTuple
 from typing_extensions import TypedDict
 
 
@@ -58,8 +57,8 @@ class ScreenValue(TypedDict):
     position: Point
     size: Size
     workarea: Rect
-    scale: Tuple[float, float]
-    dpi: Tuple[int, int]
+    scale: tuple[float, float]
+    dpi: tuple[int, int]
     orientation: int
     frequency: float
     colordepth: int
