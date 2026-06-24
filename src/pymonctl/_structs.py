@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import sys
 from enum import IntEnum
-from typing import ClassVar, NamedTuple
-from typing_extensions import TypedDict
+from typing import ClassVar, NamedTuple, TypedDict
 
 
 class Box(NamedTuple):
