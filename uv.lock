@@ -787,7 +787,6 @@ dependencies = [
     { name = "pyobjc", version = "12.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and sys_platform == 'darwin'" },
     { name = "python-xlib", marker = "sys_platform == 'linux'" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
-    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -801,7 +800,6 @@ dev = [
     { name = "types-python-xlib", version = "0.33.0.20250809", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "types-python-xlib", version = "0.33.0.20260518", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "types-pywin32" },
-    { name = "typing-extensions" },
 ]
 docs = [
     { name = "myst-parser", version = "3.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -815,7 +813,6 @@ requires-dist = [
     { name = "pyobjc", marker = "sys_platform == 'darwin'", specifier = ">=8.1" },
     { name = "python-xlib", marker = "sys_platform == 'linux'", specifier = ">=0.21" },
     { name = "pywin32", marker = "sys_platform == 'win32'", specifier = ">=302" },
-    { name = "typing-extensions", specifier = ">=4.4.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -825,7 +822,6 @@ dev = [
     { name = "myst-parser" },
     { name = "types-python-xlib", specifier = ">=0.32" },
     { name = "types-pywin32", specifier = "<312.0.0.20260609" },
-    { name = "typing-extensions", specifier = ">=4.4.0" },
 ]
 docs = [{ name = "myst-parser" }]
 
