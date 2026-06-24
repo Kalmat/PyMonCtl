@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 from enum import IntEnum
-from typing import NamedTuple
+from typing import ClassVar, NamedTuple
 from typing_extensions import TypedDict
 
 
@@ -112,14 +112,14 @@ if sys.platform == "win32":
     # ==================================== PathsInfo
 
     class _DUMMYSTRUCTNAME(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('cloneGroupId', ctypes.c_uint32),
             ('sourceModeInfoIdx', ctypes.c_uint32)
         ]
 
 
     class _DUMMYUNIONNAME(ctypes.Union):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('modeInfoIdx', ctypes.c_uint32),
             ('dummyStructName', _DUMMYSTRUCTNAME)
         ]
@@ -127,14 +127,14 @@ if sys.platform == "win32":
 
 
     class _LUID(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('lowPart', ctypes.wintypes.DWORD),
             ('highPart', ctypes.wintypes.LONG)
         ]
 
 
     class _DISPLAYCONFIG_PATH_SOURCE_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('adapterId', _LUID),
             ('id', ctypes.c_uint32),
             ('dummyUnionName', _DUMMYUNIONNAME),
@@ -143,14 +143,14 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_RATIONAL(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('numerator', ctypes.c_uint32),
             ('denominator', ctypes.c_uint32)
         ]
 
 
     class _DISPLAYCONFIG_PATH_TARGET_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('adapterId', _LUID),
             ('id', ctypes.c_uint32),
             ('dummyUnionName', _DUMMYUNIONNAME),
@@ -165,7 +165,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_PATH_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('sourceInfo', _DISPLAYCONFIG_PATH_SOURCE_INFO),
             ('targetInfo', _DISPLAYCONFIG_PATH_TARGET_INFO),
             ('flags', ctypes.c_uint32)
@@ -175,14 +175,14 @@ if sys.platform == "win32":
     # ==================================== ModesInfo
 
     class _DISPLAYCONFIG_2DREGION(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('cx', ctypes.c_uint32),
             ('cy', ctypes.c_uint32)
         ]
 
 
     class _ADDITIONAL_SIGNAL_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('videoStandard', ctypes.c_uint32),
             ('vSyncFreqDivider', ctypes.c_uint32),
             ('reserved', ctypes.c_uint32)
@@ -190,14 +190,14 @@ if sys.platform == "win32":
 
 
     class _DUMMYUNIONNAME_MODE_SIGNAL(ctypes.Union):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('additionalSignalInfo', _ADDITIONAL_SIGNAL_INFO),
             ('videoStandard', ctypes.c_uint32)
         ]
 
 
     class _DISPLAYCONFIG_VIDEO_SIGNAL_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('pixelRate', ctypes.c_uint64),
             ('hSyncFreq', _DISPLAYCONFIG_RATIONAL),
             ('vSyncFreq', _DISPLAYCONFIG_RATIONAL),
@@ -209,20 +209,20 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_TARGET_MODE(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('targetVideoSignalInfo', _DISPLAYCONFIG_VIDEO_SIGNAL_INFO)
         ]
 
 
     class _POINTL(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('x', ctypes.wintypes.LONG),
             ('y', ctypes.wintypes.LONG)
         ]
 
 
     class _DISPLAYCONFIG_SOURCE_MODE(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('width', ctypes.c_uint32),
             ('height', ctypes.c_uint32),
             ('pixelFormat', ctypes.c_uint32),
@@ -231,7 +231,7 @@ if sys.platform == "win32":
 
 
     class _RECTL(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('left', ctypes.c_uint32),
             ('top', ctypes.c_uint32),
             ('right', ctypes.c_uint32),
@@ -240,7 +240,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_DESKTOP_IMAGE_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('pathSourceSize', _POINTL),
             ('desktopImageRegion', _RECTL),
             ('desktopImageClip', _RECTL)
@@ -248,7 +248,7 @@ if sys.platform == "win32":
 
 
     class _DUMMYUNIONNAME_MODE(ctypes.Union):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('targetMode', _DISPLAYCONFIG_TARGET_MODE),
             ('sourceMode', _DISPLAYCONFIG_SOURCE_MODE),
             ('desktopImageInfo', _DISPLAYCONFIG_DESKTOP_IMAGE_INFO)
@@ -256,7 +256,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_MODE_INFO(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('infoType', ctypes.c_uint32),
             ('id', ctypes.c_uint32),
             ('adapterId', _LUID),
@@ -275,7 +275,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_DEVICE_INFO_HEADER(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('type', ctypes.c_uint32),
             ('size', ctypes.c_uint32),
             ('adapterId', _LUID),
@@ -287,7 +287,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_SOURCE_DPI_SCALE_GET(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
             ('minScaleRel', ctypes.c_uint32),
             ('curScaleRel', ctypes.c_uint32),
@@ -299,7 +299,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_SOURCE_DPI_SCALE_SET(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
             ('scaleRel', ctypes.c_uint32)
         ]
@@ -309,7 +309,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAY_CONFIG_TARGET_DEVICE_NAME(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
             ('flags', ctypes.c_uint32),
             ('outputTechnology', ctypes.c_uint32),
@@ -325,7 +325,7 @@ if sys.platform == "win32":
 
 
     class _DISPLAYCONFIG_SOURCE_DEVICE_NAME(ctypes.Structure):
-        _fields_ = [
+        _fields_: ClassVar = [
             ('header', _DISPLAYCONFIG_DEVICE_INFO_HEADER),
             ('viewGdiDeviceName', ctypes.wintypes.WCHAR * 32)
         ]

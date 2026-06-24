@@ -43,19 +43,12 @@ ignore = [
   # Anyway Python 3.11 introduced "zero cost" exception handling
   "PERF203", # try-except-in-loop,
 
+  # TODO: Add and configure isort (I) first
+  "RUF022",
+
   # TODO: Consider later
   "UP031", # printf-string-formatting
   "RUF059", # unused-unpacked-variable
-
-  # TODO: Not autofixable, address in a separate PR !
-  "E402",
-  "E722",
-  "F401",
-  "PERF401",
-  "PYI063",
-  "RUF003",
-  "RUF012",
-  "RUF022",
 ]
 # F401 would remove imports not marked as explicit re-exports, which may break API boundaries
 extend-unsafe-fixes = ["F401"]

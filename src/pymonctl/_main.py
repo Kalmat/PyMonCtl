@@ -212,11 +212,7 @@ def saveSetup() -> list[tuple[Monitor, ScreenValue]]:
 
     :return: list of tuples containing all necessary info to restore saved setup as required by restoreSetup()
     """
-    result: list[tuple[Monitor, ScreenValue]] = []
-    monDict: dict[str, ScreenValue] = getAllMonitorsDict()
-    for monName in monDict.keys():
-        result.append((Monitor(monDict[monName]["id"]), monDict[monName]))
-    return result
+    return [(Monitor(screenValue["id"]), screenValue) for screenValue in getAllMonitorsDict().values()]
 
 
 def restoreSetup(setup: list[tuple[Monitor, ScreenValue]]):
@@ -234,7 +230,7 @@ def restoreSetup(setup: list[tuple[Monitor, ScreenValue]]):
         if not monitor.isAttached:
             try:
                 monitor.attach()
-            except:
+            except Exception:
                 continue
         if monitor.isAttached:
             if monitor.isSuspended or not monitor.isOn:
@@ -744,7 +740,7 @@ class _UpdateScreens(threading.Thread):
         for screen in self._screens.keys():
             try:
                 monitors.append(Monitor(self._screens[screen]["id"]))
-            except:
+            except Exception:
                 pass
         return monitors
 
@@ -827,7 +823,7 @@ def plugListenerUnregister(monitorCountChanged: Callable[[list[str], dict[str, S
     try:
         objIndex = _plugListeners.index(monitorCountChanged)
         _plugListeners.pop(objIndex)
-    except:
+    except Exception:
         pass
     global _changeListeners
     global _updateRequested
@@ -867,7 +863,7 @@ def changeListenerUnregister(monitorPropsChanged: Callable[[list[str], dict[str,
     try:
         objIndex = _changeListeners.index(monitorPropsChanged)
         _changeListeners.pop(objIndex)
-    except:
+    except Exception:
         pass
     global _plugListeners
     global _updateRequested
@@ -1003,17 +999,41 @@ def _getRelativePosition(monitor, relativeTo) -> tuple[int, int]:
 
 
 if sys.platform == "darwin":
-    from ._pymonctl_macos import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                  _findMonitor, _arrangeMonitors, _getMousePos as getMousePos, MacOSMonitor as Monitor
-                                  )
+    from ._pymonctl_macos import MacOSMonitor as Monitor
+    from ._pymonctl_macos import (
+        _arrangeMonitors,
+        _findMonitor,
+        _getAllMonitors,
+        _getAllMonitorsDict,
+        _getMonitorsCount,
+        _getMousePos,
+        _getPrimary,
+    )
 elif sys.platform == "win32":
-    from ._pymonctl_win import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                _findMonitor, _arrangeMonitors, _getMousePos as getMousePos, Win32Monitor as Monitor
-                                )
+    from ._pymonctl_win import Win32Monitor as Monitor
+    from ._pymonctl_win import (
+        _arrangeMonitors,
+        _findMonitor,
+        _getAllMonitors,
+        _getAllMonitorsDict,
+        _getMonitorsCount,
+        _getMousePos,
+        _getPrimary,
+    )
 elif sys.platform == "linux":
-    from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getAllMonitorsDictThread, _getMonitorsData,
-                                  _getMonitorsCount, _getPrimary, _findMonitor, _arrangeMonitors, _getMousePos as getMousePos,
-                                  LinuxMonitor as Monitor
-                                  )
+    from ._pymonctl_linux import LinuxMonitor as Monitor
+    from ._pymonctl_linux import (
+        _arrangeMonitors,
+        _findMonitor,
+        _getAllMonitors,
+        _getAllMonitorsDict,
+        _getAllMonitorsDictThread,
+        _getMonitorsCount,
+        _getMonitorsData,
+        _getMousePos,
+        _getPrimary,
+    )
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')
+
+getMousePos = _getMousePos

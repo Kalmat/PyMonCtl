@@ -1,6 +1,15 @@
 #!/usr/bin/python
 from importlib.metadata import version as _importlib_version
 
+from ._main import (getAllMonitors, getAllMonitorsDict, getMonitorsCount, getPrimary,
+                    findMonitorsAtPoint, findMonitorsAtPointInfo, findMonitorWithName, findMonitorWithNameInfo,
+                    saveSetup, restoreSetup, arrangeMonitors, getMousePos, Monitor,
+                    enableUpdateInfo, disableUpdateInfo, isUpdateInfoEnabled, isWatchdogEnabled, updateWatchdogInterval,
+                    plugListenerRegister, plugListenerUnregister, isPlugListenerRegistered,
+                    changeListenerRegister, changeListenerUnregister, isChangeListenerRegistered,
+                    DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
+                    )
+
 __all__ = [
     "getAllMonitors", "getAllMonitorsDict", "getMonitorsCount", "getPrimary",
     "findMonitorsAtPoint", "findMonitorsAtPointInfo", "findMonitorWithName", "findMonitorWithNameInfo",
@@ -19,11 +28,3 @@ def version(numberOnly: bool = True) -> str:
     return ("" if numberOnly else "PyMonCtl-")+__version__
 
 
-from ._main import (getAllMonitors, getAllMonitorsDict, getMonitorsCount, getPrimary,
-                    findMonitorsAtPoint, findMonitorsAtPointInfo, findMonitorWithName, findMonitorWithNameInfo,
-                    saveSetup, restoreSetup, arrangeMonitors, getMousePos, Monitor,
-                    enableUpdateInfo, disableUpdateInfo, isUpdateInfoEnabled, isWatchdogEnabled, updateWatchdogInterval,
-                    plugListenerRegister, plugListenerUnregister, isPlugListenerRegistered,
-                    changeListenerRegister, changeListenerUnregister, isChangeListenerRegistered,
-                    DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
-                    )
