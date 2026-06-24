@@ -445,7 +445,7 @@ class Win32Monitor(BaseMonitor):
             settings.DisplayOrientation = orientation
             # Not working if setting Fields (!?!?!?)
             # settings.Fields = settings.Fields | win32con.DM_DISPLAYORIENTATION | win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
-            win32api.ChangeDisplaySettingsEx(self.name, settings,win32con.CDS_RESET | win32con.CDS_UPDATEREGISTRY)
+            win32api.ChangeDisplaySettingsEx(self.name, settings,win32con.CDS_RESET | win32con.CDS_UPDATEREGISTRY) # type: ignore[arg-type] # Fixed in types-pywin32>=312.0.0.20260609 which doesn't support python 3.9
             # win32api.ChangeDisplaySettingsEx()
 
     @property

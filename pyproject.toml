@@ -69,7 +69,9 @@ dev = [
     "ewmhlib",
     "mypy>=0.990,<2",
     "types-python-xlib>=0.32",
-    "types-pywin32>=305.0.0.3",
+    # types-pywin32>=312.0.0.20260609 doesn't support Python 3.9
+    # and produces a difference in typing, keep stable typing as long as we support Python 3.9
+    "types-pywin32<312.0.0.20260609",
     "typing_extensions>=4.4.0",
 ]
 
