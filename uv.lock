@@ -799,8 +799,7 @@ dev = [
     { name = "myst-parser", version = "5.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "types-python-xlib", version = "0.33.0.20250809", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "types-python-xlib", version = "0.33.0.20260518", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "types-pywin32", version = "311.0.0.20251008", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "types-pywin32", version = "312.0.0.20260609", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "types-pywin32" },
 ]
 docs = [
     { name = "myst-parser", version = "3.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -822,7 +821,7 @@ dev = [
     { name = "mypy", specifier = ">=0.990,<2" },
     { name = "myst-parser" },
     { name = "types-python-xlib", specifier = ">=0.32" },
-    { name = "types-pywin32", specifier = ">=305.0.0.3" },
+    { name = "types-pywin32", specifier = "<312.0.0.20260609" },
 ]
 docs = [{ name = "myst-parser" }]
 
@@ -8707,27 +8706,9 @@ wheels = [
 name = "types-pywin32"
 version = "311.0.0.20251008"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.10'",
-]
 sdist = { url = "https://files.pythonhosted.org/packages/1a/05/cd94300066241a7abb52238f0dd8d7f4fe1877cf2c72bd1860856604d962/types_pywin32-311.0.0.20251008.tar.gz", hash = "sha256:d6d4faf8e0d7fdc0e0a1ff297b80be07d6d18510f102d793bf54e9e3e86f6d06", size = 329561, upload-time = "2025-10-08T02:51:39.436Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/af/08/00a38e6b71585e6741d5b3b4cc9dd165cf549b6f1ed78815c6585f8b1b58/types_pywin32-311.0.0.20251008-py3-none-any.whl", hash = "sha256:775e1046e0bad6d29ca47501301cce67002f6661b9cebbeca93f9c388c53fab4", size = 392942, upload-time = "2025-10-08T02:51:38.327Z" },
-]
-
-[[package]]
-name = "types-pywin32"
-version = "312.0.0.20260609"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.15'",
-    "python_full_version >= '3.12' and python_full_version < '3.15'",
-    "python_full_version == '3.11.*'",
-    "python_full_version == '3.10.*'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/e1/a42af4d29cf9a8d9d579bedd022b9f314093bfd9ffe1034ca729acebb30b/types_pywin32-312.0.0.20260609.tar.gz", hash = "sha256:3b6ec4ebf8607ef97563e907e381d8dc40260c3c54ff8819dcea696bd67ca13f", size = 334927, upload-time = "2026-06-09T05:58:27.667Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/eb/008771f4e2c7307b06623ee8bdde12bf9261305f35443e1b943a45a2d5ae/types_pywin32-312.0.0.20260609-py3-none-any.whl", hash = "sha256:713096e5de8202e6a46392e7731653aa99e458f76cebfea0b15d80901f3bb5e1", size = 397302, upload-time = "2026-06-09T05:58:26.339Z" },
 ]
 
 [[package]]

@@ -13,9 +13,7 @@ Documentation = "https://pymonctl.readthedocs.io/"
 name = "PyMonCtl"
 version = "0.92"
 description = "Cross-Platform toolkit to get info on and control monitors connected"
-authors = [
-    { name = "Kalmat", email = "palookjones@gmail.com" },
-]
+authors = [{ name = "Kalmat", email = "palookjones@gmail.com" }]
 readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE.txt"]
@@ -60,15 +58,15 @@ dependencies = [
 ]
 
 [dependency-groups]
-docs = [
-    "myst-parser",
-]
+docs = ["myst-parser"]
 dev = [
     { include-group = "docs" },
     "ewmhlib",
     "mypy>=0.990,<2",
     "types-python-xlib>=0.32",
-    "types-pywin32>=305.0.0.3",
+    # types-pywin32>=312.0.0.20260609 doesn't support Python 3.9
+    # and produces a difference in typing, keep stable typing as long as we support Python 3.9
+    "types-pywin32<312.0.0.20260609",
 ]
 
 [tool.uv]
