@@ -39,7 +39,7 @@ setAsPrimary: pmc.Monitor | None = None
 try:
     initArrangement = pmc.saveSetup()
     print("INITIAL POSITIONS:", initArrangement)
-except:
+except Exception:
     for monitor in monitorsPlugged:
         initDict[monitor.name] = {"relativePos": cast("pmc.Point", monitor.position)}
         if monitor.isPrimary:

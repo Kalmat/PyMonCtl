@@ -270,7 +270,7 @@ class LinuxMonitor(BaseMonitor):
             try:
                 index = monKeys.index(self.name)
                 monKeys.pop(index)
-            except:
+            except Exception:
                 return
             arrangement[self.name] = {"relativePos": relativePos, "relativeTo": None}
             xOffset = monitor.width_in_pixels
@@ -429,7 +429,7 @@ class LinuxMonitor(BaseMonitor):
         if ret:
             try:
                 value = int(float(ret) * 100)
-            except:
+            except Exception:
                 pass
         return value
 
@@ -449,7 +449,7 @@ class LinuxMonitor(BaseMonitor):
             try:
                 r, g, b = ret.split(":")
                 value = int((((1 / (float(r) or 1)) + (1 / (float(g) or 1)) + (1 / (float(b) or 1))) / 3) * 100)
-            except:
+            except Exception:
                 pass
         return value
 
@@ -609,7 +609,7 @@ class LinuxMonitor(BaseMonitor):
             try:
                 # randr.set_crtc_config() fails in Cinnamon
                 randr.set_crtc_config(self.display, crtc, Xlib.X.CurrentTime, crtcInfo.x, crtcInfo.y, 0, crtcInfo.rotation, [])
-            except:
+            except Exception:
                 cmd = "xrandr --output %s --mode %sx%s" % (self.name, 0, 0)
                 _, _ = _runProc(cmd)
 
@@ -641,7 +641,7 @@ def _GNOME_isScalingGlobal() -> bool | None:
             return bool("scale-monitor-framebuffer" not in proc.stdout)
         else:
             return bool("x11-randr-fractional-scaling" not in proc.stdout)
-    except:
+    except Exception:
         pass
     return None
 
@@ -657,7 +657,7 @@ def _GNOME_setGlobalScaling(setGlobal=True):
                 proc = subprocess.run("grep -sl mutter /proc/*/maps", text=True, shell=True, capture_output=True)
                 if "/maps" in proc.stdout:
                     cmd = '''gsettings set org.gnome.mutter experimental-features "['scale-monitor-framebuffer']"'''
-            except:
+            except Exception:
                 pass
         else:
             cmd = '''gsettings set org.gnome.mutter experimental-features "['x11-randr-fractional-scaling']"'''
@@ -671,7 +671,7 @@ def _GNOME_getScalingFactor() -> int | None:
     if "WindowScalingFactor" in ret:
         try:
             return int(ret.split("WindowScalingFactor': <")[1][0])
-        except:
+        except Exception:
             pass
     return None
 
@@ -697,7 +697,7 @@ def _GNOME_getScalingFactor() -> int | None:
 #
 #     try:
 #         import dbus
-#     except:
+#     except Exception:
 #         return {}, {}, {}
 #
 #     namespace = "org.gnome.Mutter.DisplayConfig"
@@ -743,7 +743,7 @@ def _GNOME_getScalingFactor() -> int | None:
 #
 #     try:
 #         import dbus
-#     except:
+#     except Exception:
 #         return
 #
 #     namespace = "org.gnome.Mutter.DisplayConfig"
@@ -795,7 +795,7 @@ def _scale(name: str) -> tuple[float, float] | None:
                 h = int(b)
                 r = float(lines[1].replace("+", "").replace("*", ""))
                 value = DisplayMode(w, h, r)
-            except:
+            except Exception:
                 pass
         if value:
             monitors = _XgetMonitors(name)
@@ -818,7 +818,7 @@ def _runProc(cmd: str):
         # Some commands will take some time to be executed and return required value
         proc = subprocess.run(cmd, text=True, shell=True, capture_output=True) #, timeout=3)
         return proc.returncode, proc.stdout
-    except:
+    except Exception:
         pass
     return -1, ""
 
@@ -846,7 +846,7 @@ def _getMonitorsData(handle: int | None = None) -> (
         display, screen, root = rootData
         try:
             mons = randr.get_monitors(root).monitors
-        except:
+        except Exception:
             # In Cinnamon randr extension has no get_monitors() method (?!?!?!?)
             mons = _RgetAllMonitors()
             stopSearching = True
@@ -886,7 +886,7 @@ def _XgetAllMonitors(name: str = ""):
             display, screen, root = rootData
             try:
                 mons = randr.get_monitors(root).monitors
-            except:
+            except Exception:
                 # In Cinnamon randr extension has no get_monitors() method (?!?!?!?)
                 mons = _RgetAllMonitors()
                 stopSearching = True
@@ -941,7 +941,7 @@ def _RgetMonitorsInfo(activeOnly: bool = True):
                         y = parts[2]
                         w, h = parts[0].split("x")
                         monInfo.append((name, primary, int(x), int(y), int(w), int(h)))
-        except:
+        except Exception:
             pass
     return monInfo
 

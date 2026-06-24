@@ -36,7 +36,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
 
         try:
             name = screen.localizedName()
-        except:
+        except Exception:
             # In older macOS, screen doesn't have localizedName() method
             name = "Display" + "_" + str(displayId)
         is_primary = Quartz.CGDisplayIsMain(displayId) == 1
@@ -244,7 +244,7 @@ class MacOSMonitor(BaseMonitor):
             try:
                 index = monKeys.index(self.name)
                 monKeys.pop(index)
-            except:
+            except Exception:
                 return
             arrangement[self.name] = {"relativePos": Position.PRIMARY, "relativeTo": None}
             xOffset = self.screen.frame().size.width
@@ -377,7 +377,7 @@ class MacOSMonitor(BaseMonitor):
 
                 try:
                     ret = self._iokit.IOServiceRequestProbe(self._ioservice, options)
-                except:
+                except Exception:
                     ret = 1
                 if ret != 0:
                     self._useIOOrientation = False
@@ -406,7 +406,7 @@ class MacOSMonitor(BaseMonitor):
                 value = ctypes.c_float()
                 try:
                     ret = self._ds.DisplayServicesGetBrightness(self.handle, ctypes.byref(value))
-                except:
+                except Exception:
                     ret = 1
                 if ret == 0:
                     res = value.value
@@ -421,7 +421,7 @@ class MacOSMonitor(BaseMonitor):
                 value = ctypes.c_double()
                 try:
                     ret = self._cd.CoreDisplay_Display_GetUserBrightness(self.handle, ctypes.byref(value))
-                except:
+                except Exception:
                     ret = 1
                 if ret == 0:
                     res = value.value
@@ -437,7 +437,7 @@ class MacOSMonitor(BaseMonitor):
                 value = ctypes.c_float()
                 try:
                     ret = self._iokit.IODisplayGetFloatParameter(self._ioservice, 0, kDisplayBrightnessKey, ctypes.byref(value))
-                except:
+                except Exception:
                     ret = 1
                 if ret == 0:
                     res = value.value
@@ -463,7 +463,7 @@ class MacOSMonitor(BaseMonitor):
                         ret = 0
                         if self._ds.DisplayServicesCanChangeBrightness(self.handle):
                             ret = self._ds.DisplayServicesSetBrightness(self.handle, value)
-                    except:
+                    except Exception:
                         ret = 1
                     if ret != 0:
                         self._useDS = False
@@ -476,7 +476,7 @@ class MacOSMonitor(BaseMonitor):
                     value = ctypes.c_double(brightness / 100)
                     try:
                         ret = self._cd.CoreDisplay_Display_SetUserBrightness(self.handle, value)
-                    except:
+                    except Exception:
                         ret = 1
                     if ret != 0:
                         self._useCD = False
@@ -490,7 +490,7 @@ class MacOSMonitor(BaseMonitor):
                     value = ctypes.c_float(brightness / 100)
                     try:
                         ret = self._iokit.IODisplaySetFloatParameter(self._ioservice, 0, kDisplayBrightnessKey, value)
-                    except:
+                    except Exception:
                         ret = 1
                     if ret != 0:
                         self._useIOBrightness = False
@@ -506,7 +506,7 @@ class MacOSMonitor(BaseMonitor):
                 CG.CGGetDisplayTransferByFormula(self.handle, None, None, None, None, None, None, None, None, None))
             if ret == 0:
                 contrast = int((float(redGamma) + float(greenGamma) + float(blueGamma)) / 3 * 100)
-        except:
+        except Exception:
             pass
         return contrast
 
@@ -606,7 +606,7 @@ class MacOSMonitor(BaseMonitor):
         cmd = "caffeinate -u -t 2"
         try:
             _ = subprocess.run(cmd, text=True, shell=True, capture_output=True, timeout=1)
-        except:
+        except Exception:
             pass
 
     def turnOff(self):
@@ -621,7 +621,7 @@ class MacOSMonitor(BaseMonitor):
         cmd = "pmset displaysleepnow"
         try:
             _ = subprocess.run(cmd, text=True, shell=True, capture_output=True, timeout=1)
-        except:
+        except Exception:
             pass
 
     @property
@@ -649,7 +649,7 @@ def _getName(displayId: int, screen: AppKit.NSScreen | None = None):
                 break
     try:
         scrName = cast("AppKit.NSScreen", screen).localizedName() + "_" + str(displayId)
-    except:
+    except Exception:
         # In older macOS, screen doesn't have localizedName() method
         scrName = "Display" + "_" + str(displayId)
     return scrName
@@ -709,7 +709,7 @@ def _loadDisplayServices():
     # Display Services Framework can be used in modern systems. It takes A LOT to load
     try:
         ds: ctypes.CDLL = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
-    except:
+    except Exception:
         return None
     return ds
 
@@ -723,7 +723,7 @@ def _loadCoreDisplay():
         cd: ctypes.CDLL = ctypes.cdll.LoadLibrary(lib)
         cd.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_double]
         cd.CoreDisplay_Display_GetUserBrightness.argtypes = [ctypes.c_int, ctypes.c_void_p]
-    except:
+    except Exception:
         return None
     return cd
 
@@ -760,7 +760,7 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
 
         try:
             service: int = Quartz.CGDisplayIOServicePort(displayID)
-        except:
+        except Exception:
             service = 0
 
         # Check if this works in an actual macOS (preferably in several versions)
@@ -798,7 +798,7 @@ def _loadIOKit(displayID = Quartz.CGMainDisplayID()):
 
         if service:
             return iokit, CF, service
-    except:
+    except Exception:
         pass
 
     return None, None, None
