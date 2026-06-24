@@ -43,6 +43,9 @@ ignore = [
   # Anyway Python 3.11 introduced "zero cost" exception handling
   "PERF203", # try-except-in-loop,
 
+  # TODO: Add and configure isort (I) first
+  "RUF022",
+
   # TODO: Consider later
   "UP031", # printf-string-formatting
   "RUF059", # unused-unpacked-variable
