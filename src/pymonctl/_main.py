@@ -998,41 +998,20 @@ def _getRelativePosition(monitor, relativeTo) -> tuple[int, int]:
     return x, y
 
 
+
 if sys.platform == "darwin":
-    from ._pymonctl_macos import MacOSMonitor as Monitor
-    from ._pymonctl_macos import (
-        _arrangeMonitors,
-        _findMonitor,
-        _getAllMonitors,
-        _getAllMonitorsDict,
-        _getMonitorsCount,
-        _getMousePos,
-        _getPrimary,
-    )
+    from ._pymonctl_macos import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
+                                  _findMonitor, _arrangeMonitors, _getMousePos, MacOSMonitor as Monitor
+                                  )
 elif sys.platform == "win32":
-    from ._pymonctl_win import Win32Monitor as Monitor
-    from ._pymonctl_win import (
-        _arrangeMonitors,
-        _findMonitor,
-        _getAllMonitors,
-        _getAllMonitorsDict,
-        _getMonitorsCount,
-        _getMousePos,
-        _getPrimary,
-    )
+    from ._pymonctl_win import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
+                                _findMonitor, _arrangeMonitors, _getMousePos, Win32Monitor as Monitor
+                                )
 elif sys.platform == "linux":
-    from ._pymonctl_linux import LinuxMonitor as Monitor
-    from ._pymonctl_linux import (
-        _arrangeMonitors,
-        _findMonitor,
-        _getAllMonitors,
-        _getAllMonitorsDict,
-        _getAllMonitorsDictThread,
-        _getMonitorsCount,
-        _getMonitorsData,
-        _getMousePos,
-        _getPrimary,
-    )
+    from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getAllMonitorsDictThread, _getMonitorsData,
+                                  _getMonitorsCount, _getPrimary, _findMonitor, _arrangeMonitors, _getMousePos,
+                                  LinuxMonitor as Monitor
+                                  )
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')
 
