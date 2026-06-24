@@ -57,7 +57,6 @@ dependencies = [
     "python-xlib>=0.21; sys_platform == 'linux'",
     "ewmhlib>=0.2; sys_platform == 'linux'",
     "pyobjc>=8.1; sys_platform == 'darwin'",
-    "typing_extensions>=4.4.0",
 ]
 
 [dependency-groups]
@@ -70,7 +69,6 @@ dev = [
     "mypy>=0.990,<2",
     "types-python-xlib>=0.32",
     "types-pywin32>=305.0.0.3",
-    "typing_extensions>=4.4.0",
 ]
 
 [tool.uv]
