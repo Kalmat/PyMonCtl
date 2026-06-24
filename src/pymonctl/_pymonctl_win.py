@@ -425,9 +425,7 @@ class Win32Monitor(BaseMonitor):
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         except Exception:
             try:
-                settings = win32api.EnumDisplaySettings(
-                    self.name, win32con.ENUM_REGISTRY_SETTINGS
-                )
+                settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
             except Exception:
                 pass
         if settings:
@@ -461,9 +459,7 @@ class Win32Monitor(BaseMonitor):
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         except Exception:
             try:
-                settings = win32api.EnumDisplaySettings(
-                    self.name, win32con.ENUM_REGISTRY_SETTINGS
-                )
+                settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
             except Exception:
                 pass
         if settings:
@@ -478,9 +474,7 @@ class Win32Monitor(BaseMonitor):
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         except Exception:
             try:
-                settings = win32api.EnumDisplaySettings(
-                    self.name, win32con.ENUM_REGISTRY_SETTINGS
-                )
+                settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
             except Exception:
                 pass
         if settings:
@@ -554,9 +548,7 @@ class Win32Monitor(BaseMonitor):
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
         except Exception:
             try:
-                settings = win32api.EnumDisplaySettings(
-                    self.name, win32con.ENUM_REGISTRY_SETTINGS
-                )
+                settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
             except Exception:
                 pass
         if settings:
