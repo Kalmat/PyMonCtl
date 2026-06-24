@@ -72,9 +72,7 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
             settings = win32api.EnumDisplaySettings(monName, win32con.ENUM_CURRENT_SETTINGS)
         except Exception:
             try:
-                settings = win32api.EnumDisplaySettings(
-                    monName, win32con.ENUM_REGISTRY_SETTINGS
-                )
+                settings = win32api.EnumDisplaySettings(monName, win32con.ENUM_REGISTRY_SETTINGS)
             except Exception:
                 continue
 
@@ -439,9 +437,7 @@ class Win32Monitor(BaseMonitor):
                 settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
             except Exception:
                 try:
-                    settings = win32api.EnumDisplaySettings(
-                        self.name, win32con.ENUM_REGISTRY_SETTINGS
-                    )
+                    settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
                 except Exception:
                     return
             if (settings.DisplayOrientation + orientation) % 2 == 1:
