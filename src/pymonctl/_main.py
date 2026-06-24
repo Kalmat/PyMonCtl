@@ -229,7 +229,7 @@ def restoreSetup(setup: List[Tuple[Monitor, ScreenValue]]):
         if not monitor.isAttached:
             try:
                 monitor.attach()
-            except:
+            except Exception:
                 continue
         if monitor.isAttached:
             if monitor.isSuspended or not monitor.isOn:
@@ -743,7 +743,7 @@ class _UpdateScreens(threading.Thread):
         for screen in self._screens.keys():
             try:
                 monitors.append(Monitor(self._screens[screen]["id"]))
-            except:
+            except Exception:
                 pass
         return monitors
 
@@ -826,7 +826,7 @@ def plugListenerUnregister(monitorCountChanged: Callable[[List[str], dict[str, S
     try:
         objIndex = _plugListeners.index(monitorCountChanged)
         _plugListeners.pop(objIndex)
-    except:
+    except Exception:
         pass
     global _changeListeners
     global _updateRequested
@@ -866,7 +866,7 @@ def changeListenerUnregister(monitorPropsChanged: Callable[[List[str], dict[str,
     try:
         objIndex = _changeListeners.index(monitorPropsChanged)
         _changeListeners.pop(objIndex)
-    except:
+    except Exception:
         pass
     global _plugListeners
     global _updateRequested
