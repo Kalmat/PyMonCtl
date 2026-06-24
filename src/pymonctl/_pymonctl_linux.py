@@ -258,7 +258,7 @@ class LinuxMonitor(BaseMonitor):
 
     def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
-        arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]] = {}
+        arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Tuple[int, int]]]]] = {}
         monitors: dict[str, dict[str, randr.MonitorInfo]] = _XgetMonitorsDict()
         monKeys = list(monitors.keys())
         if relativePos == Position.PRIMARY:
@@ -290,7 +290,9 @@ class LinuxMonitor(BaseMonitor):
                     relTo = None
                 arrangement[monName] = {"relativePos": relPos, "relativeTo": relTo}
 
-        _arrangeMonitors(arrangement)
+        # TODO: Use a TypedDict for `arrangement`, and ensure we enforce Size
+        # rather than unnamed tuple where we absolutely need it
+        _arrangeMonitors(arrangement) # type: ignore[[arg-type]
 
     @property
     def box(self) -> Optional[Box]:
