@@ -927,7 +927,7 @@ def _eventLoop(kill: threading.Event, interval: float):
 
             myWindowClass = win32gui.RegisterClass(wndclass)
             hwnd = win32gui.CreateWindowEx(win32con.WS_EX_LEFT,
-                                           myWindowClass,
+                                           myWindowClass,  # type: ignore[arg-type]
                                            "NotificationLoopMsgWindow",
                                            0,
                                            0,

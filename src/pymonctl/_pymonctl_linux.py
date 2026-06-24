@@ -292,7 +292,7 @@ class LinuxMonitor(BaseMonitor):
 
         # TODO: Use a TypedDict for `arrangement`, and ensure we enforce Size
         # rather than unnamed tuple where we absolutely need it
-        _arrangeMonitors(arrangement) # type: ignore[[arg-type]
+        _arrangeMonitors(arrangement) # type: ignore[arg-type]
 
     @property
     def box(self) -> Optional[Box]:
