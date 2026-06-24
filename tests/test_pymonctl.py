@@ -25,7 +25,10 @@ def changedCB(names: list[str], info: dict[str, pmc.ScreenValue]) -> None:
 
 
 print("MONITORS COUNT:", pmc.getMonitorsCount())
-print("PRIMARY MONITOR:", pmc.getPrimary().name)
+try:
+    print("PRIMARY MONITOR:", pmc.getPrimary().name)
+except ValueError:
+    print("PRIMARY MONITOR: None")
 print()
 monDict = pmc.getAllMonitorsDict()
 for mon in monDict:
