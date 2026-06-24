@@ -378,9 +378,9 @@ class LinuxMonitor(BaseMonitor):
         monitors = _XgetMonitors(self.name)
         if monitors:
             monitor = monitors[0]
-            _x, _y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
             if monitor.width_in_millimeters != 0 and monitor.height_in_millimeters != 0:
-                dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
+                dpiX = round((monitor.width_in_pixels * 25.4) / monitor.width_in_millimeters),
+                dpiY = round((monitor.height_in_pixels * 25.4) / monitor.height_in_millimeters)
             else:
                 dpiX, dpiY = 0.0, 0.0
             return dpiX, dpiY
@@ -1002,7 +1002,7 @@ def _XgetMonitorData(handle: int | None = None) -> tuple[Xlib.display.Display, S
     for monitorData in _XgetAllMonitors():
         display, screen, root, monitor, monName = monitorData
         output = monitor.crtcs[0]
-        if (handle and handle == output) or (not handle and monitor.primary == 1):
+        if (handle == output if handle else monitor.primary == 1):
             return display, screen, root, monitor, output, monName
     return None
 
