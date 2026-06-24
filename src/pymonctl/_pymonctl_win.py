@@ -46,7 +46,7 @@ def _getAllMonitors() -> list[Win32Monitor]:
         hMon = mon[0].handle
         try:
             monitors.append(Win32Monitor(hMon))
-        except:
+        except Exception:
             pass
     return monitors
 
@@ -70,10 +70,10 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
         ctypes.windll.shcore.GetDpiForMonitor(hMon, 0, ctypes.byref(dpiX), ctypes.byref(dpiY))
         try:
             settings = win32api.EnumDisplaySettings(monName, win32con.ENUM_CURRENT_SETTINGS)
-        except:
+        except Exception:
             try:
                 settings = win32api.EnumDisplaySettings(monName, win32con.ENUM_REGISTRY_SETTINGS)
-            except:
+            except Exception:
                 continue
 
         rot = Orientation(settings.DisplayOrientation)
@@ -106,7 +106,7 @@ def _findMonitor(x: int, y: int) -> List[Win32Monitor]:
     if hMon and hasattr(hMon, "handle"):
         try:
             return [Win32Monitor(hMon.handle)]
-        except:
+        except Exception:
             pass
     return []
 
@@ -220,7 +220,7 @@ class Win32Monitor(BaseMonitor):
         self._isWindows11 = False
         try:
             self._isWindows11 = bool(int(platform.win32_ver()[1].rsplit(".", 1)[1]) >= 22000)
-        except:
+        except Exception:
             self._isWindows11 = False
 
     @property
@@ -263,7 +263,7 @@ class Win32Monitor(BaseMonitor):
             try:
                 index = monKeys.index(self.name)
                 monKeys.pop(index)
-            except:
+            except Exception:
                 return
             arrangement[self.name] = {"relativePos": Position.PRIMARY, "relativeTo": None}
             x, y, r, b = monitors[self.name]["monitor"]["Monitor"]
@@ -394,7 +394,7 @@ class Win32Monitor(BaseMonitor):
                 else:
                     try:
                         targetScale = _DPI_VALUES.index(scaleValue)
-                    except:
+                    except Exception:
                         for i, value in enumerate(_DPI_VALUES):
                             targetScale = i
                             if value > scaleValue:
@@ -421,10 +421,10 @@ class Win32Monitor(BaseMonitor):
         settings = None
         try:
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-        except:
+        except Exception:
             try:
                 settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
-            except:
+            except Exception:
                 pass
         if settings:
             return Orientation(settings.DisplayOrientation)
@@ -435,10 +435,10 @@ class Win32Monitor(BaseMonitor):
             # In most cases an empty struct is required, but in this case we need to retrieve Display Settings first
             try:
                 settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-            except:
+            except Exception:
                 try:
                     settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
-                except:
+                except Exception:
                     return
             if (settings.DisplayOrientation + orientation) % 2 == 1:
                 settings.PelsWidth, settings.PelsHeight = settings.PelsHeight, settings.PelsWidth
@@ -453,10 +453,10 @@ class Win32Monitor(BaseMonitor):
         settings = None
         try:
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-        except:
+        except Exception:
             try:
                 settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
-            except:
+            except Exception:
                 pass
         if settings:
             return settings.DisplayFrequency
@@ -468,10 +468,10 @@ class Win32Monitor(BaseMonitor):
         settings = None
         try:
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-        except:
+        except Exception:
             try:
                 settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
-            except:
+            except Exception:
                 pass
         if settings:
             return settings.BitsPerPel
@@ -542,10 +542,10 @@ class Win32Monitor(BaseMonitor):
         settings = None
         try:
             settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_CURRENT_SETTINGS)
-        except:
+        except Exception:
             try:
                 settings = win32api.EnumDisplaySettings(self.name, win32con.ENUM_REGISTRY_SETTINGS)
-            except:
+            except Exception:
                 pass
         if settings:
             return DisplayMode(settings.PelsWidth, settings.PelsHeight, settings.DisplayFrequency)
@@ -580,7 +580,7 @@ class Win32Monitor(BaseMonitor):
             try:
                 winSettings = win32api.EnumDisplaySettings(self.name, i)
                 modes.append(DisplayMode(winSettings.PelsWidth, winSettings.PelsHeight, winSettings.DisplayFrequency))
-            except:
+            except Exception:
                 break
             i += 1
         return modes
@@ -797,7 +797,7 @@ def _win32getAllMonitorsDict():
         try:
             monitorInfo = win32api.GetMonitorInfo(hMon)
             monitors[monitorInfo["Device"]] = {"hMon": hMon, "monitor": monitorInfo}
-        except:
+        except Exception:
             pass
     return monitors
 
@@ -820,7 +820,7 @@ def _findNewHandles():
                     if instance.name == monInfo.get("Device", ""):
                         instance.handle = hMon
                         break
-                except:
+                except Exception:
                     stopSearching = False
                     break
         if stopSearching:
@@ -832,7 +832,7 @@ def _getMonitorInfo(handle: int):
     try:
         monitorInfo = win32api.GetMonitorInfo(handle)
         return monitorInfo
-    except:
+    except Exception:
         pass
     return None
 
@@ -860,7 +860,7 @@ def _win32destroyPhysicalMonitors(hDevices):
     for hDevice in hDevices:
         try:
             ctypes.windll.dxva2.DestroyPhysicalMonitor(hDevice)
-        except:
+        except Exception:
             pass
 
 
