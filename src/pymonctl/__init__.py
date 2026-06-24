@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from importlib.metadata import version as _importlib_version
 
 __all__ = [
     "getAllMonitors", "getAllMonitorsDict", "getMonitorsCount", "getPrimary",
@@ -11,7 +12,7 @@ __all__ = [
     "DisplayMode", "ScreenValue", "Size", "Point", "Box", "Rect", "Position", "Orientation"
 ]
 
-__version__ = "0.92"
+__version__ = _importlib_version("pymonctl")
 
 
 def version(numberOnly: bool = True) -> str:
