@@ -113,10 +113,6 @@ def _findMonitor(x: int, y: int) -> List[LinuxMonitor]:
     return monitors
 
 
-def _getPrimary() -> LinuxMonitor:
-    return LinuxMonitor()
-
-
 def _arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]]):
 
     monitors = _XgetMonitorsDict()
@@ -223,6 +219,7 @@ class LinuxMonitor(BaseMonitor):
         getPrimary() or findMonitor(x, y).
 
         It can raise ValueError exception in case provided handle is not valid
+        or there's no primary monitor with no provided handle.
         """
         monitorData = _XgetMonitorData(handle)
         if monitorData:

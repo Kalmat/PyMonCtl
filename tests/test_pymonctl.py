@@ -7,7 +7,6 @@ from typing import Union, Optional, List, Tuple, cast
 
 import pymonctl as pmc
 
-
 _TIMELAP = 5
 
 
@@ -26,7 +25,8 @@ def changedCB(names: List[str], info: dict[str, pmc.ScreenValue]):
 
 
 print("MONITORS COUNT:", pmc.getMonitorsCount())
-print("PRIMARY MONITOR:", pmc.getPrimary().name)
+primary = pmc.getPrimary()
+print("PRIMARY MONITOR:", primary and primary.name)
 print()
 monDict = pmc.getAllMonitorsDict()
 for mon in monDict:

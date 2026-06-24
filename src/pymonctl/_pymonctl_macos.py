@@ -78,10 +78,6 @@ def _findMonitor(x: int, y: int) -> List[MacOSMonitor]:
     return [MacOSMonitor(displayId) for displayId in ids]
 
 
-def _getPrimary() -> MacOSMonitor:
-    return MacOSMonitor()
-
-
 def _arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]]):
 
     monitors = _NSgetAllMonitorsDict()
