@@ -1,9 +1,15 @@
-# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportMissingTypeArgument=false, reportUnknownMemberType=false, reportUnknownVariableType=false
-# mypy: disable-error-code=type-arg
-from typing import Any, ClassVar
+import sys
 
-import objc  # type: ignore  # pyright: ignore
-import objc._lazyimport  # type: ignore  # pyright: ignore
+assert sys.platform == "darwin"
+
+from typing import Any, ClassVar, type_check_only
+
+import objc
+import objc._lazyimport
+
+# Is actually objc._structwrapper, but our stubs doesn't expose it
+@type_check_only
+class _objc_structwrapper: ...
 
 CAAnimationCalculationMode: Any
 CAAnimationRotationMode: Any
@@ -33,7 +39,7 @@ CAValueFunctionName: Any
 _ObjCLazyModule__aliases_deprecated: dict
 _ObjCLazyModule__enum_deprecated: dict
 _ObjCLazyModule__expressions: dict
-_ObjCLazyModule__expressions_mapping: objc._lazyimport.GetAttrMap
+_ObjCLazyModule__expressions_mapping: objc._lazyimport._GetAttrMap
 _ObjCLazyModule__varmap_dct: dict
 _ObjCLazyModule__varmap_deprecated: dict
 
@@ -49,7 +55,7 @@ r: Any
 protocols: Any
 expressions: Any
 
-class CAFrameRateRange(objc._structwrapper):  # type: ignore  # pyright: ignore
+class CAFrameRateRange(_objc_structwrapper):
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...
@@ -68,7 +74,7 @@ class CAFrameRateRange(objc._structwrapper):  # type: ignore  # pyright: ignore
     def __setattr__(self, name, value) -> Any: ...
     def __setitem__(self, index, object) -> Any: ...
 
-class CATransform3D(objc._structwrapper):  # type: ignore  # pyright: ignore
+class CATransform3D(_objc_structwrapper):
     _fields: ClassVar[tuple] = ...
     __match_args__: ClassVar[tuple] = ...
     __typestr__: ClassVar[bytes] = ...

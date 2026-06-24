@@ -6,6 +6,7 @@ Danie10 - https://github.com/Danie10
 SamuMazzi - https://github.com/SamuMazzi
 lappely - https://github.com/poipoiPIO
 odknt - https://github.com/odknt
+Avasam - https://github.com/Avasam
 
 In general, all those who so generously share their work and knowledge on Internet (stackoverflow, github, ...)
 so I could find a solution or a string to pull!

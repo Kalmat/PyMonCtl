@@ -197,15 +197,6 @@ def arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Po
     _arrangeMonitors(arrangement)
 
 
-def getMousePos() -> Point:
-    """
-    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
-
-    :return: Point struct
-    """
-    return cast(Point, _getMousePos())
-
-
 def saveSetup() -> List[Tuple[Monitor, ScreenValue]]:
     """
     Save current monitors setup information to be restored afterward.
@@ -1011,39 +1002,17 @@ def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
 
 
 if sys.platform == "darwin":
-    from ._pymonctl_macos import MacOSMonitor as Monitor
-    from ._pymonctl_macos import (
-        _arrangeMonitors,
-        _findMonitor,
-        _getAllMonitors,
-        _getAllMonitorsDict,
-        _getMonitorsCount,
-        _getMousePos,
-        _getPrimary,
-    )
+    from ._pymonctl_macos import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
+                                  _findMonitor, _arrangeMonitors, _getMousePos as getMousePos, MacOSMonitor as Monitor
+                                  )
 elif sys.platform == "win32":
-    from ._pymonctl_win import Win32Monitor as Monitor
-    from ._pymonctl_win import (
-        _arrangeMonitors,
-        _findMonitor,
-        _getAllMonitors,
-        _getAllMonitorsDict,
-        _getMonitorsCount,
-        _getMousePos,
-        _getPrimary,
-    )
+    from ._pymonctl_win import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
+                                _findMonitor, _arrangeMonitors, _getMousePos as getMousePos, Win32Monitor as Monitor
+                                )
 elif sys.platform == "linux":
-    from ._pymonctl_linux import LinuxMonitor as Monitor
-    from ._pymonctl_linux import (
-        _arrangeMonitors,
-        _findMonitor,
-        _getAllMonitors,
-        _getAllMonitorsDict,
-        _getAllMonitorsDictThread,
-        _getMonitorsCount,
-        _getMonitorsData,
-        _getMousePos,
-        _getPrimary,
-    )
+    from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getAllMonitorsDictThread, _getMonitorsData,
+                                  _getMonitorsCount, _getPrimary, _findMonitor, _arrangeMonitors, _getMousePos as getMousePos,
+                                  LinuxMonitor as Monitor
+                                  )
 else:
     raise NotImplementedError('PyMonCtl currently does not support this platform. If you think you can help, please contribute! https://github.com/Kalmat/PyMonCtl')

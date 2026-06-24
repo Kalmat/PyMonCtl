@@ -5,3 +5,4 @@ dist/
 /make_wheel.bat
 /pip_make.bat
 /pip_upload.bat
+.python-version
