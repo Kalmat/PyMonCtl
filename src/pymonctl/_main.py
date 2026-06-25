@@ -1,14 +1,19 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import sys
 import threading
 from abc import abstractmethod, ABC
 from collections.abc import Callable
-from typing import List, Optional, Union, Tuple, cast
+from typing import TYPE_CHECKING
 
 from ._structs import DisplayMode, ScreenValue, Size, Point, Box, Rect, Position, Orientation
+
+if TYPE_CHECKING:
+    from Xlib.ext import randr
+    from Xlib.protocol.rq import Struct
+    from Xlib.xobject.drawable import Window as XWindow
+    import Xlib.display
 
 
 def _pointInBox(x: int, y: int, left: int, top: int, width: int, height: int) -> bool:
@@ -77,7 +82,7 @@ def getAllMonitorsDict() -> dict[str, ScreenValue]:
         return _updateScreens.getScreens()
 
 
-def getMonitorsData(handle: Optional[int] = None):
+def getMonitorsData(handle: int | None = None):
     # Linux ONLY since X11 is not thread-safe (randr crashes when querying in parallel from separate thread)
     if sys.platform == "linux":
         if _updateScreens is None:
@@ -105,7 +110,7 @@ def getPrimary() -> Monitor:
     return _getPrimary()
 
 
-def findMonitorsAtPoint(x: int, y: int) -> List[Monitor]:
+def findMonitorsAtPoint(x: int, y: int) -> list[Monitor]:
     """
     Get all Monitor class instances in which given coordinates (x, y) are found.
 
@@ -116,7 +121,7 @@ def findMonitorsAtPoint(x: int, y: int) -> List[Monitor]:
     return _findMonitor(x, y)
 
 
-def findMonitorsAtPointInfo(x: int, y: int) -> List[dict[str, ScreenValue]]:
+def findMonitorsAtPointInfo(x: int, y: int) -> list[dict[str, ScreenValue]]:
     """
     Get all monitors info in which given coordinates (x, y) are found.
 
@@ -124,7 +129,7 @@ def findMonitorsAtPointInfo(x: int, y: int) -> List[dict[str, ScreenValue]]:
     :param y: target Y coordinate
     :return: list of monitor info (see getAllMonitorsDict() doc) as a list of dicts, or empty
     """
-    info: List[dict[str, ScreenValue]] = [{}]
+    info: list[dict[str, ScreenValue]] = [{}]
     monitors = getAllMonitorsDict()
     for monitor in monitors.keys():
         pos = monitors[monitor]["position"]
@@ -134,7 +139,7 @@ def findMonitorsAtPointInfo(x: int, y: int) -> List[dict[str, ScreenValue]]:
     return info
 
 
-def findMonitorWithName(name: str) -> Optional[Monitor]:
+def findMonitorWithName(name: str) -> Monitor | None:
     """
     Get the Monitor class instance which name matches given name.
 
@@ -164,7 +169,7 @@ def findMonitorWithNameInfo(name: str) -> dict[str, ScreenValue]:
     return info
 
 
-def arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]]):
+def arrangeMonitors(arrangement: dict[str, dict[str, str | int | Position | Point | Size | None]]):
     """
     Arrange all monitors in a given shape.
 
@@ -197,7 +202,7 @@ def arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Po
     _arrangeMonitors(arrangement)
 
 
-def saveSetup() -> List[Tuple[Monitor, ScreenValue]]:
+def saveSetup() -> list[tuple[Monitor, ScreenValue]]:
     """
     Save current monitors setup information to be restored afterward.
 
@@ -207,14 +212,14 @@ def saveSetup() -> List[Tuple[Monitor, ScreenValue]]:
 
     :return: list of tuples containing all necessary info to restore saved setup as required by restoreSetup()
     """
-    result: List[Tuple[Monitor, ScreenValue]] = []
+    result: list[tuple[Monitor, ScreenValue]] = []
     monDict: dict[str, ScreenValue] = getAllMonitorsDict()
     for monName in monDict.keys():
         result.append((Monitor(monDict[monName]["id"]), monDict[monName]))
     return result
 
 
-def restoreSetup(setup: List[Tuple[Monitor, ScreenValue]]):
+def restoreSetup(setup: list[tuple[Monitor, ScreenValue]]):
     """
     Restore given monitors setup (position, mode, orientation, scale, etc.). The function will also
     try to re-attach / turn on / wake monitors if needed.
@@ -223,7 +228,7 @@ def restoreSetup(setup: List[Tuple[Monitor, ScreenValue]]):
 
     :param setup: monitors info dictionary as returned by saveSetup()
     """
-    arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]] = {}
+    arrangement: dict[str, dict[str, str | int | Position | Point | Size | None]] = {}
     for monData in setup:
         monitor, monDict = monData
         if not monitor.isAttached:
@@ -258,7 +263,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def size(self) -> Optional[Size]:
+    def size(self) -> Size | None:
         """
         Get the dimensions of the monitor as a size struct (width, height)
 
@@ -271,7 +276,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def workarea(self) -> Optional[Rect]:
+    def workarea(self) -> Rect | None:
         """
         Get dimensions of the "usable by applications" area (screen size minus docks, taskbars and so on), as
         a rect struct (x, y, right, bottom)
@@ -284,7 +289,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def position(self) -> Optional[Point]:
+    def position(self) -> Point | None:
         """
         Get monitor position coordinates as a point struct (x, y)
 
@@ -295,7 +300,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
+    def setPosition(self, relativePos: int | Position | Point | tuple[int, int], relativeTo: str | None):
         """
         Change relative position of the current the monitor in relation to another existing monitor (e.g. primary monitor).
 
@@ -320,7 +325,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def box(self) -> Optional[Box]:
+    def box(self) -> Box | None:
         """
         Get monitor dimensions as a box struct (x, y, width, height)
 
@@ -332,7 +337,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def rect(self) -> Optional[Rect]:
+    def rect(self) -> Rect | None:
         """
         Get monitor dimensions as a rect struct (x, y, right, bottom)
 
@@ -344,7 +349,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def scale(self) -> Optional[Tuple[float, float]]:
+    def scale(self) -> tuple[float, float] | None:
         """
         Get scale for the monitor
 
@@ -355,7 +360,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setScale(self, scale: Tuple[float, float], applyGlobally: bool = True):
+    def setScale(self, scale: tuple[float, float], applyGlobally: bool = True):
         """
         Change scale for the monitor
 
@@ -368,7 +373,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def dpi(self) -> Optional[Tuple[float, float]]:
+    def dpi(self) -> tuple[float, float] | None:
         """
         Get the dpi (dots/pixels per inch) value for the monitor
 
@@ -380,7 +385,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def orientation(self) -> Optional[Union[int, Orientation]]:
+    def orientation(self) -> int | Orientation | None:
         """
         Get current orientation for the monitor identified by name (or primary if empty)
 
@@ -395,7 +400,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
+    def setOrientation(self, orientation: int | Orientation | None):
         """
         Change orientation for the monitor identified by name (or primary if empty)
 
@@ -411,7 +416,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def frequency(self) -> Optional[float]:
+    def frequency(self) -> float | None:
         """
         Get current refresh rate of monitor.
 
@@ -424,7 +429,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def colordepth(self) -> Optional[int]:
+    def colordepth(self) -> int | None:
         """
         Get the colordepth (bits per pixel to describe color) value for the monitor
 
@@ -436,7 +441,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> int | None:
         """
         Get the brightness of monitor. The return value is normalized to 0-100 (as a percentage)
 
@@ -445,7 +450,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setBrightness(self, brightness: Optional[int]):
+    def setBrightness(self, brightness: int | None):
         """
         Change the brightness of monitor. The input parameter must be defined as a percentage (0-100)
 
@@ -455,7 +460,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def contrast(self) -> Optional[int]:
+    def contrast(self) -> int | None:
         """
         Get the contrast of monitor. The return value is normalized to 0-100 (as a percentage)
 
@@ -466,7 +471,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setContrast(self, contrast: Optional[int]):
+    def setContrast(self, contrast: int | None):
         """
         Change the contrast of monitor. The input parameter must be defined as a percentage (0-100)
 
@@ -480,7 +485,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def mode(self) -> Optional[DisplayMode]:
+    def mode(self) -> DisplayMode | None:
         """
         Get the current monitor mode (width, height, refresh-rate) for the monitor
 
@@ -489,7 +494,7 @@ class BaseMonitor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def setMode(self, mode: Optional[DisplayMode]):
+    def setMode(self, mode: DisplayMode | None):
         """
         Change current monitor mode (resolution and/or refresh-rate) for the monitor
 
@@ -501,7 +506,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def defaultMode(self) -> Optional[DisplayMode]:
+    def defaultMode(self) -> DisplayMode | None:
         """
         Get the preferred mode for the monitor
 
@@ -571,7 +576,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def isOn(self) -> Optional[bool]:
+    def isOn(self) -> bool | None:
         """
         Check if monitor is on
 
@@ -602,7 +607,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def isSuspended(self) -> Optional[bool]:
+    def isSuspended(self) -> bool | None:
         """
         Check if monitor is in standby mode
 
@@ -642,7 +647,7 @@ class BaseMonitor(ABC):
 
     @property
     @abstractmethod
-    def isAttached(self) -> Optional[bool]:
+    def isAttached(self) -> bool | None:
         """
         Check if monitor is attached (not necessarily ON) to system
 
@@ -652,26 +657,22 @@ class BaseMonitor(ABC):
 
 
 _updateRequested = False
-_plugListeners: List[Callable[[List[str], dict[str, ScreenValue]], None]] = []
-_changeListeners: List[Callable[[List[str], dict[str, ScreenValue]], None]] = []
+_plugListeners: list[Callable[[list[str], dict[str, ScreenValue]], None]] = []
+_changeListeners: list[Callable[[list[str], dict[str, ScreenValue]], None]] = []
 _kill = threading.Event()
 _interval = 0.5
 
 
 class _UpdateScreens(threading.Thread):
 
-    def __init__(self, kill: threading.Event, interval: float = 0.5):
+    def __init__(self, kill: threading.Event, interval: float = 0.5) -> None:
         threading.Thread.__init__(self)
 
         self._kill = kill
         self._interval = interval
         self._screens: dict[str, ScreenValue] = {}
         if sys.platform == "linux":
-            import Xlib.display
-            from Xlib.ext import randr
-            from Xlib.protocol.rq import Struct
-            from Xlib.xobject.drawable import Window as XWindow
-            self._monitorsData: List[Tuple[Xlib.display.Display, Struct, XWindow,randr.GetScreenResourcesCurrent,
+            self._monitorsData: list[tuple[Xlib.display.Display, Struct, XWindow,randr.GetScreenResourcesCurrent,
                                                      randr.MonitorInfo, str, int, randr.GetOutputInfo,
                                                      int, randr.GetCrtcInfo]] = []
             self._screens, self._monitorsData = _getAllMonitorsDictThread()
@@ -758,7 +759,7 @@ class _UpdateScreens(threading.Thread):
         return self._monitorsData
 
 
-_updateScreens: Optional[_UpdateScreens] = None
+_updateScreens: _UpdateScreens | None = None
 
 
 def enableUpdateInfo():
@@ -794,7 +795,7 @@ def disableUpdateInfo():
         _killUpdateScreens()
 
 
-def plugListenerRegister(monitorCountChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+def plugListenerRegister(monitorCountChanged: Callable[[list[str], dict[str, ScreenValue]], None]):
     """
     Use this only if you need to keep track of monitor that can be dynamically plugged or unplugged in a
     multi-monitor setup.
@@ -815,7 +816,7 @@ def plugListenerRegister(monitorCountChanged: Callable[[List[str], dict[str, Scr
         _startUpdateScreens()
 
 
-def plugListenerUnregister(monitorCountChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+def plugListenerUnregister(monitorCountChanged: Callable[[list[str], dict[str, ScreenValue]], None]):
     """
     Use this function to un-register your custom callback. The callback will not be invoked anymore in case
     the number of monitor changes.
@@ -834,7 +835,7 @@ def plugListenerUnregister(monitorCountChanged: Callable[[List[str], dict[str, S
         _killUpdateScreens()
 
 
-def changeListenerRegister(monitorPropsChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+def changeListenerRegister(monitorPropsChanged: Callable[[list[str], dict[str, ScreenValue]], None]):
     """
     Use this only if you need to keep track of monitor properties changes (position, size, refresh-rate, etc.) in a
     multi-monitor setup.
@@ -855,7 +856,7 @@ def changeListenerRegister(monitorPropsChanged: Callable[[List[str], dict[str, S
         _startUpdateScreens()
 
 
-def changeListenerUnregister(monitorPropsChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+def changeListenerUnregister(monitorPropsChanged: Callable[[list[str], dict[str, ScreenValue]], None]):
     """
     Use this function to un-register your custom callback. The callback will not be invoked anymore in case
     the monitor properties change.
@@ -916,7 +917,7 @@ def isUpdateInfoEnabled() -> bool:
     return _updateRequested
 
 
-def isPlugListenerRegistered(monitorCountChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+def isPlugListenerRegistered(monitorCountChanged: Callable[[list[str], dict[str, ScreenValue]], None]):
     """
     Check if callback is already registered to be invoked when monitor plugged count change
 
@@ -926,7 +927,7 @@ def isPlugListenerRegistered(monitorCountChanged: Callable[[List[str], dict[str,
     return monitorCountChanged in _plugListeners
 
 
-def isChangeListenerRegistered(monitorPropsChanged: Callable[[List[str], dict[str, ScreenValue]], None]):
+def isChangeListenerRegistered(monitorPropsChanged: Callable[[list[str], dict[str, ScreenValue]], None]):
     """
     Check if callback is already registered to be invoked when monitor properties change
 
@@ -956,7 +957,7 @@ def updateWatchdogInterval(interval: float):
         _interval = interval
 
 
-def _getRelativePosition(monitor, relativeTo) -> Tuple[int, int]:
+def _getRelativePosition(monitor, relativeTo) -> tuple[int, int]:
     relPos = monitor["relativePos"]
     if relPos == Position.PRIMARY:
         x = y = 0
