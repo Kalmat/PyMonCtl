@@ -50,5 +50,5 @@ urlretrieve(
 )
 urlretrieve(
     "https://raw.githubusercontent.com/kalmat/pymonctl/master/docs/docstrings.md",
-    "docstrings.md"
+    "docs/docstrings.md"
 )
