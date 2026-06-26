@@ -1,21 +1,118 @@
 # PyMonCtl
-[![CI](https://github.com/Kalmat/PyMonCtl/actions/workflows/ci.yml/badge.svg)](https://github.com/Kalmat/PyMonCtl/actions/workflows/ci.yml)
+[![CI](https://github.com/Kalmat/PyMonCtl/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Kalmat/PyMonCtl/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/PyMonCtl.svg)](https://badge.fury.io/py/PyMonCtl)
-[![Documentation Status](https://readthedocs.org/projects/pymonctl/badge/?version=latest)](https://pymonctl.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/PyMonCtl/badge/?version=latest)](https://PyMonCtl.readthedocs.io/en/latest/?badge=latest)
+[![Downloads](https://static.pepy.tech/badge/PyMonCtl/month)](https://pepy.tech/project/PyMonCtl)
+[![Stars](https://img.shields.io/github/stars/Kalmat/PyMonCtl?style=flat)](https://github.com/Kalmat/PyMonCtl/stargazers)
+[![License](https://img.shields.io/badge/license-BSD%203--Clause-blue)](LICENSE.txt)
+
+**Cross-platform monitor detection and management for Python.** PyMonCtl provides a consistent way to work with system displays - across Windows, macOS, and Linux - with a simple, unified API.
+
+It is designed for developers building tools that need to understand or adapt to multi-monitor environments.
+
+---
+
+## Why PyMonCtl
+
+Working with multiple monitors usually requires platform-specific code. PyMonCtl aims to reduce that complexity by offering a unified interface for:
+* Querying display configuration
+* Understanding multi-monitor layouts
+* Responding in real-time to display changes
+* Integrating monitor information into automation workflows
+* Manage complex, dynamic multi-monitor setups and their persistence
+
+---
+
+## Features
+
+### Monitor inspection
+* Connected displays enumeration
+* Resolution, DPI, scaling
+* Physical layout coordinates
+* Primary monitor detection
+
+### Layout awareness
+* Multi-monitor spatial relationships
+* Virtual desktop positioning
+* Dynamic custom multi-monitor layouts
+
+### System events
+* Monitor plug/unplug detection
+* Configuration change monitoring
+
+### Persistence
+* Save current layout
+* Restore previous setups
+
+---
+
+## Examples
+
+**Get primary monitor and basic info on all other present monitors**
 
 
-Cross-Platform module which provides a set of features to get info on and control monitors.
+```python
+import pymonctl as pmc
 
-Additional tools/extensions/APIs used:
-- Linux:
-  - Xlib's randr extension
-  - xrandr command-line tool
-  - xset command-line tool
-- Windows:
-  - VCP MCCS API interface
-- macOS:
-  - pmset command-line tool
+monitors = pmc.getAllMonitors()
 
+primary = pmc.getPrimary()
+
+print("Primary:", primary.name)
+
+for m in monitors:
+    print(m.name, m.position, m.size)
+```
+
+**Change multi-monitor layout when a given application is open, restoring previous one when it is closed**
+
+```python
+import pymonctl as pmc
+import PyMonCtl as pwc
+import time
+
+# Default layout (first monitor as Primary, second monitor aligned to the right and top sides of primary) 
+_DEFAULT_LAYOUT = {
+    'Display1': {'relativePos': pmc.Position.PRIMARY, 'relativeTo': ''}, 
+    'Display2': {'relativePos': pmc.Position.RIGHT_TOP, 'relativeTo': 'Display1'}
+}
+# Custom layout (second monitor as Primary, first monitor aligned on top and left sides of primary)
+_OBS_LAYOUT = {
+    'Display2': {'relativePos': pmc.Position.PRIMARY, 'relativeTo': ''}, 
+    'Display1': {'relativePos': pmc.Position.ABOVE_RIGHT, 'relativeTo': 'Display2'}
+}
+
+ # callback function to be invoked when window closes
+def on_closed(is_alive: bool) -> None:
+    # window has been closed. Apply default multi-monitor layout
+    pmc.arrangeMonitors(_DEFAULT_LAYOUT)
+
+win = None
+# Search for given window
+while not win:
+    time.sleep(0.2)
+    windows = pwc.getWindowsWithTitle("OBS Studio", None, pwc.Re.CONTAINS)
+    if windows:
+        # window found
+        win = windows[0]
+        # start watchdog to detect when window closes
+        win.watchdog.start(isAliveCB=on_closed)
+        # apply custom multi-monitor layout
+        pmc.arrangeMonitors(_OBS_LAYOUT)
+```
+
+---
+
+## Ecosystem
+
+PyMonCtl is often used alongside:
+* PyMonCtl → window management
+* PyWinBox → geometry utilities
+
+Together they allow building higher-level desktop automation, screen recording tools, GUI testing, 
+display and window monitoring or tiling, kiosks, overlays, and multi-monitor workflows
+
+---
 
 ## General Features
 
@@ -42,8 +139,8 @@ Functions to get monitor instances, get info and arrange monitors plugged to the
 Class to access all methods and functions to get info and control a given monitor plugged to the system.
 
 This class is not meant to be directly instantiated. Instead, use convenience functions like `getAllMonitors()`,
-`getPrimary()` or `findMonitorsAtPoint(x, y)`. Use [PyWinCtl](https://github.com/Kalmat/PyWinCtl) module in case you need to 
-find the monitor a given window is in, by using `getMonitor()` method which returns the name of the monitor that
+`getPrimary()` or `findMonitorsAtPoint(x, y)`. Use [PyMonCtl](https://github.com/Kalmat/PyMonCtl) module in case you need to 
+find the monitor a given window is on, by using `name = window.getMonitor()` method which returns the name of the monitor that
 can directly be used to invoke `findMonitorWithName(name)` function.
 
 To instantiate it, you need to pass the monitor handle (OS-dependent). It can raise ValueError exception in case 
@@ -91,7 +188,7 @@ the provided handle is not valid.
 
 (3) It doesn't exactly return / change contrast, but gamma values.
 
-(4) Different behaviour according to OS:
+(4) Different behavior according to OS:
 - Windows: Working with VCP MCCS support only.
 - Linux: It will suspend ALL monitors. To address just one monitor, try using turnOff() / turnOn() / detach() / attach() methods.
 - macOS: It will suspend ALL monitors. Use turnOn() to wake them up again
@@ -110,7 +207,7 @@ the provided handle is not valid.
       - Primary monitor can be anywhere, and even there can be no primary monitor. 
       - Monitors can overlap, so take this into account when setting a new monitor position. 
       - xrandr won't accept negative values, so the whole setup will be referenced to (0, 0) coordinates.
-      - xrandr will sort primary monitors first. Because of this and for homegeneity, when positioning a monitor as primary (only with setPosition() method), it will be placed at (0 ,0) and all the rest to RIGHT_TOP.
+      - xrandr will sort primary monitors first. Because of this and for homogeneity, when positioning a monitor as primary (only with setPosition() method), it will be placed at (0 ,0) and all the rest to RIGHT_TOP.
   - macOS:
       - Primary monitor is mandatory, and it is always placed at (0, 0) coordinates. 
       - Monitors can overlap, so take this into account when setting a new monitor position. 
@@ -119,10 +216,12 @@ the provided handle is not valid.
 
 It is highly recommended to use `arrangeMonitors()` function for complex setups or just in case there are two or more monitors.   
 
+---
+
 ## Keep track of Monitor(s) changes
 
 You can activate a watchdog, running in a separate Thread, which will allow you to keep monitors 
-information updated, without negatively impacting your main process, and define hooks and its callbacks to be  
+information updated, without negatively impacting your main process, and define hooks and its callbacks to be 
 notified when monitors are plugged / unplugged or their properties change.
 
 |                       Watchdog methods:                        |
@@ -174,33 +273,36 @@ The information passed to the listeners is as follows:
 
 Example:
 
-    import pymonctl as pmc
-    import time
+```python
+import pymonctl as pmc
+import time
 
-    def countChanged(names, screensInfo):
-        print("MONITOR PLUGGED/UNPLUGGED:", names)
-        for name in names:
-            print("MONITORS INFO:", screensInfo[name])
+def countChanged(names, screensInfo):
+    print("MONITOR PLUGGED/UNPLUGGED:", names)
+    for name in names:
+        print("MONITORS INFO:", screensInfo[name])
 
-    def propsChanged(names, screensInfo):
-        print("MONITOR CHANGED:", names)
-        for name in names:
-            print("MONITORS INFO:", screensInfo[name])
+def propsChanged(names, screensInfo):
+    print("MONITOR CHANGED:", names)
+    for name in names:
+        print("MONITORS INFO:", screensInfo[name])
 
-    pmc.plugListenerRegister(countChanged)
-    pmc.changeListenerRegister(propsChanged)
+pmc.plugListenerRegister(countChanged)
+pmc.changeListenerRegister(propsChanged)
 
-    print("Plug/Unplug monitors, or change monitor properties while running")
-    print("Press Ctl-C to Quit")
-    while True:
-        try:
-            time.sleep(1)
-        except KeyboardInterrupt:
-            break
+print("Plug/Unplug monitors, or change monitor properties while running")
+print("Press Ctl-C to Quit")
+while True:
+    try:
+        time.sleep(1)
+    except KeyboardInterrupt:
+        break
 
-    pmc.plugListenerUnregister(countChanged)
-    pmc.changeListenerUnregister(propsChanged)
+pmc.plugListenerUnregister(countChanged)
+pmc.changeListenerUnregister(propsChanged)
+```
 
+---
 
 ## Install <a name="install"></a>
 
@@ -221,6 +323,19 @@ You may want to add `--force-reinstall` option to be sure you are installing the
 Then, you can use it on your own projects just importing it:
 
     import pymonctl
+
+### Additional tools/extensions/APIs used:
+
+#### Linux:
+* Xlib's randr extension
+* xrandr command-line tool
+* xset command-line tool
+
+#### Windows:
+* VCP MCCS API interface
+
+#### macOS:
+* pmset command-line tool
 
 ## Support <a name="support"></a>
 
@@ -245,4 +360,4 @@ or
 
 To test this module on your own system, cd to `tests` folder and run:
 
-    uv run test_pywinctl.py
+    uv run test_pymonctl.py
