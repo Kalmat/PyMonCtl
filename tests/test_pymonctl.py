@@ -1,23 +1,22 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import time
-from typing import Union, Optional, List, Tuple, cast
+from typing import cast
 
 import pymonctl as pmc
 
 _TIMELAP = 5
 
 
-def pluggedCB(names: List[str], info: dict[str, pmc.ScreenValue]):
+def pluggedCB(names: list[str], info: dict[str, pmc.ScreenValue]) -> None:
     print("MONITOR (UN)PLUGGED!!!")
     print(names)
     print(info)
     print()
 
 
-def changedCB(names: List[str], info: dict[str, pmc.ScreenValue]):
+def changedCB(names: list[str], info: dict[str, pmc.ScreenValue]) -> None:
     print("MONITOR CHANGED!!!")
     print(names)
     print(info)
@@ -33,16 +32,16 @@ for mon in monDict:
     print(monDict[mon])
 print()
 
-monitorsPlugged: List[pmc.Monitor] = pmc.getAllMonitors()
-initArrangement: List[Tuple[pmc.Monitor, pmc.ScreenValue]] = []
-initDict: dict[str, dict[str, Optional[Union[str, int, pmc.Position, pmc.Point, pmc.Size]]]] = {}
-setAsPrimary: Optional[pmc.Monitor] = None
+monitorsPlugged: list[pmc.Monitor] = pmc.getAllMonitors()
+initArrangement: list[tuple[pmc.Monitor, pmc.ScreenValue]] = []
+initDict: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size | None]] = {}
+setAsPrimary: pmc.Monitor | None = None
 try:
     initArrangement = pmc.saveSetup()
     print("INITIAL POSITIONS:", initArrangement)
 except Exception:
     for monitor in monitorsPlugged:
-        initDict[monitor.name] = {"relativePos": cast(pmc.Point, monitor.position)}
+        initDict[monitor.name] = {"relativePos": cast("pmc.Point", monitor.position)}
         if monitor.isPrimary:
             setAsPrimary = monitor
     print("INITIAL POSITIONS:", initDict)
@@ -231,7 +230,7 @@ if len(monitorsPlugged) > 1:
         print()
 
     print("CHANGE ARRANGEMENT: MONITOR 2 AS PRIMARY, REST OF MONITORS AT LEFT_BOTTOM")
-    arrangement: dict[str, dict[str, Union[str, int, pmc.Position, pmc.Point, pmc.Size, None]]] = {
+    arrangement: dict[str, dict[str, str | int | pmc.Position | pmc.Point | pmc.Size | None]] = {
         str(mon2.name): {"relativePos": pmc.Position.PRIMARY, "relativeTo": ""}
     }
     relativeTo = mon2.name

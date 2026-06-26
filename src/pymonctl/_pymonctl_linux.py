@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import sys
@@ -11,19 +10,21 @@ import os
 import subprocess
 import threading
 
-from typing import Optional, List, Union, Tuple, NamedTuple
+from typing import NamedTuple, TYPE_CHECKING
 
 import Xlib.display
 import Xlib.X
 import Xlib.protocol
 import Xlib.xobject
-from Xlib.protocol.rq import Struct
-from Xlib.xobject.drawable import Window as XWindow
 from Xlib.ext import randr
 
 from ._main import BaseMonitor, _pointInBox, _getRelativePosition, getMonitorsData, isWatchdogEnabled, \
                    DisplayMode, ScreenValue, Box, Rect, Point, Size, Position, Orientation
 from ewmhlib import defaultEwmhRoot, getProperty, getPropertyValue, getRoots, Props
+
+if TYPE_CHECKING:
+    from Xlib.protocol.rq import Struct
+    from Xlib.xobject.drawable import Window as XWindow
 
 
 def _getAllMonitors() -> list[LinuxMonitor]:
@@ -41,12 +42,12 @@ def _getAllMonitorsDict() -> dict[str, ScreenValue]:
     return monitorsDict
 
 
-def _getAllMonitorsDictThread() -> (Tuple[dict[str, ScreenValue],
-                                          List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+def _getAllMonitorsDictThread() -> (tuple[dict[str, ScreenValue],
+                                          list[tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
                                                      randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]]]):
     # display connections seem to fail when shared amongst threads and/or queried too quickly in parallel
     monitorsDict: dict[str, ScreenValue] = {}
-    monitorsData: List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+    monitorsData: list[tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
                              randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]] = []
     for monitorData in _getMonitorsData():
         display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData
@@ -59,7 +60,7 @@ def _buildMonitorsDict(display, screen, root, res, monitor, monName, output, out
 
     is_primary = monitor.primary == 1
     x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
-    wa: List[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA, display=display),
+    wa: list[int] = getPropertyValue(getProperty(window=root, prop=Props.Root.WORKAREA, display=display),
                                      display=display)
     # Thanks to odknt (https://github.com/odknt) for his HELP!!!
     if isinstance(wa, list) and len(wa) >= 4:
@@ -105,7 +106,7 @@ def _getMonitorsCount() -> int:
     return len(_XgetMonitors())
 
 
-def _findMonitor(x: int, y: int) -> List[LinuxMonitor]:
+def _findMonitor(x: int, y: int) -> list[LinuxMonitor]:
     monitors = []
     for monitor in _XgetMonitors():
         if _pointInBox(x, y, monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels):
@@ -113,7 +114,7 @@ def _findMonitor(x: int, y: int) -> List[LinuxMonitor]:
     return monitors
 
 
-def _arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Size]]]]):
+def _arrangeMonitors(arrangement: dict[str, dict[str, str | int | Position | Point | Size | None]]):
 
     monitors = _XgetMonitorsDict()
     setAsPrimary = ""
@@ -127,7 +128,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, P
         elif relPos == Position.PRIMARY or relPos == (0, 0) or relPos == Point(0, 0):
             setAsPrimary = monName
 
-    newArrangement: dict[str, dict[str, Union[int, bool]]] = {}
+    newArrangement: dict[str, dict[str, int | bool]] = {}
     newPos: dict[str, dict[str, int]] = {}
     xOffset = yOffset = 0
 
@@ -147,7 +148,7 @@ def _arrangeMonitors(arrangement: dict[str, dict[str, Optional[Union[str, int, P
     for monName in arrangement.keys():
 
         arrInfo = arrangement[monName]
-        relativePos: Union[Position, int, Point, Tuple[int, int]] = arrInfo["relativePos"]
+        relativePos: Position | int | Point | tuple[int, int] = arrInfo["relativePos"]
         targetMonInfo = monitors[monName]["monitor"]
         setPrimary = not setAsPrimary and targetMonInfo.primary == 1
 
@@ -211,7 +212,7 @@ _rotations = ["normal", "left", "inverted", "right"]
 
 class LinuxMonitor(BaseMonitor):
 
-    def __init__(self, handle: Optional[int] = None):
+    def __init__(self, handle: int | None = None) -> None:
         """
         Class to access all methods and functions to get info and manage monitors plugged to the system.
 
@@ -228,7 +229,7 @@ class LinuxMonitor(BaseMonitor):
             raise ValueError
 
     @property
-    def size(self) -> Optional[Size]:
+    def size(self) -> Size | None:
         monitors = _XgetMonitors(self.name)
         if monitors:
             monitor = monitors[0]
@@ -236,9 +237,9 @@ class LinuxMonitor(BaseMonitor):
         return None
 
     @property
-    def workarea(self) -> Optional[Rect]:
+    def workarea(self) -> Rect | None:
         # https://askubuntu.com/questions/1124149/how-to-get-taskbar-size-and-position-with-python
-        wa: List[int] = getPropertyValue(
+        wa: list[int] = getPropertyValue(
             getProperty(window=self.root, prop=Props.Root.WORKAREA, display=self.display), display=self.display)
         if wa:
             wx, wy, wr, wb = wa[0], wa[1], wa[2], wa[3]
@@ -246,16 +247,16 @@ class LinuxMonitor(BaseMonitor):
         return None
 
     @property
-    def position(self) -> Optional[Point]:
+    def position(self) -> Point | None:
         monitors = _XgetMonitors(self.name)
         if monitors:
             monitor = monitors[0]
             return Point(monitor.x, monitor.y)
         return None
 
-    def setPosition(self, relativePos: Union[int, Position, Point, Tuple[int, int]], relativeTo: Optional[str]):
+    def setPosition(self, relativePos: int | Position | Point | tuple[int, int], relativeTo: str | None):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
-        arrangement: dict[str, dict[str, Optional[Union[str, int, Position, Point, Tuple[int, int]]]]] = {}
+        arrangement: dict[str, dict[str, str | int | Position | Point | tuple[int, int] | None]] = {}
         monitors: dict[str, dict[str, randr.MonitorInfo]] = _XgetMonitorsDict()
         monKeys = list(monitors.keys())
         if relativePos == Position.PRIMARY:
@@ -292,7 +293,7 @@ class LinuxMonitor(BaseMonitor):
         _arrangeMonitors(arrangement) # type: ignore[arg-type]
 
     @property
-    def box(self) -> Optional[Box]:
+    def box(self) -> Box | None:
         monitors = _XgetMonitors(self.name)
         if monitors:
             monitor = monitors[0]
@@ -300,7 +301,7 @@ class LinuxMonitor(BaseMonitor):
         return None
 
     @property
-    def rect(self) -> Optional[Rect]:
+    def rect(self) -> Rect | None:
         monitors = _XgetMonitors(self.name)
         if monitors:
             monitor = monitors[0]
@@ -308,10 +309,10 @@ class LinuxMonitor(BaseMonitor):
         return None
 
     @property
-    def scale(self) -> Optional[Tuple[float, float]]:
+    def scale(self) -> tuple[float, float] | None:
         return _scale(self.name)
 
-    def setScale(self, scale: Optional[Tuple[float, float]], applyGlobally: bool = True):
+    def setScale(self, scale: tuple[float, float] | None, applyGlobally: bool = True):
         # https://askubuntu.com/questions/1193940/setting-monitor-scaling-to-200-with-xrandr
         # https://wiki.archlinux.org/title/HiDPI#GNOME
         cmd = ""
@@ -332,7 +333,7 @@ class LinuxMonitor(BaseMonitor):
             if cmd:
                 _, _ = _runProc(cmd)
 
-    def _buildScaleCmd(self, scale: Tuple[float, float]) -> str:
+    def _buildScaleCmd(self, scale: tuple[float, float]) -> str:
         # https://unix.stackexchange.com/questions/596887/how-to-scale-the-resolution-display-of-the-desktop-and-or-applications
         scaleX, scaleY = scale
         cmd = ""
@@ -369,11 +370,11 @@ class LinuxMonitor(BaseMonitor):
         return cmd
 
     @property
-    def dpi(self) -> Optional[Tuple[float, float]]:
+    def dpi(self) -> tuple[float, float] | None:
         monitors = _XgetMonitors(self.name)
         if monitors:
             monitor = monitors[0]
-            x, y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
+            _x, _y, w, h = monitor.x, monitor.y, monitor.width_in_pixels, monitor.height_in_pixels
             if monitor.width_in_millimeters != 0 and monitor.height_in_millimeters != 0:
                 dpiX, dpiY = round((w * 25.4) / monitor.width_in_millimeters), round((h * 25.4) / monitor.height_in_millimeters)
             else:
@@ -382,7 +383,7 @@ class LinuxMonitor(BaseMonitor):
         return None
 
     @property
-    def orientation(self) -> Optional[Union[int, Orientation]]:
+    def orientation(self) -> int | Orientation | None:
         monitorData = getMonitorsData(self.handle)
         if monitorData:
             display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData[0]
@@ -391,7 +392,7 @@ class LinuxMonitor(BaseMonitor):
                 return Orientation(int(math.log(crtcInfo.rotation, 2)))
         return None
 
-    def setOrientation(self, orientation: Optional[Union[int, Orientation]]):
+    def setOrientation(self, orientation: int | Orientation | None):
         if orientation is not None and orientation in (Orientation.NORMAL, Orientation.INVERTED, Orientation.LEFT, Orientation.RIGHT):
             global _rotations
             direction = _rotations[orientation]
@@ -399,7 +400,7 @@ class LinuxMonitor(BaseMonitor):
             _, _ = _runProc(cmd)
 
     @property
-    def frequency(self) -> Optional[float]:
+    def frequency(self) -> float | None:
         monitorData = getMonitorsData(self.handle)
         if monitorData:
             display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData[0]
@@ -417,7 +418,7 @@ class LinuxMonitor(BaseMonitor):
         return int(self.screen.root_depth)
 
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> int | None:
         # https://manerosss.wordpress.com/2017/05/16/brightness-linux-xrandr/
         value = None
         cmd = 'xrandr --verbose | grep %s -A 10 | grep "Brightness" | grep -o "[0-9].*"' % self.name
@@ -429,7 +430,7 @@ class LinuxMonitor(BaseMonitor):
                 pass
         return value
 
-    def setBrightness(self, brightness: Optional[int]):
+    def setBrightness(self, brightness: int | None):
         if brightness is not None and 0 <= brightness <= 100:
             value = brightness / 100
             if 0 <= value <= 1:
@@ -437,7 +438,7 @@ class LinuxMonitor(BaseMonitor):
                 _, _ = _runProc(cmd)
 
     @property
-    def contrast(self) -> Optional[int]:
+    def contrast(self) -> int | None:
         value = None
         cmd = 'xrandr --verbose | grep %s -A 10 | grep "Gamma" | grep -o "[0-9].*"' % self.name
         code, ret = _runProc(cmd)
@@ -449,7 +450,7 @@ class LinuxMonitor(BaseMonitor):
                 pass
         return value
 
-    def setContrast(self, contrast: Optional[int]):
+    def setContrast(self, contrast: int | None):
         if contrast is not None and 0<= contrast <= 100:
             value = contrast / 100
             if 0 <= value <= 1:
@@ -459,7 +460,7 @@ class LinuxMonitor(BaseMonitor):
                 _, _ = _runProc(cmd)
 
     @property
-    def mode(self) -> Optional[DisplayMode]:
+    def mode(self) -> DisplayMode | None:
         monitorData = getMonitorsData(self.handle)
         if monitorData:
             display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData[0]
@@ -472,7 +473,7 @@ class LinuxMonitor(BaseMonitor):
                     return DisplayMode(resMode.width, resMode.height, freq)
         return None
 
-    def setMode(self, mode: Optional[DisplayMode]):
+    def setMode(self, mode: DisplayMode | None):
         # https://stackoverflow.com/questions/12706631/x11-change-resolution-and-make-window-fullscreen
         # randr.set_screen_size(defaultEwmhRoot.root, mode.width, mode.height, 0, 0)
         # randr.set_screen_config(defaultEwmhRoot.root, size_id, 0, 0, round(mode.frequency), 0)
@@ -482,7 +483,7 @@ class LinuxMonitor(BaseMonitor):
             _, _ = _runProc(cmd)
 
     @property
-    def defaultMode(self) -> Optional[DisplayMode]:
+    def defaultMode(self) -> DisplayMode | None:
         # Assuming first mode is default (perhaps not the best way)
         monitorData = getMonitorsData(self.handle)
         if monitorData:
@@ -503,7 +504,7 @@ class LinuxMonitor(BaseMonitor):
 
     @property
     def allModes(self) -> list[DisplayMode]:
-        modes: List[DisplayMode] = []
+        modes: list[DisplayMode] = []
         monitorData = getMonitorsData(self.handle)
         if monitorData:
             display, screen, root, res, monitor, monName, output, outputInfo, crtc, crtcInfo = monitorData[0]
@@ -559,11 +560,11 @@ class LinuxMonitor(BaseMonitor):
             _, _ = _runProc(cmd)
 
     @property
-    def isOn(self) -> Optional[bool]:
+    def isOn(self) -> bool | None:
         # https://stackoverflow.com/questions/3433203/how-to-determine-if-lcd-monitor-is-turned-on-from-linux-command-line
         cmd = "xrandr --listactivemonitors"
         code, ret = _runProc(cmd)
-        res: Optional[bool] = None
+        res: bool | None = None
         if ret:
             res = self.name in ret
         isSuspended = self.isSuspended
@@ -576,7 +577,7 @@ class LinuxMonitor(BaseMonitor):
             _, _ = _runProc(cmd)
 
     @property
-    def isSuspended(self) -> Optional[bool]:
+    def isSuspended(self) -> bool | None:
         cmd = 'xset -q | grep " Monitor is "'
         code, ret = _runProc(cmd)
         if ret:
@@ -615,7 +616,7 @@ class LinuxMonitor(BaseMonitor):
         return bool(monitor)
 
 
-def _buildCommand(arrangement: dict[str, dict[str, Union[int, bool]]], xOffset: int, yOffset: int):
+def _buildCommand(arrangement: dict[str, dict[str, int | bool]], xOffset: int, yOffset: int):
     cmd = "xrandr"
     for monName in arrangement.keys():
         arrInfo = arrangement[monName]
@@ -629,10 +630,10 @@ def _buildCommand(arrangement: dict[str, dict[str, Union[int, bool]]], xOffset: 
     return cmd
 
 
-def _GNOME_isScalingGlobal() -> Optional[bool]:
+def _GNOME_isScalingGlobal() -> bool | None:
     cmd = '''gsettings get org.gnome.mutter experimental-features'''
     try:
-        proc = subprocess.run(cmd, text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.run(cmd, text=True, shell=True, capture_output=True)
         if "wayland" in os.environ.get('XDG_SESSION_TYPE', '').lower():
             return bool("scale-monitor-framebuffer" not in proc.stdout)
         else:
@@ -650,7 +651,7 @@ def _GNOME_setGlobalScaling(setGlobal=True):
         cmd = ""
         if "wayland" in os.environ.get('XDG_SESSION_TYPE', '').lower():
             try:
-                proc = subprocess.run("grep -sl mutter /proc/*/maps", text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                proc = subprocess.run("grep -sl mutter /proc/*/maps", text=True, shell=True, capture_output=True)
                 if "/maps" in proc.stdout:
                     cmd = '''gsettings set org.gnome.mutter experimental-features "['scale-monitor-framebuffer']"'''
             except Exception:
@@ -661,7 +662,7 @@ def _GNOME_setGlobalScaling(setGlobal=True):
             _, _ = _runProc(cmd)
   
                     
-def _GNOME_getScalingFactor() -> Optional[int]:
+def _GNOME_getScalingFactor() -> int | None:
     cmd = '''gsettings get org.gnome.settings-daemon.plugins.xsettings overrides'''
     code, ret = _runProc(cmd)
     if "WindowScalingFactor" in ret:
@@ -771,7 +772,7 @@ def _GNOME_getScalingFactor() -> Optional[int]:
 #     interface.ApplyMonitorsConfig(serial, 1, monConfig, {})
 
 
-def _scale(name: str) -> Optional[Tuple[float, float]]:
+def _scale(name: str) -> tuple[float, float] | None:
     if "gnome" in os.environ.get('XDG_CURRENT_DESKTOP', '').lower() and _GNOME_isScalingGlobal():
         value = _GNOME_getScalingFactor()
         if value is not None:
@@ -785,7 +786,7 @@ def _scale(name: str) -> Optional[Tuple[float, float]]:
         if ret:
             try:
                 res = ret.split(" ")
-                lines: List[str] = list(filter(None, res))
+                lines: list[str] = list(filter(None, res))
                 a, b = lines[0].split("x")
                 w = int(a)
                 h = int(b)
@@ -812,7 +813,7 @@ def _scale(name: str) -> Optional[Tuple[float, float]]:
 def _runProc(cmd: str):
     try:
         # Some commands will take some time to be executed and return required value
-        proc = subprocess.run(cmd, text=True, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) #, timeout=3)
+        proc = subprocess.run(cmd, text=True, shell=True, capture_output=True) #, timeout=3)
         return proc.returncode, proc.stdout
     except Exception:
         pass
@@ -828,16 +829,16 @@ class _Monitor(NamedTuple):
     height_in_pixels: int
     width_in_millimeters: int
     height_in_millimeters: int
-    crtcs: List[int]
+    crtcs: list[int]
 
 
-def _getMonitorsData(handle: Optional[int] = None) -> (
-                        List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+def _getMonitorsData(handle: int | None = None) -> (
+                        list[tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
                         randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]]):
-    monitors: List[Tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
+    monitors: list[tuple[Xlib.display.Display, Struct, XWindow, randr.GetScreenResourcesCurrent,
                          randr.MonitorInfo, str, int, randr.GetOutputInfo, int, randr.GetCrtcInfo]] = []
     stopSearching = False
-    roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
+    roots: list[tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
     for rootData in roots:
         display, screen, root = rootData
         try:
@@ -877,7 +878,7 @@ def _XgetAllMonitors(name: str = ""):
                 monitors.append((display, screen, root, monitor, monName))
     else:
         stopSearching = False
-        roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
+        roots: list[tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
         for rootData in roots:
             display, screen, root = rootData
             try:
@@ -901,7 +902,7 @@ def _XgetAllMonitors(name: str = ""):
 
 def _RgetAllMonitors():
     # Check if this works in actual Cinnamon
-    monitors: List[_Monitor] = []
+    monitors: list[_Monitor] = []
     outputDict = {}
     for outputData in _XgetAllOutputs():
         display, screen, root, output, outputInfo = outputData
@@ -943,9 +944,9 @@ def _RgetMonitorsInfo(activeOnly: bool = True):
 
 
 def _XgetAllOutputs(name: str = ""):
-    outputs: List[Tuple[Xlib.display.Display, Xlib.protocol.rq.Struct, Xlib.xobject.drawable.Window,
+    outputs: list[tuple[Xlib.display.Display, Xlib.protocol.rq.Struct, Xlib.xobject.drawable.Window,
                         int, randr.GetOutputInfo]] = []
-    roots: List[Tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
+    roots: list[tuple[Xlib.display.Display, Struct, XWindow]] = getRoots()
     for rootData in roots:
         display, screen, root = rootData
         res = randr.get_screen_resources_current(root)
@@ -993,7 +994,7 @@ def _XgetMonitorsDict():
     return monitors
 
 
-def _XgetMonitorData(handle: Optional[int] = None) -> Optional[Tuple[Xlib.display.Display, Struct, XWindow, randr.MonitorInfo, int, str]]:
+def _XgetMonitorData(handle: int | None = None) -> tuple[Xlib.display.Display, Struct, XWindow, randr.MonitorInfo, int, str] | None:
     for monitorData in _XgetAllMonitors():
         display, screen, root, monitor, monName = monitorData
         output = monitor.crtcs[0]
