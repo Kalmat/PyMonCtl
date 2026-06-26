@@ -120,18 +120,18 @@ Functions to get monitor instances, get info and arrange monitors plugged to the
 
 |                        General functions:                        |
 |:----------------------------------------------------------------:|
-|          [getAllMonitors](docs/docstrings.md#getallmonitors)          |
-|      [getAllMonitorsDict](docs/docstrings.md#getallmonitorsdict)      |
-|        [getMonitorsCount](docs/docstrings.md#getmonitorscount)        |
-|              [getPrimary](docs/docstrings.md#getprimary)              |
-|     [findMonitorsAtPoint](docs/docstrings.md#findmonitorsatpoint)     |
-| [findMonitorsAtPointInfo](docs/docstrings.md#findmonitorsatpointinfo) |
-|     [findMonitorWithName](docs/docstrings.md#findmonitorwithname)     |
-| [findMonitorWithNameInfo](docs/docstrings.md#findmonitorwithnameinfo) |
-|               [saveSetup](docs/docstrings.md#savesetup)               |
-|            [restoreSetup](docs/docstrings.md#restoresetup)            |
-|         [arrangeMonitors](docs/docstrings.md#arrangemonitors)         |
-|             [getMousePos](docs/docstrings.md#getmousepos)             |
+|          [getAllMonitors](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getallmonitors)          |
+|      [getAllMonitorsDict](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getallmonitorsdict)      |
+|        [getMonitorsCount](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmonitorscount)        |
+|              [getPrimary](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getprimary)              |
+|     [findMonitorsAtPoint](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#findmonitorsatpoint)     |
+| [findMonitorsAtPointInfo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#findmonitorsatpointinfo) |
+|     [findMonitorWithName](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#findmonitorwithname)     |
+| [findMonitorWithNameInfo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#findmonitorwithnameinfo) |
+|               [saveSetup](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#savesetup)               |
+|            [restoreSetup](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#restoresetup)            |
+|         [arrangeMonitors](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#arrangemonitors)         |
+|             [getMousePos](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#getmousepos)             |
 
 
 ## Monitor Class
@@ -148,38 +148,38 @@ the provided handle is not valid.
 
 |                    Methods                     | Windows | Linux | macOS |
 |:----------------------------------------------:|:-------:|:-----:|:-----:|
-|           [size](docs/docstrings.md#size)           |    X    |   X   |   X   |
-|       [workarea](docs/docstrings.md#workarea)       |    X    |   X   |   X   |
-|       [position](docs/docstrings.md#position)       |    X    |   X   |   X   |
-|    [setPosition](docs/docstrings.md#setposition)    |    X    |   X   |   X   |
-|            [box](docs/docstrings.md#box)            |    X    |   X   |   X   |
-|           [rect](docs/docstrings.md#rect)           |    X    |   X   |   X   |
-|      [frequency](docs/docstrings.md#frequency)      |    X    |   X   |   X   |
-|     [colordepth](docs/docstrings.md#colordepth)     |    X    |   X   |   X   |
-|            [dpi](docs/docstrings.md#dpi)            |    X    |   X   |   X   |
-|          [scale](docs/docstrings.md#scale)          |    X    |   X   |   X   |
-|       [setScale](docs/docstrings.md#setscale)       |    X    |   X   |   X   |
-|    [orientation](docs/docstrings.md#orientation)    |    X    |   X   |   X   |
-| [setOrientation](docs/docstrings.md#setorientation) |    X    |   X   | X (1) |
-|     [brightness](docs/docstrings.md#brightness)     |  X (2)  |   X   |   X   |
-|  [setBrightness](docs/docstrings.md#setbrightness)  |  X (2)  |   X   |   X   |
-|       [contrast](docs/docstrings.md#contrast)       |  X (2)  | X (3) | X (3) |
-|    [setContrast](docs/docstrings.md#setcontrast)    |  X (2)  | X (3) | X (3) |
-|           [mode](docs/docstrings.md#mode)           |    X    |   X   |   X   |
-|        [setMode](docs/docstrings.md#setmode)        |    X    |   X   |   X   |
-|    [defaultMode](docs/docstrings.md#defaultmode)    |    X    |   X   |   X   |
-| [setDefaultMode](docs/docstrings.md#setdefaultmode) |    X    |   X   |   X   |
-|       [allModes](docs/docstrings.md#allmodes)       |    X    |   X   |   X   |
-|     [setPrimary](docs/docstrings.md#setprimary)     |    X    |   X   |   X   |
-|      [isPrimary](docs/docstrings.md#isprimary)      |    X    |   X   |   X   |
-|         [turnOn](docs/docstrings.md#turnon)         |  X (4)  |   X   | X (4) |
-|        [turnOff](docs/docstrings.md#turnoff)        |  X (4)  |   X   | X (4) |
-|           [isOn](docs/docstrings.md#ison)           |  X (2)  |   X   |   X   |
-|        [suspend](docs/docstrings.md#suspend)        |  X (4)  | X (4) | X (4) |
-|    [isSuspended](docs/docstrings.md#issuspended)    |  X (2)  |   X   |   X   |
-|         [attach](docs/docstrings.md#attach)         |    X    |   X   |       |
-|         [detach](docs/docstrings.md#detach)         |    X    |   X   |       |
-|     [isAttached](docs/docstrings.md#isattached)     |    X    |   X   |   X   |
+|           [size](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#size)           |    X    |   X   |   X   |
+|       [workarea](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#workarea)       |    X    |   X   |   X   |
+|       [position](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#position)       |    X    |   X   |   X   |
+|    [setPosition](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setposition)    |    X    |   X   |   X   |
+|            [box](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#box)            |    X    |   X   |   X   |
+|           [rect](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#rect)           |    X    |   X   |   X   |
+|      [frequency](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#frequency)      |    X    |   X   |   X   |
+|     [colordepth](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#colordepth)     |    X    |   X   |   X   |
+|            [dpi](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#dpi)            |    X    |   X   |   X   |
+|          [scale](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#scale)          |    X    |   X   |   X   |
+|       [setScale](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setscale)       |    X    |   X   |   X   |
+|    [orientation](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#orientation)    |    X    |   X   |   X   |
+| [setOrientation](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setorientation) |    X    |   X   | X (1) |
+|     [brightness](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#brightness)     |  X (2)  |   X   |   X   |
+|  [setBrightness](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setbrightness)  |  X (2)  |   X   |   X   |
+|       [contrast](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#contrast)       |  X (2)  | X (3) | X (3) |
+|    [setContrast](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setcontrast)    |  X (2)  | X (3) | X (3) |
+|           [mode](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#mode)           |    X    |   X   |   X   |
+|        [setMode](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setmode)        |    X    |   X   |   X   |
+|    [defaultMode](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#defaultmode)    |    X    |   X   |   X   |
+| [setDefaultMode](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setdefaultmode) |    X    |   X   |   X   |
+|       [allModes](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#allmodes)       |    X    |   X   |   X   |
+|     [setPrimary](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#setprimary)     |    X    |   X   |   X   |
+|      [isPrimary](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isprimary)      |    X    |   X   |   X   |
+|         [turnOn](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#turnon)         |  X (4)  |   X   | X (4) |
+|        [turnOff](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#turnoff)        |  X (4)  |   X   | X (4) |
+|           [isOn](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#ison)           |  X (2)  |   X   |   X   |
+|        [suspend](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#suspend)        |  X (4)  | X (4) | X (4) |
+|    [isSuspended](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#issuspended)    |  X (2)  |   X   |   X   |
+|         [attach](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#attach)         |    X    |   X   |       |
+|         [detach](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#detach)         |    X    |   X   |       |
+|     [isAttached](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isattached)     |    X    |   X   |   X   |
 
 
 (1) Maybe not working in all macOS versions and/or architectures (thanks to University of [Utah - Marriott Library - Apple Infrastructure](https://github.com/univ-of-utah-marriott-library-apple/privacy_services_manager), [eryksun](https://stackoverflow.com/questions/22841741/calling-functions-with-arguments-from-corefoundation-using-ctypes) and [nriley](https://github.com/nriley/brightness/blob/master/brightness.c) for pointing me to the solution)
@@ -226,8 +226,8 @@ notified when monitors are plugged / unplugged or their properties change.
 
 |                       Watchdog methods:                        |
 |:--------------------------------------------------------------:|
-|      [isWatchdogEnabled](docs/docstrings.md#iswatchdogenabled)      |
-| [updateWatchdogInterval](docs/docstrings.md#updatewatchdoginterval) |
+|      [isWatchdogEnabled](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#iswatchdogenabled)      |
+| [updateWatchdogInterval](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#updatewatchdoginterval) |
 
 The watchdog will automatically start while the update information is enabled and / or there are any listeners 
 registered, and will automatically stop otherwise or if the script finishes.
@@ -241,9 +241,9 @@ consume more CPU and may produce additional notifications for intermediate (non-
 
 |                   Info update methods:                    |
 |:---------------------------------------------------------:|
-|    [enableUpdateInfo](docs/docstrings.md#enableupdateinfo)     |
-|   [disableUpdateInfo](docs/docstrings.md#disableupdateinfo)    |
-| [isUpdateInfoEnabled](docs/docstrings.md#isupdateinfoenabled)  |
+|    [enableUpdateInfo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#enableupdateinfo)     |
+|   [disableUpdateInfo](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#disableupdateinfo)    |
+| [isUpdateInfoEnabled](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#isupdateinfoenabled)  |
 
 Enable this only if you need to keep track of monitor-related events like changing its resolution, position, scale,
 or if monitors can be dynamically plugged or unplugged in a multi-monitor setup. If you need monitors info updated 
@@ -259,12 +259,12 @@ properties change.
 
 |                           Listeners methods:                           |
 |:----------------------------------------------------------------------:|
-|       [plugListenerRegister](docs/docstrings.md#pluglistenerregister)       |
-|     [changeListenerRegister](docs/docstrings.md#changelistenerregister)     |
-|     [plugListenerUnregister](docs/docstrings.md#pluglistenerunregister)     |
-|   [changeListenerUnregister](docs/docstrings.md#changelistenerunregister)   |
-|   [isPlugListenerRegistered](docs/docstrings.md#ispluglistenerregistered)   |
-| [isChangeListenerRegistered](docs/docstrings.md#ischangelistenerregistered) |
+|       [plugListenerRegister](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#pluglistenerregister)       |
+|     [changeListenerRegister](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#changelistenerregister)     |
+|     [plugListenerUnregister](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#pluglistenerunregister)     |
+|   [changeListenerUnregister](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#changelistenerunregister)   |
+|   [isPlugListenerRegistered](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#ispluglistenerregistered)   |
+| [isChangeListenerRegistered](https://github.com/Kalmat/PyWinCtl/blob/master/docs/docstrings.md#ischangelistenerregistered) |
 
 The information passed to the listeners is as follows:
 
