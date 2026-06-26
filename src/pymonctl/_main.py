@@ -100,14 +100,20 @@ def getMonitorsCount() -> int:
     """
     return _getMonitorsCount()
 
-
-def getPrimary() -> Monitor:
+def getPrimary() -> Monitor | None:
     """
-    Get primary monitor instance. This is equivalent to invoking ''Monitor()'', with empty input params.
+    Get primary monitor instance.
+    
+    This is equivalent to invoking `Monitor()`, with empty input params.  
+    With a fallback to None in case of `ValueError`.  
+    Which usually means lack of primary (or any) monitor.  
 
     :return: Monitor instance or None
     """
-    return _getPrimary()
+    try:
+        return Monitor()
+    except ValueError:
+        return None
 
 
 def findMonitorsAtPoint(x: int, y: int) -> list[Monitor]:
@@ -200,6 +206,15 @@ def arrangeMonitors(arrangement: dict[str, dict[str, str | int | Position | Poin
     :param arrangement: arrangement structure as dict
     """
     _arrangeMonitors(arrangement)
+
+
+def getMousePos() -> Point:
+    """
+    Get the current (x, y) coordinates of the mouse pointer on screen, in pixels
+
+    :return: Point struct
+    """
+    return _getMousePos()
 
 
 def saveSetup() -> list[tuple[Monitor, ScreenValue]]:
@@ -1003,16 +1018,16 @@ def _getRelativePosition(monitor, relativeTo) -> tuple[int, int]:
 
 
 if sys.platform == "darwin":
-    from ._pymonctl_macos import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                  _findMonitor, _arrangeMonitors, _getMousePos as getMousePos, MacOSMonitor as Monitor
+    from ._pymonctl_macos import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount,
+                                  _findMonitor, _arrangeMonitors, _getMousePos, MacOSMonitor as Monitor
                                   )
 elif sys.platform == "win32":
-    from ._pymonctl_win import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount, _getPrimary,
-                                _findMonitor, _arrangeMonitors, _getMousePos as getMousePos, Win32Monitor as Monitor
+    from ._pymonctl_win import (_getAllMonitors, _getAllMonitorsDict, _getMonitorsCount,
+                                _findMonitor, _arrangeMonitors, _getMousePos, Win32Monitor as Monitor
                                 )
 elif sys.platform == "linux":
     from ._pymonctl_linux import (_getAllMonitors, _getAllMonitorsDict, _getAllMonitorsDictThread, _getMonitorsData,
-                                  _getMonitorsCount, _getPrimary, _findMonitor, _arrangeMonitors, _getMousePos as getMousePos,
+                                  _getMonitorsCount, _findMonitor, _arrangeMonitors, _getMousePos,
                                   LinuxMonitor as Monitor
                                   )
 else:

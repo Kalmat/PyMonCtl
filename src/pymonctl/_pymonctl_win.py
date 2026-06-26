@@ -109,10 +109,6 @@ def _findMonitor(x: int, y: int) -> list[Win32Monitor]:
     return []
 
 
-def _getPrimary() -> Win32Monitor:
-    return Win32Monitor()
-
-
 def _arrangeMonitors(arrangement: dict[str, dict[str, str | int | Position | Point | Size | None]]):
     # https://stackoverflow.com/questions/35814309/winapi-changedisplaysettingsex-does-not-work
     # https://stackoverflow.com/questions/195267/use-windows-api-from-c-sharp-to-set-primary-monitor
