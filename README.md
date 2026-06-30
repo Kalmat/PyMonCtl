@@ -224,9 +224,9 @@ You can activate a watchdog, running in a separate Thread, which will allow you 
 information updated, without negatively impacting your main process, and define hooks and its callbacks to be 
 notified when monitors are plugged / unplugged or their properties change.
 
-|                       Watchdog methods:                        |
-|:--------------------------------------------------------------:|
-|      [isWatchdogEnabled](docs/docstrings.md#iswatchdogenabled)      |
+|                          Watchdog methods:                          |
+|:-------------------------------------------------------------------:|
+|     [isWatchdogEnabled](docs/docstrings.md#iswatchdogenabled)       |
 | [updateWatchdogInterval](docs/docstrings.md#updatewatchdoginterval) |
 
 The watchdog will automatically start while the update information is enabled and / or there are any listeners 

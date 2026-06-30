@@ -6,6 +6,7 @@ from typing import cast
 
 import pymonctl as pmc
 
+
 _TIMELAP = 5
 
 
