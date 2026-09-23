@@ -552,7 +552,7 @@ class Win32Monitor(BaseMonitor):
             devmode.PelsWidth = mode.width
             devmode.PelsHeight = mode.height
             devmode.DisplayFrequency = mode.frequency
-            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT
+            devmode.Fields = win32con.DM_PELSWIDTH | win32con.DM_PELSHEIGHT | win32con.DM_DISPLAYFREQUENCY
             win32api.ChangeDisplaySettingsEx(self.name, devmode, win32con.CDS_RESET | win32con.CDS_UPDATEREGISTRY)
             # win32api.ChangeDisplaySettingsEx()
 
